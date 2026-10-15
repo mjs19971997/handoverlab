@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: MIT
+"""Verification of the simulator: ``handoverlab verify``.
+
+Check groups (all run by default, in this order):
+
+``pathloss``      TR 38.901 path loss, breakpoint and LOS probability against hand values
+``radio``         statistics of the radio model against its parameters (shadowing, LOS share, time variation,
+                  L1 error, L3 filter)
+``invariants``    built-in rules in debug mode, conservation of counts, determinism, independence of rules
+``equivalences``  CHO with immediate execution = A3; a plug-in rule that reduces to A3 = A3
+``fingerprints``  golden event-log fingerprints of short reference runs
+
+Optional:
+
+``ns3``           reference comparison with stored ns-3 / 5G-LENA results (``--ns3``; minutes)
+``stored``        recompute (a sample of) a stored result file and compare fingerprints (``--results FILE``)
+
+:func:`run_verify` returns a :class:`~handoverlab.verify.report.Report`;
+``report.ok`` is True if no check failed.
+"""
+from __future__ import annotations
+
+from typing import Callable, Optional, Sequence
+
+from .report import FAIL, NOTE, PASS, Check, Report, header
+
+GROUPS = ("pathloss", "radio", "invariants", "equivalences", "fingerprints")
+
+
+def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
+               ns3_seeds: int = 1, results: Optional[str] = None, sample: Optional[int] = None,
+               printer: Optional[Callable[[str], None]] = print) -> Report:
+    """Run the check groups ``groups`` (default: all of :data:`GROUPS`) and return the report.
+
+    ``full`` uses three seeds for the radio statistics and 60 s runs for the
+    engine checks instead of one seed and 30 s.
+    """
+    groups = list(GROUPS if groups is None else groups)
+    unknown = [g for g in groups if g not in GROUPS]
+    if unknown:
+        raise ValueError("unknown check group %r; known: %s" % (unknown[0], ", ".join(GROUPS)))
+    rep = Report(printer=printer)
+    if printer:
+        printer(header())
+    dur = 60.0 if full else 30.0
+    if "pathloss" in groups:
+        from .radio import pathloss_checks
+        pathloss_checks(rep)
+    if "radio" in groups:
+        from .radio import radio_statistics
+        radio_statistics(rep, seeds=(3, 4, 5) if full else (3,))
+    if "invariants" in groups:
+        from .engine_checks import invariant_checks
+        invariant_checks(rep, duration_s=dur)
+    if "equivalences" in groups:
+        from .engine_checks import equivalence_checks
+        equivalence_checks(rep, duration_s=dur)
+    if "fingerprints" in groups:
+        from .golden import fingerprint_checks
+        fingerprint_checks(rep)
+    if ns3:
+        from .ns3 import ns3_checks
+        ns3_checks(rep, seeds=tuple(500 + i for i in range(ns3_seeds)), progress=printer)
+    if results:
+        from .stored import stored_checks
+        stored_checks(rep, results, sample)
+    if printer:
+        printer("\n== summary ==\n%s: %s" % ("OK" if rep.ok else "FAILED", rep.summary()))
+        for c in rep.failed:
+            printer("  failed: [%s] %s" % (c.group, c.name))
+    return rep
+
+
+__all__ = ["GROUPS", "run_verify", "Report", "Check", "PASS", "FAIL", "NOTE"]

@@ -14,11 +14,15 @@ __version__ = "0.1.0a1"
 
 from .config import (ConfigError, Experiment, LayoutConfig, MobilityConfig, ProtocolConfig, RadioConfig, RunConfig,
                      Scenario, Service, SpeedGroup, TrafficConfig, load_config)
+from .engine import InvariantError
+from .eventlog import fingerprint, read_events, write_events
 from .rules import A3, CHO, BaselineRule, ConditionalRule, Rule, available_rules, make_rule, register_rule
+from .scenarios import builtin_scenario, scenario_card, scenario_names
 from .simulate import RunResult, run_experiment, run_world, simulate
 from .world import World, build_world
 
 __all__ = ["__version__", "ConfigError", "Experiment", "LayoutConfig", "MobilityConfig", "ProtocolConfig",
            "RadioConfig", "RunConfig", "Scenario", "Service", "SpeedGroup", "TrafficConfig", "load_config",
            "A3", "CHO", "BaselineRule", "ConditionalRule", "Rule", "available_rules", "make_rule", "register_rule",
-           "RunResult", "run_experiment", "run_world", "simulate", "World", "build_world"]
+           "RunResult", "run_experiment", "run_world", "simulate", "World", "build_world", "InvariantError",
+           "fingerprint", "read_events", "write_events", "builtin_scenario", "scenario_card", "scenario_names"]

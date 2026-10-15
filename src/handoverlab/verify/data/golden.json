@@ -1,0 +1,114 @@
+{
+ "note": "Golden event-log fingerprints; regenerate with python -m handoverlab.verify.golden --write and record the reason in CHANGELOG.md.",
+ "versions": {
+  "python": "3.12.10",
+  "numpy": "2.4.6",
+  "scipy": "1.18.0",
+  "system": "Windows",
+  "machine": "AMD64"
+ },
+ "cases": {
+  "smoke": [
+   {
+    "rule": "A3",
+    "fingerprint": "2d742bbcbe212730e439d5b0b04a45dd55fd7417734e2195393a128a22e59d01",
+    "n_events": 86,
+    "sinr_db": 27.685147660387077,
+    "n_attempts": 86,
+    "n_handovers": 85,
+    "n_unnecessary": 24,
+    "n_pingpong": 4,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "d10ce8afc8661a24778e71877f39c0d8394d435cc1594d460a4a6240efb0c50c",
+    "n_events": 73,
+    "sinr_db": 26.42462244523055,
+    "n_attempts": 73,
+    "n_handovers": 71,
+    "n_unnecessary": 13,
+    "n_pingpong": 1,
+    "n_failures": 2,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "28d1e5902f88baef392eb15bfe30c65030dbb76331ac8dac21b60afad2493828",
+    "n_events": 87,
+    "sinr_db": 28.440724136482572,
+    "n_attempts": 87,
+    "n_handovers": 87,
+    "n_unnecessary": 23,
+    "n_pingpong": 4,
+    "n_failures": 0,
+    "n_preparations": 139
+   }
+  ],
+  "smoke-stress": [
+   {
+    "rule": "A3",
+    "fingerprint": "937021e24248d7dfe5aad3daa969beb47bb26682d69385fbf28eb1e24c8c7edb",
+    "n_events": 119,
+    "sinr_db": 18.998074128803864,
+    "n_attempts": 119,
+    "n_handovers": 115,
+    "n_unnecessary": 11,
+    "n_pingpong": 3,
+    "n_failures": 4,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "749ee249d4110c1b53c5040c0e74c1ea925bf8375300c888221bdbc93419ae6d",
+    "n_events": 109,
+    "sinr_db": 16.669040650918944,
+    "n_attempts": 109,
+    "n_handovers": 102,
+    "n_unnecessary": 0,
+    "n_pingpong": 0,
+    "n_failures": 7,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "47fc8dd1533f00e9eb3917a9d42b334f372e9d26113579edd61f8fd6b6a2a199",
+    "n_events": 120,
+    "sinr_db": 20.201940155933134,
+    "n_attempts": 120,
+    "n_handovers": 119,
+    "n_unnecessary": 14,
+    "n_pingpong": 5,
+    "n_failures": 0,
+    "n_preparations": 162
+   }
+  ],
+  "smoke-open": [
+   {
+    "rule": "A3",
+    "fingerprint": "aba6ccfada9cfc7e08037a2e792bffdf251d998d64cc57df98ac86047f2bb4e2",
+    "n_events": 120,
+    "sinr_db": 15.119944861873604,
+    "n_attempts": 120,
+    "n_handovers": 111,
+    "n_unnecessary": 64,
+    "n_pingpong": 10,
+    "n_failures": 9,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "1a9db8da97e56ea051b5949dfdc27ed97a049e1cae4a55464c4c454cd719c2ab",
+    "n_events": 134,
+    "sinr_db": 15.52934717042929,
+    "n_attempts": 133,
+    "n_handovers": 129,
+    "n_unnecessary": 73,
+    "n_pingpong": 16,
+    "n_failures": 5,
+    "n_preparations": 382
+   }
+  ]
+ }
+}

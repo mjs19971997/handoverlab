@@ -36,6 +36,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+parquet = ["pyarrow>=8"]
 
 [project.scripts]
 handoverlab = "handoverlab.cli:main"
@@ -48,7 +49,7 @@ Issues = "https://github.com/mjs19971997/handoverlab/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-handoverlab = ["py.typed"]
+handoverlab = ["py.typed", "scenarios/cards/*.yaml", "verify/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
