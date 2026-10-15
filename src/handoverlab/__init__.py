@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT
+"""HandoverLab: system-level simulation of handover and mobility procedures.
+
+Quick start::
+
+    import handoverlab as hl
+
+    sc = hl.Scenario()                                  # 3 x 3-block street grid, 10 GHz
+    res = hl.simulate(sc, [{"rule": "a3"}, {"rule": "cho"}], seeds=[1])
+    for r in res:
+        print(r.rule, r.metrics["handovers_pm"], r.metrics["failures_pm"])
+"""
+__version__ = "0.1.0a1"
+
+from .config import (ConfigError, Experiment, LayoutConfig, MobilityConfig, ProtocolConfig, RadioConfig, RunConfig,
+                     Scenario, Service, SpeedGroup, TrafficConfig, load_config)
+from .rules import A3, CHO, BaselineRule, ConditionalRule, Rule, available_rules, make_rule, register_rule
+from .simulate import RunResult, run_experiment, run_world, simulate
+from .world import World, build_world
+
+__all__ = ["__version__", "ConfigError", "Experiment", "LayoutConfig", "MobilityConfig", "ProtocolConfig",
+           "RadioConfig", "RunConfig", "Scenario", "Service", "SpeedGroup", "TrafficConfig", "load_config",
+           "A3", "CHO", "BaselineRule", "ConditionalRule", "Rule", "available_rules", "make_rule", "register_rule",
+           "RunResult", "run_experiment", "run_world", "simulate", "World", "build_world"]
