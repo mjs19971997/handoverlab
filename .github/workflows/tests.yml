@@ -22,9 +22,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test,report]"
-      - name: Install pyarrow (one job, for the Parquet tests)
+      - name: Install pyarrow and the dashboard extra (one job, for the Parquet and dashboard tests)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        run: python -m pip install pyarrow
+        run: python -m pip install pyarrow -e ".[gui]"
       - name: Test
         env:
           MPLBACKEND: Agg
@@ -35,3 +35,10 @@ jobs:
         run: handoverlab verify --only pathloss fingerprints --json verify-report.json
       - name: Example study (plan only)
         run: handoverlab study examples/study_smoke.yaml --dry-run
+      - name: Dashboard starts (headless)
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: |
+          handoverlab gui --headless --port 8599 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8599/_stcore/health && break; sleep 2; done
+          curl -sf http://localhost:8599/_stcore/health
+          kill %1
