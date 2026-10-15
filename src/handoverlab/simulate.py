@@ -30,7 +30,9 @@ class RunResult:
     ``fingerprint`` is the SHA-256 of the canonical event log (see
     :mod:`handoverlab.eventlog`) and is always set; ``events`` holds the log
     itself only if it was requested.  ``key`` is the registry key of the rule
-    (``"a3"``, ``"cho"``, ...), so that the run can be repeated.
+    (``"a3"``, ``"cho"``, ...), so that the run can be repeated.  ``trace``
+    holds the procedure trace at event-log level ``"full"`` (see
+    :mod:`handoverlab.eventlog`).
     """
     seed: int
     rule: str
@@ -42,6 +44,7 @@ class RunResult:
     fingerprint: str = ""
     n_events: int = 0
     key: Optional[str] = None
+    trace: Optional[List[dict]] = None
 
     def spec(self) -> Dict[str, Any]:
         """Rule specification that recreates this rule (``{"rule": key, "name": ..., **params}``)."""
@@ -68,9 +71,15 @@ def _key(spec: RuleSpec, obj: Rule) -> Optional[str]:
     return spec.get("rule") if isinstance(spec, dict) else rule_key(obj)
 
 
-def run_world(world: World, rules: Sequence[RuleSpec], log_events: bool = False,
-              chunk_steps: int = 1000, debug: Optional[bool] = None, batch: bool = True) -> List[RunResult]:
+def run_world(world: World, rules: Sequence[RuleSpec], log_events: Union[bool, str] = False,
+              chunk_steps: int = 1000, debug: Optional[bool] = None, batch: bool = True,
+              progress: Optional[Callable[[float], None]] = None) -> List[RunResult]:
     """Run every rule of ``rules`` on ``world`` with identical radio samples.
+
+    ``log_events`` is the event-log level: ``"off"`` (or False), ``"summary"``
+    (or True: :attr:`RunResult.events`) or ``"full"`` (also
+    :attr:`RunResult.trace`).  ``progress`` is called after every radio chunk
+    with the share of the run simulated so far (0 to 1).
 
     ``debug`` turns on the invariant checks of the engine (see
     :mod:`handoverlab.engine.invariants`); results are the same either way.
@@ -93,16 +102,19 @@ def run_world(world: World, rules: Sequence[RuleSpec], log_events: bool = False,
             break
         for e in runners:
             e.advance(ch)
+        if progress:
+            progress(min(1.0, (ch.k0 + ch.n) / float(world.n_steps)))
     out = []
     for spec, r, e in zip(rules, objs, engines):
         m = e.finish()
         out.append(RunResult(world.seed, r.name, r.family, r.params(), m, e.events,
                              dict(engine_s=e.wall, radio_s=t_radio, total_s=time.perf_counter() - t0),
-                             e.fingerprint, e.n_events, _key(spec, r)))
+                             e.fingerprint, e.n_events, _key(spec, r), e.trace))
     return out
 
 
-def simulate(scenario: Scenario, rules: Sequence[RuleSpec], seeds: Iterable[int] = (1,), log_events: bool = False,
+def simulate(scenario: Scenario, rules: Sequence[RuleSpec], seeds: Iterable[int] = (1,),
+             log_events: Union[bool, str] = False,
              progress: Optional[Callable[[str], None]] = None, debug: Optional[bool] = None) -> List[RunResult]:
     """Build one world per seed and run all ``rules`` on it.
 
@@ -123,7 +135,7 @@ def simulate(scenario: Scenario, rules: Sequence[RuleSpec], seeds: Iterable[int]
     return results
 
 
-def run_experiment(exp: Experiment, log_events: bool = False,
+def run_experiment(exp: Experiment, log_events: Union[bool, str] = False,
                    progress: Optional[Callable[[str], None]] = None, debug: Optional[bool] = None) -> List[RunResult]:
     """Run an :class:`~handoverlab.config.Experiment` (scenario, seeds and rules)."""
     return simulate(exp.scenario, exp.rules, exp.seeds, log_events, progress, debug)

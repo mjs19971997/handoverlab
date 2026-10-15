@@ -110,7 +110,7 @@ class EngineBatch:
                         else:
                             c = int(e.re_cell[u])
                             lc = ln[u, c]
-                            e._attach(u, c, lc / (tot[j, u] - e.rc[c] * lc + noise))
+                            e._attach(u, c, lc / (tot[j, u] - e.rc[c] * lc + noise), t)
                     rcs = None
             if rcs is None:
                 rcs = np.take_along_axis(rc, serv, axis=1)

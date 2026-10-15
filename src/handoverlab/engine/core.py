@@ -46,7 +46,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from ..eventlog import EVENT_FIELDS, fingerprint
+from ..eventlog import EVENT_FIELDS, TRACE_FIELDS, event_level, fingerprint
 from ..measurement import EPS, INF, L3Filter
 from ..rules.base import EARLY, LATE, UNNECESSARY, USEFUL, FailureRecord, Observation, OutcomeRecord, RuleContext
 from ..seeds import rule_stream
@@ -60,13 +60,16 @@ LN10_10 = np.log(10.0) / 10.0
 class Engine:
     """Simulation of one rule.  Feed the radio chunks in order, then call :meth:`finish`.
 
-    ``log_events`` keeps the event log for :attr:`events` (its fingerprint is
-    always available); ``debug`` turns on the invariant checks of
-    :mod:`handoverlab.engine.invariants` (default: the environment variable
-    ``HANDOVERLAB_DEBUG``).  Neither changes a result.
+    ``log_events`` is the event-log level (see :mod:`handoverlab.eventlog`):
+    ``"off"`` (or False), ``"summary"`` (or True) keeps the event log for
+    :attr:`events`, ``"full"`` also keeps the procedure trace for
+    :attr:`trace`; the fingerprint is always available.  ``debug`` turns on
+    the invariant checks of :mod:`handoverlab.engine.invariants` (default:
+    the environment variable ``HANDOVERLAB_DEBUG``).  Neither changes a
+    result.
     """
 
-    def __init__(self, world, rule, log_events: bool = False, debug: Optional[bool] = None):
+    def __init__(self, world, rule, log_events=False, debug: Optional[bool] = None):
         sc = world.scenario
         P, R, T = sc.protocol, sc.radio, sc.traffic
         self.world, self.rule, self.P = world, rule, P
@@ -96,8 +99,10 @@ class Engine:
         svc = world.services
         self.tmin, self.thq, self.rate, self.gbr = svc.t_min, svc.theta_q, svc.rate, svc.gbr
         self.t0c = sc.run.warmup_s
-        self.keep_events = bool(log_events)
+        self.level = event_level(log_events)
+        self.keep_events = self.level != "off"
         self.log: List[tuple] = []
+        self.trace_log: Optional[List[tuple]] = [] if self.level == "full" else None
         self.debug = inv.debug_from_env() if debug is None else bool(debug)
         self.last_t_end = -INF
         U = self.U
@@ -159,6 +164,11 @@ class Engine:
             inv.check_event(self, row)
         self.log.append(row)
 
+    def trace_event(self, t, u, event, src, cell, value=np.nan, note=""):
+        """Add a row to the procedure trace (only at event-log level ``full``)."""
+        self.trace_log.append((round(float(t), 4), int(u), event, int(src), int(cell),
+                               round(float(value), 3) if value == value else float("nan"), note))
+
     def _feedback(self, u, src, tgt, key, label, t):
         if self.learns:
             self.rule.on_outcome(OutcomeRecord(int(u), int(src), int(tgt), int(key), label, float(t)))
@@ -217,6 +227,8 @@ class Engine:
         if not self.f_on[u]:
             self.new_flight(u, tgt, t, *self.proc.flight_info(u, tgt))
         self.f_tx[u] = t
+        if self.trace_log is not None:
+            self.trace_event(t, u, "exec", self.serv[u], tgt)
         self.state[u] = EXECUTING
         self.t_done[u] = t + self.P.exec_s
         self.run[u] = False
@@ -225,7 +237,10 @@ class Engine:
             self.C["exec"] += 1
             self.acc["int_exec"] += min(self.P.exec_s, self.S * self.dt - t)
 
-    def _attach(self, u, cell, s):
+    def _attach(self, u, cell, s, t=None):
+        if self.trace_log is not None:
+            self.trace_event(t, u, "attach" if self.state[u] == EXECUTING else "reestablish", self.serv[u], cell,
+                             10.0 * np.log10(max(float(s), 1e-30)))
         self.serv[u] = cell
         self.state[u] = CONNECTED
         self.qo[u] = self.qi[u] = s
@@ -249,7 +264,7 @@ class Engine:
         self.proc.clear(u, tgt, t)
         self.prev[u] = src
         self.last_ho[u] = t
-        self._attach(u, tgt, s)
+        self._attach(u, tgt, s, t)
         # open the evaluation window
         self.w_on[u] = True; self.w_t0[u] = t; self.w_ta[u] = self.f_t[u]; self.w_tx[u] = self.f_tx[u]
         self.w_src[u] = src; self.w_tgt[u] = tgt; self.w_key[u] = self.f_key[u]
@@ -302,6 +317,8 @@ class Engine:
                 self._log((round(t, 4), -1.0, round(t, 4), int(u), "rlf", s, c,
                            "too_late" if c != s else "coverage", cause, 0.0, 0.0, npr, -99.0,
                            round(float(self.X[k, u]), 1), round(float(self.Y[k, u]), 1)))
+        if self.trace_log is not None:
+            self.trace_event(t, u, "failure", s, c, note=cause)
         if t >= self.t0c:
             self.C["fail"] += 1
             self.C["f_" + cause] += 1
@@ -323,6 +340,10 @@ class Engine:
         self.l3.reset(ch.l1[0])
         self.serv[:] = np.argmax(self.meas, axis=1)
         self.started = True
+        if self.trace_log is not None:
+            t0 = ch.k0 * self.dt
+            for u in range(self.U):
+                self.trace_event(t0, u, "serve", -1, self.serv[u])
         ln = ch.lin[0]
         ls = ln[self.ar, self.serv]
         s = ls / (ln @ self.rc - self.rc[self.serv] * ls + self.noise)
@@ -353,7 +374,7 @@ class Engine:
                     else:
                         c = int(self.re_cell[u])
                         lc = ln[u, c]
-                        self._attach(u, c, lc / (tot[u] - self.rc[c] * lc + noise))
+                        self._attach(u, c, lc / (tot[u] - self.rc[c] * lc + noise), t)
             serv = self.serv
             ls = ln[ar, serv]
             sinr = ls / (tot - self.rc[serv] * ls + noise)
@@ -488,6 +509,13 @@ class Engine:
             return None
         return [{k: float(v) if isinstance(v, np.floating) else v for k, v in zip(EVENT_FIELDS, row)}
                 for row in self.log]
+
+    @property
+    def trace(self) -> Optional[List[dict]]:
+        """Procedure trace as a list of dictionaries (event-log level ``full`` only)."""
+        if self.trace_log is None:
+            return None
+        return [dict(zip(TRACE_FIELDS, row)) for row in self.trace_log]
 
     @property
     def fingerprint(self) -> str:

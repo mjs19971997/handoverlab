@@ -77,7 +77,9 @@ class Job:
 
     ``rules`` are dictionaries with ``name``, ``spec`` (a rule specification
     for :func:`~handoverlab.rules.make_rule`) and optional labels ``method``,
-    ``budget`` and ``setting``.
+    ``budget`` and ``setting``.  ``events`` is the event-log level kept for
+    every rule run: ``False`` (off), ``True`` (summary) or ``"full"`` (summary
+    and trace).
     """
     stage: str
     condition: Dict[str, Any]
@@ -85,7 +87,7 @@ class Job:
     seed: int
     scenario: Dict[str, Any]
     rules: List[Dict[str, Any]]
-    events: bool = False
+    events: Any = False
     _id: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self):
@@ -109,7 +111,7 @@ class Job:
         out = {}
         for r in self.rules:
             c = cached.get(r["run_key"])
-            if c is not None and (not self.events or c.get("events")):
+            if c is not None and (not self.events or c.get("events")) and (self.events != "full" or c.get("trace")):
                 out[r["run_key"]] = c
         return out
 
@@ -199,14 +201,17 @@ def _execute(payload: Dict[str, Any], store) -> Dict[str, Any]:
         t_world = time.perf_counter() - tw
         res = run_world(world, [e["spec"] for e in todo], log_events=payload["events"])
         for e, r in zip(todo, res):
-            ev = None
+            ev = tr = None
             if payload["events"]:
-                from ..eventlog import write_events
+                from ..eventlog import trace_path, write_events, write_trace
                 ev_path = store.events_path(e["run_key"])
                 os.makedirs(os.path.dirname(ev_path), exist_ok=True)
                 ev = os.path.relpath(write_events([r], ev_path), store.root).replace(os.sep, "/")
+                if r.trace is not None:
+                    tr = os.path.relpath(write_trace([r], trace_path(ev_path)), store.root).replace(os.sep, "/")
             fresh[e["run_key"]] = dict(metrics=r.metrics, fingerprint=r.fingerprint, n_events=r.n_events,
-                                       family=r.family, params=r.params, engine_s=r.timing["engine_s"], events=ev)
+                                       family=r.family, params=r.params, engine_s=r.timing["engine_s"], events=ev,
+                                       trace=tr)
             radio = r.timing["radio_s"]
     rows = []
     first = set()
@@ -219,6 +224,7 @@ def _execute(payload: Dict[str, Any], store) -> Dict[str, Any]:
                          setting=e.get("setting"), family=src["family"], params=src["params"], run_key=k,
                          fingerprint=src["fingerprint"], n_events=src["n_events"], metrics=src["metrics"],
                          engine_s=src.get("engine_s") if own else None, events=src.get("events"),
+                         trace=src.get("trace"),
                          reused=not own))
     return dict(job=payload["id"], stage=payload["stage"], condition=payload["condition"], group=payload["group"],
                 seed=payload["seed"], model=MODEL_VERSION, handoverlab=__version__, scenario=payload["scenario"],

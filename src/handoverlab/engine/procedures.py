@@ -119,6 +119,8 @@ class BaselineProcedure(Procedure):
             tgt = int(np.argmax(np.where(ready[u], obs.gap_db[u] - o, -INF)))
             t_rep = max(obs.t, te[u, tgt] + (ttt[u] if per_user_ttt else ttt))
             eng.new_flight(u, tgt, t_rep, -1, 0, o[tgt] if isinstance(o, np.ndarray) else o)
+            if eng.trace_log is not None:
+                eng.trace_event(t_rep, u, "report", eng.serv[u], tgt, o[tgt] if isinstance(o, np.ndarray) else o)
             self.pend[u] = True
             self.n_pend += 1
             self.pend_t[u] = t_rep + eng.P.prep_s
@@ -189,6 +191,10 @@ class ConditionalProcedure(Procedure):
             C["prep_used"] += used
             C["prep_wasted"] += npr - used
             C["prep_cancel"] += npp
+        if self.eng.trace_log is not None:
+            for n in np.nonzero(self.prepared[u] | self.ppend[u])[0]:
+                if n != used_cell:
+                    self.eng.trace_event(t, u, "release", self.eng.serv[u], n)
         self.prepared[u] = False
         self.ppend[u] = False
         self.ppend_t[u] = INF
@@ -211,12 +217,16 @@ class ConditionalProcedure(Procedure):
             self.ppend_t[u, n] = INF
             if eng.state[u] == CONNECTED and not eng.run[u]:
                 self.prepared[u, n] = True
+                if eng.trace_log is not None:
+                    eng.trace_event(t, u, "config", eng.serv[u], n, self.oexec[u, n])
                 eng.C["cfg_ok"] += int(t >= eng.t0c)
                 meas = eng.meas
                 if rule.immediate or (rule.ttt_exec_s <= 0 and
                                       meas[u, n] - meas[u, eng.serv[u]] > self.oexec[u, n]):
                     eng.start_exec(u, int(n), t)
             else:
+                if eng.trace_log is not None:
+                    eng.trace_event(t, u, "config_lost", eng.serv[u], n)
                 eng.C["cfg_lost"] += int(t >= eng.t0c)
                 eng.C["prep_lost_all"] += 1
                 if eng.P.cfg_loss_as_failure and eng.state[u] == CONNECTED:
@@ -267,6 +277,9 @@ class ConditionalProcedure(Procedure):
         to_prep = desired & ~have
         to_rel = have & ~desired & act[:, None]
         if to_rel.any():
+            if eng.trace_log is not None:
+                for u, n in zip(*np.nonzero(to_rel)):
+                    eng.trace_event(t, u, "release", serv[u], n)
             C["prep_wasted_all"] += int(np.count_nonzero(to_rel & self.prepared))
             C["prep_cancel_all"] += int(np.count_nonzero(to_rel & self.ppend))
             if counted:
@@ -293,6 +306,9 @@ class ConditionalProcedure(Procedure):
             self.pkey[uu, nn] = keys[uu] if keys is not None else -1
             if counted:
                 C["prep_req"] += len(uu)
+            if eng.trace_log is not None:
+                for u, n in zip(uu, nn):
+                    eng.trace_event(t, u, "prepare", serv[u], n, self.oexec[u, n])
 
 
 def make_procedure(eng, rule) -> Procedure:

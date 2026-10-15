@@ -8,7 +8,8 @@
       study.lock.json          the resolved study (every value explicit) and its SHA-256
       jobs/<stage>/<job>.json  one record per job (atomic write: complete or absent)
       failed/<job>.txt         traceback of a failed job (removed when it succeeds)
-      events/<run>.parquet     event log of one rule run (test stage, with ``events: true``)
+      events/<run>.parquet     event log of one rule run (test stage, with ``events: summary`` or ``full``)
+      events/<run>-trace.parquet procedure trace of one rule run (``events: full``)
       tuned/<group>.json       all evaluated settings, the selection and the gates of a tuning group
       tuned/gates.json         the gate report of the whole study
       tables/runs.parquet      one row per job and rule (CSV without pyarrow)
@@ -242,7 +243,7 @@ class StudyStore:
                 if k and k not in idx and not r.get("reused"):
                     idx[k] = dict(metrics=r["metrics"], fingerprint=r["fingerprint"], n_events=r["n_events"],
                                   family=r["family"], params=r["params"], job=rec["job"],
-                                  events=r.get("events"))
+                                  events=r.get("events"), trace=r.get("trace"))
         return idx
 
 
