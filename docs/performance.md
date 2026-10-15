@@ -56,10 +56,64 @@ the work is NumPy calls on small arrays, so the time is mostly call overhead.
 Together these shorten the world build by about a third. The engine time is unchanged within the
 measurement noise; it now also computes the event-log fingerprint of every run, which costs little.
 
+## Changes in 0.3.0a1: batched engines
+
+A study job runs many rules on one world: the tuning jobs of a study run the reference rule and every
+setting of every tuned method together (11 rules in the first tuning round of
+`examples/study_smoke.yaml`, often more). The profile of 0.2.0a1 showed that the engines spend
+their time in NumPy calls on small arrays, once per rule and step. Version 0.3.0a1 takes the first
+three steps of the performance plan:
+
+1. **Per-step work only where it changes.** The interference weight of the serving cells changes
+   only at measurement instants (load update) and when a user changes cell, so it is gathered only
+   then; a baseline handover procedure counts its pending commands instead of searching for them
+   every step.
+2. **Batched engines.** `EngineBatch` stacks the per-user state of the radio-link monitoring
+   (serving cell, connection state, timers, Qout / Qin filters, T310) and the cell load of all K
+   engines of a world into arrays of shape (K, U) and (K, M). Each engine keeps views of its own
+   row, so all event handling (executions, failures, procedures, outcome labels) runs unchanged.
+   Per step one set of array operations serves every rule: serving SINR, Qout / Qin filters, N310 /
+   T310, the expiry of T310 and the ends of executions. At measurement instants the rules decide one
+   by one (their procedures differ), and then the load and scheduling model runs once for all
+   engines. Only the interference sum of each engine (a matrix-vector product), the logarithms of
+   the rate model and the sums of the accumulators stay per engine, on arrays laid out exactly as in
+   a single engine.
+3. **Compiled kernels: not added.** They would need Numba or a compiled extension. After batching,
+   the remaining time is spread over the decisions of the rules at measurement instants, which a
+   kernel of the step loop does not reach; an optional kernel is kept on the list for a later
+   version, behind a switch and with the NumPy path as the reference.
+
+Element-wise operations give the same result whatever the array shape, but NumPy's vectorised
+logarithms can differ in the last bit between array layouts; they are therefore evaluated per engine
+on arrays of the same layout as before. Results are bit-identical: the batched and the one-by-one
+engines give identical event logs and metrics (`verify` group `invariants`, `tests/test_batch.py`),
+the golden fingerprints and the bh6 regression (every metric to the last bit) are unchanged.
+`run_world(..., batch=False)` runs the engines one by one; engines in debug mode always do.
+
+Engine time (without the radio samples) on the stressed `smoke` scenario (20 users, 30 s, no beam
+isolation), K rules on one world, one process:
+
+| Rules per world | One by one | Batched | Ratio |
+|---|---|---|---|
+| 2 | 4.2 s | 3.8 s | 0.90 |
+| 4 | 8.1 s | 6.0 s | 0.74 |
+| 8 | 16.9 s | 9.7 s | 0.57 |
+| 24 | 50.7 s | 25.0 s | 0.49 |
+| Reference job (2 rules, 40 users, 76 cells, 60 s) | 9.3 s | 9.5 s | 1.02 |
+
+With two rules the gain is within the measurement noise; with many rules per world, as in tuning,
+the engines need about half the time. The world build is unchanged (about 17 s for the reference
+job). Studies also gain from reuse: a rule run that is already stored (the reference rule, a setting
+that two budgets select) is not simulated again, and from worker processes (one job per process).
+For example, the ns-3 reference case with both load variants of the validation section (8 jobs of
+24 rules x 150 s) took 1 min 53 s with four workers.
+
 ## Next steps
 
-The design plans further engine steps for a later stage, each accepted only if the golden
-fingerprints stay unchanged: moving work that changes only at measurement instants out of the step
-loop, batching the engines of all rules of a job into one array dimension, and optional compiled
-kernels for the link-monitoring and condition loops behind a switch, with the NumPy path as the
-reference.
+- An optional compiled kernel for the step loop and the condition checks (Numba), kept behind a
+  switch with the NumPy path as the reference, accepted only if the golden fingerprints are
+  unchanged.
+- Batching parts of the measurement instants that are the same for every rule of a family (the
+  A3 entry conditions and time-to-trigger of rules that differ only in their parameters).
+- The world build (about 17 s for the default grid) dominates short jobs; the radio map could be
+  stored and shared between the jobs of a study that use the same scenario and seed.

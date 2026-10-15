@@ -10,7 +10,7 @@ Quick start::
     for r in res:
         print(r.rule, r.metrics["handovers_pm"], r.metrics["failures_pm"])
 """
-__version__ = "0.2.0a1"
+__version__ = "0.3.0a1"
 
 from .config import (ConfigError, Experiment, LayoutConfig, MobilityConfig, ProtocolConfig, RadioConfig, RunConfig,
                      Scenario, Service, SpeedGroup, TrafficConfig, load_config)

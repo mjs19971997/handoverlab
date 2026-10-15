@@ -6,6 +6,63 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.3.0a1] - 2026-10-15
+
+Third alpha release (stage 3: studies).
+
+### Added
+
+- Studies (`handoverlab.studies`): a study file (YAML, TOML or JSON) with a scenario, a full
+  factorial of conditions, tuning and test seeds, methods with tuning grids, fixed parameters and
+  natural bounds, tuning settings and comparisons; every key is checked.
+- Equal-budget tuning: every tuned method evaluates the same number of settings per tuning group
+  (a seeded random round, then refinement one and two grid steps around the best, then random
+  settings if the neighbourhood is used up), on tuning seeds only.
+- Selection rule: lowest unnecessary-handover rate among the settings within a failure budget (a
+  share of the failure rate of a reference rule); settings within 5 % count as equal and are
+  ordered by preparation overhead, failure rate, unnecessary-handover rate and evaluation order;
+  if no setting meets the budget, the lowest failure rate. Objective, constraint and tie-breaks are
+  configurable.
+- Automatic tuning gates with the policies `warn`, `block` and `off`: `grid_edge` (selected value
+  at the edge of its grid, natural bounds excepted), `budget_binding` (the budget constrains no
+  method, or the reference has too few failures), `budget_met`, `equal_budget`, `seed_overlap`
+  (checked before anything runs) and `flat_optimum`. A blocking gate stops the study before the
+  test stage (`GateError`, exit status 3) and names every failed gate.
+- Paired statistics (`handoverlab.stats`): paired differences, t intervals, percentile bootstrap
+  intervals of the mean difference and of the ratio of means, the Wilcoxon signed-rank test (exact
+  null distribution with ties and zeros, or the normal approximation with tie and continuity
+  corrections), Holm correction, a non-inferiority check, a planning aid and decimal rounding.
+- Result storage: one atomic JSON record per job (metrics, fingerprints, parameters, timing, peak
+  memory), `manifest.json` with versions and sessions, `study.lock.json` with the resolved study and
+  its hash, `plan.json`, failed-job tracebacks, tuning files with every evaluated setting and the
+  gate report, and the tables `runs` and `tuning` as Parquet (with pyarrow) or CSV;
+  `read_table` / `write_table`.
+- Resumable studies with content-hashed job IDs: re-running skips finished jobs, a changed study
+  re-runs only the affected jobs, and stored rule runs (same scenario, seed, rule and parameters)
+  are reused instead of simulated again.
+- Parallel jobs in worker processes (`--workers`; default: the logical CPUs minus four, half of
+  them below eight), one BLAS thread per process, longest jobs first, a restart of a broken pool;
+  results do not depend on the worker count.
+- `handoverlab study STUDY` (`--workers`, `--tuning-only`, `--dry-run`, `--status`, `--report`) and
+  `handoverlab report DIR` (Markdown and self-contained HTML with tables and matplotlib figures, and
+  `summary.json`); extra `report` (matplotlib).
+- `EngineBatch`: the engines of all rules of a world share one step loop; `run_world(batch=True)`
+  is the default and `batch=False` runs them one by one.
+- Example study `examples/study_smoke.yaml`; verification check "batched engines = engines run one
+  by one"; tests of the statistics, the tuning, the studies and the batched engines.
+- Documentation: user-guide sections on studies and paired statistics; a validation section on the
+  difference in failure rates to ns-3 / 5G-LENA; the performance page with the stage-3 changes.
+
+### Changed
+
+- Engine speed: with many rules per world the engines need about half the time (24 rules on the
+  smoke scenario: 50.7 s down to 25.0 s; 8 rules: 16.9 s to 9.7 s; with 2 rules within the noise). Per-step work that
+  changes only at measurement instants or at events (interference weight of the serving cells,
+  pending handover commands) is no longer repeated every step, and the radio-link monitoring and the
+  load model run on arrays over all rules. Results are bit-identical: golden fingerprints and the
+  bh6 regression are unchanged.
+- `python -m handoverlab` guards its entry point, so worker processes can be started from it.
+
 ## [0.2.0a1] - 2026-10-15
 
 Second alpha release (stage 2: verification in depth).
@@ -83,6 +140,7 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v0.2.0a1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v0.3.0a1...HEAD
+[0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.2.0a1...v0.3.0a1
 [0.2.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.1.0a1...v0.2.0a1
 [0.1.0a1]: https://github.com/mjs19971997/handoverlab/releases/tag/v0.1.0a1

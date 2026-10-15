@@ -1,9 +1,10 @@
 # HandoverLab user guide
 
-This guide covers version 0.2.0a1 (stage 2). It explains the ideas behind a run, the built-in
+This guide covers version 0.3.0a1 (stage 3). It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
-handover rule, event logs and their fingerprints, the verification checks, and what the metrics
-mean.
+handover rule, event logs and their fingerprints, the verification checks, what the metrics mean,
+and how to run a whole study: equal-budget tuning with automatic gates, paired tests, stored and
+resumable results, and reports.
 
 ## 1. Concepts
 
@@ -148,6 +149,8 @@ In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a ch
 handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--debug] [-q]
 handoverlab verify [--only GROUP ...] [--full] [--ns3] [--results FILE [--sample N]] [--json OUT] [-q]
 handoverlab scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
+handoverlab study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report] [-q]
+handoverlab report DIR [-o OUT] [--format md html] [--no-figures]
 handoverlab rules
 handoverlab init [PATH]
 handoverlab --version
@@ -161,7 +164,8 @@ Parquet for a `.parquet` name if `pyarrow` is installed (`pip install handoverla
 otherwise. `--debug` checks the engine invariants while running (section 9).
 
 `verify` runs the verification checks and prints PASS, FAIL or NOTE for each (section 9).
-`scenarios` lists the built-in scenarios or prints one card. `python -m handoverlab` works as well.
+`scenarios` lists the built-in scenarios or prints one card. `study` runs or resumes a study and
+`report` writes its report (section 10). `python -m handoverlab` works as well.
 
 ## 5. Python API
 
@@ -177,7 +181,12 @@ results[0].metrics["unnecessary_pm"], results[0].events[:3]
 results[0].fingerprint                                  # SHA-256 of the event log, always set
 hl.simulate(sc, [{"rule": "a3"}], seeds=[1], debug=True)   # with invariant checks
 hl.write_events(results, "events.parquet")              # event table (CSV without pyarrow)
+hl.run_world(world, rules, batch=False)                 # engines one by one (same results, slower)
 ```
+
+`run_world` advances the engines of all rules of a world in one step loop (`EngineBatch`); the
+results are bit-identical to running them one by one, which `batch=False` does. Engines in debug
+mode always run one by one.
 
 ## 6. Writing a handover rule
 
@@ -333,7 +342,206 @@ rule. Debug mode changes no result and roughly doubles the run time. The conserv
 end of a run (attempts = sum of outcomes, failures = sum of causes, every attempt has one outcome,
 preparations = lost + cancelled + used + unused + open) always run.
 
-## 10. Limitations
+## 10. Studies
+
+A *study* compares handover rules in a controlled way: every rule with free parameters is tuned on
+its own seeds with the same number of evaluated settings, a fixed rule selects one setting per
+failure budget, automatic gates check that the tuning means something, and the tuned rules are
+then compared on separate test seeds with paired statistics. One file describes the whole study,
+one command runs it, and re-running it resumes where it stopped.
+
+```bash
+handoverlab study examples/study_smoke.yaml --dry-run     # what would run
+handoverlab study examples/study_smoke.yaml --workers 2   # run or resume
+handoverlab study examples/study_smoke.yaml --status      # finished, failed, remaining jobs
+handoverlab report results/study-smoke                    # report.md, report.html, figures
+```
+
+### The study file
+
+```yaml
+name: study-smoke
+scenario: {base: smoke, mobility: {users: 12, profile: veh30}}
+conditions:                         # full factorial over dotted scenario keys (optional)
+  layout.site_spacing_m: [100.0, 150.0]
+seeds:
+  tuning: [901, 902]                # never used in a test
+  test: {first: 1, last: 6}
+tuning:
+  settings: 8                       # evaluated settings per method: the same for every method
+  random: 5                         # of which drawn at random; the rest refine around the best
+  reference: {rule: a3, name: A3-ref, off_db: 3.0, ttt_s: 0.16}
+  budgets: {standard: 1.0, strict: 0.5}   # shares of the reference failure rate
+  group_by: [layout.site_spacing_m] # tune per site spacing (default: per condition)
+  gates: {grid_edge: block}         # warn | block | off per gate
+methods:
+  A3:
+    rule: a3
+    grid: {off_db: [0, 1, 2, 3, 4, 5, 6], ttt_s: [0.0, 0.04, 0.08, 0.16, 0.32]}
+    natural_bounds: {ttt_s: lower}  # 0 s is a floor, not an edge of the search
+  CHO:
+    rule: cho
+    fixed: {o_prep_db: -2.0, n_max: 4}
+    grid: {o_exec_db: [0, 1, 2, 3, 4, 5], ttt_exec_s: [0.0, 0.04, 0.08, 0.16, 0.32]}
+compare:
+  baseline: A3-ref                  # a method, METHOD@BUDGET or the reference
+  metrics: [unnecessary_pm, failures_pm, handovers_pm, prepared_cells_mean]
+output: results/study-smoke
+```
+
+The complete example is [examples/study_smoke.yaml](../examples/study_smoke.yaml). Every key is
+checked; an unknown key or a parameter that the rule does not have stops the study with a message
+that names it.
+
+| Key | Meaning |
+|---|---|
+| `name`, `description` | name of the study (default: the file name) and a line for the report |
+| `scenario` | as in an experiment file: a built-in name, `{base: NAME, ...}` or a full scenario |
+| `conditions` | dotted scenario keys with lists of values; the study runs their full factorial |
+| `seeds.tuning`, `seeds.test` | lists or `{first, last}`; tuning seeds are needed only for tuned methods |
+| `tuning.settings` | evaluated settings per method and tuning group (default 12) |
+| `tuning.random` | settings of the first, random round (default two thirds of `settings`) |
+| `tuning.reference` | the rule whose failure rate sets the budgets (default A3 3 dB / 160 ms) |
+| `tuning.budgets` | failure budgets as shares of the reference failure rate (default `{standard: 1.0}`) |
+| `tuning.tolerance` | settings within this share of the lowest objective count as equal (0.05) |
+| `tuning.group_by` | condition keys to tune per value of (default: all condition keys) |
+| `tuning.gates` | policy per gate: `warn`, `block` or `off` (defaults below) |
+| `tuning.binding_share`, `min_reference_failures`, `flat_share` | thresholds of the gates (0.9, 5, 0.5) |
+| `tuning.objective`, `constraint`, `tie_breaks` | metrics of the selection rule (`unnecessary_pm`, `failures_pm`, `[prepared_cells_mean, failures_pm]`) |
+| `methods.NAME.rule` | registered rule key (built-in or plug-in) |
+| `methods.NAME.grid` | parameter -> list of values; a method without a grid is not tuned |
+| `methods.NAME.fixed` | parameters that stay fixed |
+| `methods.NAME.natural_bounds` | grid ends that are physical limits, not search limits: `lower`, `upper` or `both` |
+| `methods.NAME.settings` | an own budget (the `equal_budget` gate then blocks the study) |
+| `compare.baseline` | the rule every other rule is compared with (default: the first test rule) |
+| `compare.metrics`, `level`, `bootstrap`, `budget` | metrics of the report, interval level (0.95), bootstrap resamples (2000), restriction to one budget |
+| `events` | keep the event logs of the test stage (`events/<run>.parquet`) |
+| `output`, `workers` | study directory (default `results/<name>`) and worker processes |
+
+### Stages
+
+1. **`tune1`**: every condition and tuning seed with the reference rule and the first settings of
+   every tuned method, drawn at random from its grid without repetition (seeded by the method name).
+2. **`tune2`**: the rest of the budget, per tuning group: settings one grid step around the best
+   setting of round 1 (under the first budget), then two steps, then, if the neighbourhood is used
+   up, further random settings. Every method thus evaluates exactly `settings` settings, or its
+   whole grid if that is smaller.
+3. **Selection and gates** (below). A blocking gate stops the study here: `handoverlab study` exits
+   with status 3 and names every failed gate; `tuned/gates.json` holds the full report.
+4. **`test`**: every condition and test seed with the reference, every tuned method with its
+   selected setting per budget (named `METHOD@BUDGET`) and every untuned method.
+
+### Selection rule
+
+The failure budget of a tuning group is a share of the mean failure rate of the reference rule on
+the tuning runs of that group. Among the settings whose mean failure rate does not exceed the
+budget, those within 5 % of the lowest unnecessary-handover rate count as equal; among them the
+lowest preparation overhead (`prepared_cells_mean`) wins, then the lowest failure rate, then the
+lowest unnecessary-handover rate, then the order of evaluation. If no setting meets the budget,
+the setting with the lowest failure rate is used and flagged by the `budget_met` gate. The rule is
+fixed before any result is seen; every evaluated setting and its means are stored
+(`tuned/<group>.json`, `tables/tuning`), so the selection can be redone.
+
+### Gates
+
+| Gate | Fails when | Default |
+|---|---|---|
+| `grid_edge` | the selected value of a numeric parameter is the smallest or largest of its grid and that end is not a declared natural bound (per method, budget and group) | block |
+| `budget_binding` | more than 90 % of the settings of every method meet the budget, or the reference rule has fewer than 5 failures on the tuning runs: the budget does not constrain the trade-off | warn |
+| `budget_met` | no setting of a method meets the budget | warn |
+| `equal_budget` | methods evaluated different numbers of settings (except where a grid is smaller than the budget), or declared different budgets | block |
+| `seed_overlap` | a tuning seed is also a test seed; checked before anything runs | block |
+| `flat_optimum` | more than half of the settings within the budget lie within 5 % of the best: the tie-breaks decide | warn |
+
+A setting on the edge of its grid means that the search may have stopped too early, and a baseline
+tuned that way can make another rule look better than it is. With `block` the study stops before
+any test run with a message such as `grid_edge (layout.site_spacing_m=100, A3, budget standard):
+off_db = 6 is the largest grid value`. Extend the grid (or declare a natural bound) and run the
+study again; finished jobs are reused.
+
+### Results, resumption and workers
+
+```text
+results/<study>/
+  manifest.json            versions, platform, sessions (start, end, workers, jobs run), changes of the study file
+  study.lock.json          the resolved study (every value explicit) and its SHA-256
+  plan.json                job IDs of every stage of the current plan
+  jobs/<stage>/<job>.json  one record per job: metrics, fingerprints, parameters, timing, peak memory
+  failed/<job>.txt         traceback of a failed job (removed when it succeeds)
+  events/<run>.parquet     event logs of the test stage (with events: true)
+  tuned/<group>.json       every evaluated setting, the selection per budget, the gates of a group
+  tuned/gates.json         the gate report of the whole study
+  tables/runs.parquet      one row per job and rule (CSV without pyarrow)
+  tables/tuning.parquet    one row per evaluated setting
+  report/                  report.md, report.html, summary.json, figures/
+```
+
+A *job* is one world (condition and seed) with its rules; its ID is a hash of its content (the
+resolved scenario, the seed, the rules and the model version). A job record is written atomically:
+it is complete or absent. Re-running a study skips every job whose record exists, so a study can be
+stopped at any time and continued, also with another worker count. Changing the study file changes
+only the IDs of the jobs it affects; the others are reused. A rule run (scenario, seed, rule and
+parameters) that is already stored in the study, such as the reference rule or a setting that two
+budgets select, is reused instead of simulated again, and if nothing is left to simulate the world
+is not built at all. Tables are rebuilt from the job records after every run. A failed job leaves
+its traceback in `failed/` and stops the study after its stage; the next run retries it.
+
+`--workers N` runs N jobs in parallel, one per process, with BLAS and OpenMP threads limited to one
+per process. The default leaves cores free: the logical CPUs minus four (half of them on machines
+with fewer than eight). Jobs start longest first. Neither the worker count nor the order changes a
+result: two runs of the same study give identical event-log fingerprints.
+
+Parquet tables need `pyarrow` (`pip install handoverlab[parquet]`); without it the tables are CSV
+files with the same columns. `handoverlab.studies.read_table` reads either into a list of
+dictionaries; pandas reads both directly.
+
+### Report
+
+`handoverlab report DIR` writes `report.md`, `report.html` (self-contained, figures embedded),
+`summary.json` with every number, and the figures as PNG files (with matplotlib:
+`pip install handoverlab[report]`). The report contains the provenance (versions, sessions, jobs,
+simulated and reused rule runs), the tuning (budgets, selected settings, the gate table and a figure
+of every evaluated setting per group), the means of every rule with t intervals (pooled and per
+condition), and the paired comparisons with the baseline (section 11). `study --report` writes it
+when the study is complete.
+
+### Python
+
+```python
+from handoverlab.studies import GateError, load_study, run_study, write_report
+
+study = load_study("examples/study_smoke.yaml")
+try:
+    res = run_study(study, workers=2, progress=print)
+    write_report(res.root)
+except GateError as e:
+    print(e.lines)                       # every blocking gate
+```
+
+## 11. Paired statistics
+
+`handoverlab.stats` holds the statistics of the report. Rules compared on the same condition and
+seed share the world and the radio samples, so the unit is one run and two rules are compared
+through their paired differences (rule minus baseline).
+
+| Function | What it does |
+|---|---|
+| `paired_differences(a, b)` | `a - b` for paired runs |
+| `t_interval(d, level)` | two-sided t interval of the mean difference |
+| `bootstrap_ci(a, b, stat, n_boot, level, seed)` | percentile bootstrap of the mean difference (`"mean_diff"`) or of the ratio of the means (`"ratio"`); pairs are resampled together with a seeded generator |
+| `wilcoxon_signed_rank(d, method)` | two-sided signed-rank test: zero differences dropped, mid-ranks for ties; `"exact"` builds the null distribution for the ranks present (valid with ties), `"approx"` is the normal approximation with tie and continuity corrections, `"auto"` is exact up to 500 non-zero differences |
+| `holm(p)` | Holm's step-down adjustment of a family of p-values |
+| `paired_summary(a, b)` | all of the above for one comparison |
+| `noninferior(d, margin)` | the upper end of the one-sided interval lies below a margin |
+| `seeds_needed(sd, half_width)` | paired runs for a t interval of the given half-width |
+| `rnd(x, nd)` | decimal rounding half away from zero for printing (0.0975 -> 0.098) |
+
+Per-run rates are ratios of small counts with many ties and zeros, which is why the exact rank test
+is the default. In the report, the pooled comparisons of one metric form one Holm family and the
+per-condition comparisons of one metric (all rules and conditions) another. With few seeds the
+intervals are wide; the report shows them next to every estimate.
+
+## 12. Limitations
 
 - Received-power level only: no link-level physical layer, no fast fading, no HARQ, no beam
   management (one beam gain and one isolation factor), no packet-level protocol stack.
@@ -347,4 +555,8 @@ preparations = lost + cancelled + used + unused + open) always run.
   platforms, averaged quantities can differ in the last bits and, rarely, a single threshold event can
   move; event-log fingerprints show whether this happened.
 - Compared with ns-3 / 5G-LENA, handover and unnecessary-handover rates agree (median ratios 0.95 and
-  1.04 over 24 A3 settings), failure rates do not (see [verification.md](verification.md)).
+  1.04 over 24 A3 settings), failure rates do not: 0.13 against 0.43 per UE-minute (see the
+  validation section of [verification.md](verification.md)). Compare failure rates between rules
+  within HandoverLab, not with absolute values from other simulators or from the field.
+- Tuning gates check the search, not the model: a study that passes every gate can still answer the
+  wrong question if the scenario does not fit it.

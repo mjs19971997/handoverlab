@@ -7,11 +7,32 @@ conditional handover) for many users moving through a street grid or an open are
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: alpha, stage 2 (0.2.0a1).** The core simulator, configuration files, the rule plug-in
-> interface and the command line (stage 1) are now checked in depth: invariant checks, golden
-> event-log fingerprints, radio statistics against TR 38.901, a contract test kit for rule plug-ins,
-> a `verify` command, scenario cards and a reference comparison with ns-3 / 5G-LENA. Interfaces may
-> still change until 1.0.
+> **Status: alpha, stage 3 (0.3.0a1).** On top of the core simulator (stage 1) and its verification in
+> depth (stage 2), HandoverLab now runs whole studies: equal-budget tuning of every rule with
+> automatic gates, paired statistics, stored and resumable results in worker processes, and
+> Markdown/HTML reports. Interfaces may still change until 1.0.
+
+## What stage 3 adds
+
+- **`handoverlab study study.yaml`**: one file describes conditions, tuning and test seeds, the
+  rules with their tuning grids and the comparisons; one command runs everything.
+- **Tuning on an equal budget**: every rule evaluates the same number of settings (a random round,
+  then refinement around the best) on seeds that never appear in a test. Selection rule: lowest
+  unnecessary-handover rate within a failure budget set by a reference rule, with fixed tie-breaks.
+- **Gates that fail loudly or warn** before any test run: a selected setting on the edge of its
+  grid, a failure budget that constrains nothing, unequal budgets, tuning seeds reused as test
+  seeds, a flat optimum, a budget no setting meets.
+- **Paired statistics** (`handoverlab.stats`): paired differences, t and bootstrap intervals,
+  exact or approximate Wilcoxon signed-rank tests, Holm correction.
+- **Storage and runs**: one atomic record per job, Parquet tables (CSV without pyarrow),
+  content-hashed job IDs, resumption (finished jobs are skipped, stored rule runs reused), worker
+  processes with `--workers` (default: leave four cores free).
+- **`handoverlab report DIR`**: Markdown and HTML with tables and figures.
+- **Faster engines**: the engines of all rules of a world share one step loop; with many rules per
+  world (as in tuning) about half the engine time, with bit-identical results.
+
+See the [user guide](docs/user_guide.md#10-studies), [docs/performance.md](docs/performance.md) and
+the validation section of [docs/verification.md](docs/verification.md).
 
 ## What stage 2 adds
 
@@ -31,7 +52,8 @@ failure model, and an outcome label for every handover attempt.
 - **Wider regression** against the bh6 prototype: ten cases, 36 runs, identical metrics and event
   logs.
 - **Reference comparison with ns-3 / 5G-LENA** over 24 A3 settings: handover and
-  unnecessary-handover rates within the limits (median ratios 0.95 and 1.04, rank correlation 0.99).
+  unnecessary-handover rates within the limits (median ratios 0.95 and 1.04, rank correlation 0.99);
+  failure rates differ (0.13 against 0.43 per UE-minute), as documented in the validation section.
 - **Faster world build**: about a third less time for the radio map, with bit-identical results.
 
 See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/performance.md).
@@ -61,12 +83,13 @@ See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/
 
 ## Install from source
 
-HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed with it.
+HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed with it; matplotlib
+(reports, extra `report`) and pyarrow (Parquet tables, extra `parquet`) are optional.
 
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git
 cd handoverlab
-python -m pip install -e ".[test]"
+python -m pip install -e ".[test,report]"
 python -m pytest            # optional: run the tests (a few minutes)
 handoverlab verify          # optional: verification report (about two minutes)
 ```
@@ -85,6 +108,15 @@ CSV or (with a `.json` output name) to JSON together with the resolved scenario 
 versions. `handoverlab rules` lists the available rules and `handoverlab scenarios` the built-in
 scenarios (`scenario: smoke` in a configuration uses one). Configurations can be YAML, TOML or JSON;
 see [examples/](examples).
+
+A whole study, with tuning, gates, paired tests and a report (a few minutes):
+
+```bash
+handoverlab study examples/study_smoke.yaml --workers 2 --report
+```
+
+The report lands in `results/study-smoke/report/` (`report.html`, `report.md`, figures);
+re-running the command skips everything that is already done.
 
 ## Example
 
@@ -110,7 +142,8 @@ handover rule takes a few lines; see the [user guide](docs/user_guide.md).
 ## Documentation
 
 - [User guide](docs/user_guide.md): concepts, scenarios, configuration keys, command line, Python
-  API, rule plug-ins and their contract checks, event logs, verification, metrics, limitations.
+  API, rule plug-ins and their contract checks, event logs, verification, metrics, studies (tuning,
+  gates, storage, workers, reports), paired statistics, limitations.
 - [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
 - [Verification](docs/verification.md) and [performance](docs/performance.md).
 - [Changelog](CHANGELOG.md) and [contribution guide](CONTRIBUTING.md).
@@ -118,16 +151,17 @@ handover rule takes a few lines; see the [user guide](docs/user_guide.md).
 ## Roadmap
 
 1. Stage 1 (0.1.0a1): core simulator, configuration, rule interface, command line, tests.
-2. **Stage 2 (this release)**: verification in depth (invariant checks, golden event-log
-   fingerprints, radio statistics, rule contract test kit, wider bh6 regression, ns-3 reference
-   case), event logs as tables, the `verify` command, scenario cards, a faster world build.
-3. Stage 3: studies: equal-budget tuning of rules with automatic gates (grid edge, binding failure
-   budget, equal budgets, seed separation), a paired statistics module, job records and Parquet
-   result tables with resumable and reusable runs, reports, and the engine speed-ups of the
-   performance plan (per-step work moved to measurement instants, batched engines, optional
-   compiled kernels).
-4. Then: tutorials and reference documentation, release 1.0 with a DOI; later L1/L2-triggered
-   mobility, further scenarios, and a browser dashboard next to the command line.
+2. Stage 2 (0.2.0a1): verification in depth (invariant checks, golden event-log fingerprints, radio
+   statistics, rule contract test kit, wider bh6 regression, ns-3 reference case), event logs as
+   tables, the `verify` command, scenario cards, a faster world build.
+3. **Stage 3 (this release)**: studies: equal-budget tuning with automatic gates, the selection
+   rule, paired statistics, job records and Parquet tables, resumable studies with reused runs,
+   worker processes, `study` and `report` commands, batched engines.
+4. Stage 4: tutorials and reference documentation (how-to guides for studies, plug-ins and
+   calibration), event-log levels, a `status` view with remaining time per stage, the grid-edge
+   policy `extend`, release 1.0 with a DOI.
+5. Later: optional compiled kernels for the step loop, L1/L2-triggered mobility, further scenarios
+   (highway, TR 38.901 calibration), and a browser dashboard next to the command line.
 
 ## Citation
 
