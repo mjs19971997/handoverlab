@@ -58,11 +58,16 @@ for _c in CAUSES:
     METRICS["fail_%s_pm" % _c] = ("1/UE-min", "failures with cause %s" % _c)
 
 
+# counters over the whole run including the warm-up (for the conservation checks)
+_ALL_TIME = ("prep_req_all", "prep_lost_all", "prep_cancel_all", "prep_used_all", "prep_wasted_all")
+
+
 class Counters(dict):
     """Integer counters of a run; every name starts at zero."""
 
     def __init__(self):
-        super().__init__({k: 0 for k in list(_COUNTS) + ["un_and", "un_gain", "rlf_prepared", "att_all"]})
+        super().__init__({k: 0 for k in list(_COUNTS) + ["un_and", "un_gain", "rlf_prepared", "att_all",
+                                                        "closed_all"] + list(_ALL_TIME)})
         self.update({"n_" + o: 0 for o in OUTCOMES})
         self.update({"f_" + c: 0 for c in CAUSES})
 

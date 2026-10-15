@@ -122,6 +122,7 @@ class ProtocolConfig:
     reest_s: float = 1.0
     cho_recovery_s: float = 0.4
     pingpong_s: float = 1.0
+    cfg_loss_as_failure: bool = False   # check mode: a lost conditional configuration fails like a lost command
 
 
 @dataclass
@@ -196,7 +197,16 @@ class Scenario:
         return _plain(dataclasses.asdict(self))
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Scenario":
+    def from_dict(cls, data: Union[Dict[str, Any], str]) -> "Scenario":
+        """Scenario from a dictionary.
+
+        ``data`` may also be the name of a built-in scenario, or contain the key
+        ``base`` with such a name; the other values then change the built-in
+        scenario (see :mod:`handoverlab.scenarios`).
+        """
+        if isinstance(data, str) or (isinstance(data, dict) and "base" in data):
+            from .scenarios import resolve
+            data = resolve(data)
         sc = _build(cls, data or {}, "scenario.")
         sc.validate()
         return sc

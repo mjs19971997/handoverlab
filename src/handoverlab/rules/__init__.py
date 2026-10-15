@@ -19,7 +19,7 @@ or, from an installed package, through the entry-point group
 from __future__ import annotations
 
 import inspect
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, BaselineRule, ConditionalRule,
                    FailureRecord, Observation, OutcomeRecord, Rule, RuleContext)
@@ -62,6 +62,21 @@ def get_rule_class(key: str) -> Type[Rule]:
     raise KeyError("unknown rule %r; available: %s" % (key, ", ".join(available_rules())))
 
 
+def rule_key(rule) -> Optional[str]:
+    """Registry key of a rule object or class, or None if it is not registered."""
+    cls = rule if inspect.isclass(rule) else type(rule)
+    for key, c in _REGISTRY.items():
+        if c is cls:
+            return key
+    for ep in _entry_points():
+        try:
+            if ep.load() is cls:
+                return ep.name
+        except Exception:                                     # pragma: no cover - broken plug-in
+            continue
+    return None
+
+
 def available_rules() -> List[str]:
     names = set(_REGISTRY)
     names.update(ep.name for ep in _entry_points())
@@ -84,4 +99,4 @@ def make_rule(spec: Dict[str, Any]) -> Rule:
 
 __all__ = ["Rule", "BaselineRule", "ConditionalRule", "RuleContext", "Observation", "OutcomeRecord",
            "FailureRecord", "USEFUL", "UNNECESSARY", "EARLY", "LATE", "MAX_CONDITIONAL_CELLS", "A3", "CHO",
-           "register_rule", "get_rule_class", "available_rules", "make_rule"]
+           "register_rule", "get_rule_class", "available_rules", "make_rule", "rule_key"]

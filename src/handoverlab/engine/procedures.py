@@ -31,6 +31,7 @@ import numpy as np
 
 from ..measurement import (EPS, INF, a3_condition, held_for, select_prepared_set, ttt_expires_before,
                            update_entry_times)
+from .invariants import check_rule_value
 
 CONNECTED, EXECUTING, REESTABLISHING = 0, 1, 2      # connection state of a user
 
@@ -63,6 +64,9 @@ class Procedure:
 
     def clear(self, u, used_cell, t):
         """Drop all preparations of user ``u`` (``used_cell`` is the cell it went to, or -1)."""
+
+    def before_link_failure(self, u, t):
+        """User ``u`` has a radio-link failure while no attempt is in flight (called first)."""
 
     def recovers_into(self, u, cell) -> bool:
         """True if a failed UE that selects ``cell`` recovers into a prepared cell."""
@@ -102,6 +106,9 @@ class BaselineProcedure(Procedure):
         eng, rule = self.eng, self.rule
         off = rule.a3_offsets(obs)
         ttt = rule.time_to_trigger(obs)
+        if eng.debug:
+            check_rule_value(eng, "a3_offsets", off, obs.t)
+            check_rule_value(eng, "time_to_trigger", ttt, obs.t, per_cell=False)
         cond = a3_condition(obs.gap_db, off, obs.serving, obs.connected)
         te = self.te = update_entry_times(self.te, cond, obs.t)
         ready = ttt_expires_before(te, ttt, obs.t, eng.mdt)
@@ -161,14 +168,23 @@ class ConditionalProcedure(Procedure):
     def on_attach(self, u):
         pass
 
+    def before_link_failure(self, u, t):
+        if self.eng.P.cfg_loss_as_failure and self.ppend[u].any():
+            # check mode: a configuration on its way counts as a handover command on its way
+            self.eng.new_flight(u, int(np.argmax(self.ppend[u])), t)
+
     def clear(self, u, used_cell, t):
         C = self.eng.C
+        npr = int(self.prepared[u].sum())
+        used = 1 if (used_cell >= 0 and self.prepared[u, used_cell]) else 0
+        npp = int(self.ppend[u].sum())
+        C["prep_used_all"] += used
+        C["prep_wasted_all"] += npr - used
+        C["prep_cancel_all"] += npp
         if t >= self.eng.t0c:
-            npr = int(self.prepared[u].sum())
-            used = 1 if (used_cell >= 0 and self.prepared[u, used_cell]) else 0
             C["prep_used"] += used
             C["prep_wasted"] += npr - used
-            C["prep_cancel"] += int(self.ppend[u].sum())
+            C["prep_cancel"] += npp
         self.prepared[u] = False
         self.ppend[u] = False
         self.ppend_t[u] = INF
@@ -198,6 +214,10 @@ class ConditionalProcedure(Procedure):
                     eng.start_exec(u, int(n), t)
             else:
                 eng.C["cfg_lost"] += int(t >= eng.t0c)
+                eng.C["prep_lost_all"] += 1
+                if eng.P.cfg_loss_as_failure and eng.state[u] == CONNECTED:
+                    eng.new_flight(u, int(n), t)                    # check mode: like a lost handover command
+                    eng.fail(u, t, "cmd")
         self.n_pp = int(np.count_nonzero(self.ppend))
         self.pp_next = float(self.ppend_t.min()) if self.n_pp else INF
 
@@ -233,13 +253,18 @@ class ConditionalProcedure(Procedure):
         if counted:
             C["reports"] += int(np.count_nonzero(act & reported.any(1)))
         # network side: which cells to prepare, keep or release
-        score = gap - rule.prep_offsets(obs)
+        po = rule.prep_offsets(obs)
+        if eng.debug:
+            check_rule_value(eng, "prep_offsets", po, t)
+        score = gap - po
         have = self.prepared | self.ppend
         desired = select_prepared_set(score, reported, have, act, serv, rule.n_max, rule.release_hys_db,
                                       rule.stick_db)
         to_prep = desired & ~have
         to_rel = have & ~desired & act[:, None]
         if to_rel.any():
+            C["prep_wasted_all"] += int(np.count_nonzero(to_rel & self.prepared))
+            C["prep_cancel_all"] += int(np.count_nonzero(to_rel & self.ppend))
             if counted:
                 C["prep_wasted"] += int(np.count_nonzero(to_rel & self.prepared))
                 C["prep_cancel"] += int(np.count_nonzero(to_rel & self.ppend))
@@ -251,6 +276,11 @@ class ConditionalProcedure(Procedure):
         if to_prep.any():
             oe = rule.exec_offsets(obs)
             keys = rule.memory_key(obs)
+            if eng.debug:
+                check_rule_value(eng, "exec_offsets", oe, t)
+                if keys is not None:
+                    check_rule_value(eng, "memory_key", keys, t, per_cell=False)
+            C["prep_req_all"] += len(np.nonzero(to_prep)[0])
             uu, nn = np.nonzero(to_prep)
             self.ppend[uu, nn] = True
             self.ppend_t[uu, nn] = t + eng.P.prep_s

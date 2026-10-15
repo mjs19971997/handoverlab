@@ -46,22 +46,27 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
+from ..eventlog import EVENT_FIELDS, fingerprint
 from ..measurement import EPS, INF, L3Filter
 from ..rules.base import EARLY, LATE, UNNECESSARY, USEFUL, FailureRecord, Observation, OutcomeRecord, RuleContext
 from ..seeds import rule_stream
-from .metrics import CAUSES, OUTCOMES, Counters, summarize
+from . import invariants as inv
+from .metrics import Counters, summarize
 from .procedures import CONNECTED, EXECUTING, REESTABLISHING, make_procedure
 
 LN10_10 = np.log(10.0) / 10.0
 
-EVENT_FIELDS = ("t_attempt", "t_exec", "t_end", "ue", "kind", "src", "tgt", "outcome", "cause",
-                "dwell", "gain_db", "n_prepared", "o_exec", "x", "y")
-
 
 class Engine:
-    """Simulation of one rule.  Feed the radio chunks in order, then call :meth:`finish`."""
+    """Simulation of one rule.  Feed the radio chunks in order, then call :meth:`finish`.
 
-    def __init__(self, world, rule, log_events: bool = False):
+    ``log_events`` keeps the event log for :attr:`events` (its fingerprint is
+    always available); ``debug`` turns on the invariant checks of
+    :mod:`handoverlab.engine.invariants` (default: the environment variable
+    ``HANDOVERLAB_DEBUG``).  Neither changes a result.
+    """
+
+    def __init__(self, world, rule, log_events: bool = False, debug: Optional[bool] = None):
         sc = world.scenario
         P, R, T = sc.protocol, sc.radio, sc.traffic
         self.world, self.rule, self.P = world, rule, P
@@ -91,7 +96,10 @@ class Engine:
         svc = world.services
         self.tmin, self.thq, self.rate, self.gbr = svc.t_min, svc.theta_q, svc.rate, svc.gbr
         self.t0c = sc.run.warmup_s
-        self.log: Optional[List[tuple]] = [] if log_events else None
+        self.keep_events = bool(log_events)
+        self.log: List[tuple] = []
+        self.debug = inv.debug_from_env() if debug is None else bool(debug)
+        self.last_t_end = -INF
         U = self.U
         self.ar = np.arange(U)
         # connection state
@@ -134,16 +142,21 @@ class Engine:
 
     # ------------------------------------------------------------------ attempts and outcomes
     def _event(self, t_att, t_x, t_end, u, kind, src, tgt, outcome, cause, dwell, gain, npr, oe, counted):
+        self.C["closed_all"] += 1
         if not counted:
             return
         self.C["n_" + outcome] += 1
-        if self.log is not None:
-            k = min(int(round(t_end / self.dt)), self.S - 1)
-            self.log.append((round(t_att, 4), round(t_x, 4) if t_x == t_x else -1.0, round(t_end, 4), int(u),
-                             kind, int(src), int(tgt), outcome, cause, round(float(dwell), 4),
-                             round(float(gain), 3), int(npr),
-                             round(float(oe), 3) if oe == oe and abs(oe) != INF else -99.0,
-                             round(float(self.X[k, u]), 1), round(float(self.Y[k, u]), 1)))
+        k = min(int(round(t_end / self.dt)), self.S - 1)
+        self._log((round(t_att, 4), round(t_x, 4) if t_x == t_x else -1.0, round(t_end, 4), int(u),
+                   kind, int(src), int(tgt), outcome, cause, round(float(dwell), 4),
+                   round(float(gain), 3), int(npr),
+                   round(float(oe), 3) if oe == oe and abs(oe) != INF else -99.0,
+                   round(float(self.X[k, u]), 1), round(float(self.Y[k, u]), 1)))
+
+    def _log(self, row):
+        if self.debug:
+            inv.check_event(self, row)
+        self.log.append(row)
 
     def _feedback(self, u, src, tgt, key, label, t):
         if self.learns:
@@ -151,6 +164,8 @@ class Engine:
 
     def new_flight(self, u, tgt, t, key=-1, npr=0, oe=np.nan):
         """A handover attempt of user ``u`` towards ``tgt`` starts at ``t``."""
+        if self.debug:
+            inv.check_new_attempt(self, u, tgt, t)
         self.f_on[u] = True
         self.f_t[u] = t
         self.f_tx[u] = np.nan
@@ -246,6 +261,8 @@ class Engine:
         """Mobility failure of user ``u``: "rlf" (T310 expired), "cmd" (command lost) or "exec"."""
         c = int(np.argmax(self.meas[u]))                  # cell selected for re-establishment
         s = int(self.serv[u])
+        if kind == "rlf" and not self.f_on[u]:
+            self.proc.before_link_failure(u, t)
         if kind == "exec":
             src, tgt = int(self.f_src[u]), int(self.f_tgt[u])
             cause = "execution_failure"
@@ -279,11 +296,11 @@ class Engine:
                                                             float(self.TH[k, u])))
                 if npr and t >= self.t0c:
                     self.C["rlf_prepared"] += 1
-            if self.log is not None and t >= self.t0c:
+            if t >= self.t0c:
                 k = min(int(round(t / self.dt)), self.S - 1)
-                self.log.append((round(t, 4), -1.0, round(t, 4), int(u), "rlf", s, c,
-                                 "too_late" if c != s else "coverage", cause, 0.0, 0.0, npr, -99.0,
-                                 round(float(self.X[k, u]), 1), round(float(self.Y[k, u]), 1)))
+                self._log((round(t, 4), -1.0, round(t, 4), int(u), "rlf", s, c,
+                           "too_late" if c != s else "coverage", cause, 0.0, 0.0, npr, -99.0,
+                           round(float(self.X[k, u]), 1), round(float(self.Y[k, u]), 1)))
         if t >= self.t0c:
             self.C["fail"] += 1
             self.C["f_" + cause] += 1
@@ -358,9 +375,11 @@ class Engine:
                     self.fail(u, t, "rlf")
             # --- handover command / conditional configuration reaches the UE
             self.proc.step(t)
+            if self.debug:
+                inv.check_step(self, t, sinr)
             # --- measurement instant
             if i % self.mp == 0:
-                self._measure(ch, i // self.mp, k, t, ln)
+                self._measure(ch, i // self.mp, k, t, ln, tot)
         self.wall += time.perf_counter() - w0
 
     def _sample_windows(self, t, ln, meas):
@@ -392,7 +411,7 @@ class Engine:
         for u in ia[t - self.w_t0[ia] >= self.tmin[ia] - EPS]:
             self._finalize(u, t, "win")
 
-    def _measure(self, ch, j, k, t, ln):
+    def _measure(self, ch, j, k, t, ln, tot):
         ar, acc, state = self.ar, self.acc, self.state
         meas = self.l3.update(ch.l1[j])
         counted = t >= self.t0c
@@ -402,13 +421,18 @@ class Engine:
         serv = self.serv
         con = state == CONNECTED
         gap = meas - meas[ar, serv][:, None]
-        obs = Observation(t, k, meas, gap, serv, con, self.X[k], self.Y[k], self.V, self.TH[k])
+        if self.debug:                                   # a rule must not write into what it observes
+            ro = inv.readonly_copy
+            obs = Observation(t, k, ro(meas), ro(gap), ro(serv), ro(con), ro(self.X[k]), ro(self.Y[k]), ro(self.V),
+                              ro(self.TH[k]))
+        else:
+            obs = Observation(t, k, meas, gap, serv, con, self.X[k], self.Y[k], self.V, self.TH[k])
         self.proc.measure(obs, counted)
         # --- load, scheduling, delivered rate
         serv = self.serv
         con = state == CONNECTED
         ls = ln[ar, serv]
-        sinr = ls / (ln @ self.rc - self.rc[serv] * ls + self.noise)
+        sinr = ls / (tot - self.rc[serv] * ls + self.noise)      # tot = ln @ rc of this step (rc unchanged)
         ok = con & (sinr >= self.qout)
         se = np.minimum(np.log2(1.0 + sinr), self.se_max)
         need = np.where(ok, self.rate / (self.W * np.maximum(se, 1e-3)), 0.0)
@@ -440,10 +464,7 @@ class Engine:
         for u in np.nonzero(self.f_on)[0]:
             self._close_flight(u, T, "censored", "")
         C = self.C
-        if C["att"] != sum(C["n_" + o] for o in OUTCOMES):
-            raise RuntimeError("invariant violated: attempts != sum of outcomes")
-        if C["fail"] != sum(C["f_" + c] for c in CAUSES):
-            raise RuntimeError("invariant violated: failures != sum of causes")
+        inv.check_final(self)
         run = self.world.scenario.run
         ue_min = self.U * (run.duration_s - run.warmup_s) / 60.0
         ue_s = max(self.acc["steps"], 1) * self.U * self.dt
@@ -452,6 +473,16 @@ class Engine:
     @property
     def events(self) -> Optional[List[dict]]:
         """Event log as a list of dictionaries (if the engine was created with ``log_events``)."""
-        if self.log is None:
+        if not self.keep_events:
             return None
-        return [dict(zip(EVENT_FIELDS, row)) for row in self.log]
+        return [{k: float(v) if isinstance(v, np.floating) else v for k, v in zip(EVENT_FIELDS, row)}
+                for row in self.log]
+
+    @property
+    def fingerprint(self) -> str:
+        """SHA-256 of the canonical CSV of the event log (see :mod:`handoverlab.eventlog`)."""
+        return fingerprint(self.log)
+
+    @property
+    def n_events(self) -> int:
+        return len(self.log)

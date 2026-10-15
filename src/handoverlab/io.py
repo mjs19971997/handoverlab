@@ -56,10 +56,16 @@ def provenance() -> Dict[str, str]:
 
 
 def write_json(results: Sequence, path: str, scenario: Optional[Dict[str, Any]] = None) -> None:
-    """JSON with the resolved scenario, versions and one record per (seed, rule)."""
+    """JSON with the resolved scenario, versions and one record per (seed, rule).
+
+    Every record holds the rule key and parameters, the metrics and the
+    fingerprint of the event log, so that ``handoverlab verify --results``
+    can repeat the run and compare.
+    """
     doc = dict(provenance=provenance(), scenario=scenario,
-               results=[dict(seed=r.seed, rule=r.rule, family=r.family, params=r.params, metrics=r.metrics,
-                             timing=r.timing) for r in results])
+               results=[dict(seed=r.seed, rule=r.rule, key=r.key, family=r.family, params=r.params,
+                             fingerprint=r.fingerprint, n_events=r.n_events, metrics=r.metrics, timing=r.timing)
+                        for r in results])
     _atomic_write_text(path, json.dumps(doc, indent=1, default=float))
 
 

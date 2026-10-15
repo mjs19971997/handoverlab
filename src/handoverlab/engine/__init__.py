@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Protocol engine, handover procedures and metrics."""
-from .core import EVENT_FIELDS, Engine
+from ..eventlog import EVENT_FIELDS
+from .core import Engine
+from .invariants import InvariantError
 from .metrics import CAUSES, METRICS, OUTCOMES
 from .procedures import BaselineProcedure, ConditionalProcedure, Procedure
 
-__all__ = ["Engine", "EVENT_FIELDS", "CAUSES", "METRICS", "OUTCOMES", "Procedure", "BaselineProcedure",
+__all__ = ["Engine", "EVENT_FIELDS", "InvariantError", "CAUSES", "METRICS", "OUTCOMES", "Procedure", "BaselineProcedure",
            "ConditionalProcedure"]
