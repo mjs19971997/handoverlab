@@ -3,6 +3,8 @@
 #   handoverlab study examples/study_smoke.yaml --workers 2
 #   handoverlab report results/study-smoke
 # The numbers are too few for conclusions; enlarge seeds, users and run length for a real study.
+# With these short runs the gates warn, for example that the selected A3 offset is the largest
+# value of its grid: widen the grid (and set grid_edge: block) before trusting a comparison.
 name: study-smoke
 description: A3 and CHO tuned with equal budgets on two site spacings of the smoke scenario.
 scenario:
@@ -13,7 +15,7 @@ scenario:
 conditions:                         # full factorial over dotted scenario keys
   layout.site_spacing_m: [100.0, 150.0]
 seeds:
-  tuning: [901, 902]                # never used in the test stage (gate 'seed_overlap')
+  tuning: [901, 902, 903, 904]      # never used in the test stage (gate 'seed_overlap')
   test: {first: 1, last: 6}
 tuning:
   settings: 8                       # every tuned method evaluates 8 settings per group

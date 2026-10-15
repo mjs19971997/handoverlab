@@ -146,8 +146,12 @@ def peak_memory_mb() -> Optional[float]:
                         ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
         c = PMC()
         c.cb = ctypes.sizeof(PMC)
-        h = ctypes.windll.kernel32.GetCurrentProcess()
-        if ctypes.windll.psapi.GetProcessMemoryInfo(h, ctypes.byref(c), c.cb):
+        k32 = ctypes.windll.kernel32
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        get = ctypes.windll.psapi.GetProcessMemoryInfo
+        get.argtypes = [wintypes.HANDLE, ctypes.POINTER(PMC), wintypes.DWORD]
+        get.restype = wintypes.BOOL
+        if get(k32.GetCurrentProcess(), ctypes.byref(c), c.cb):
             return c.PeakWorkingSetSize / 2.0 ** 20
     except Exception:                                         # pragma: no cover
         pass
