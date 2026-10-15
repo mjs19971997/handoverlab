@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "handoverlab"
+version = "0.1.0a1"
+description = "System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Mostafa Jalili Sanjarani" },
+    { name = "Yasser Elmi Sola" },
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "pyyaml>=5.4",
+    "tomli>=1.1; python_version < '3.11'",
+]
+keywords = ["handover", "conditional handover", "mobility", "system-level simulation", "5G", "3GPP"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+handoverlab = "handoverlab.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/mjs19971997/handoverlab"
+Issues = "https://github.com/mjs19971997/handoverlab/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+handoverlab = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

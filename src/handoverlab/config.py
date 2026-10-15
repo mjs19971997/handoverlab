@@ -1,0 +1,374 @@
+# SPDX-License-Identifier: MIT
+"""Scenario and experiment configuration.
+
+A scenario (the simulated world and the protocol constants) is a tree of
+dataclasses.  It can be built in Python, or read from a YAML, TOML or JSON
+file, or from a plain dictionary.  Every key is checked: an unknown key or a
+value of the wrong type raises :class:`ConfigError` with the full key name.
+
+An *experiment* adds the seeds, the handover rules to compare and the output
+file to a scenario; it is what the command line runs::
+
+    scenario:
+      layout: {kind: street_grid, blocks: [3, 3], site_spacing_m: 100}
+      mobility: {users: 40, profile: veh16}
+      run: {duration_s: 120, warmup_s: 20}
+    seeds: [1, 2]
+    rules:
+      - {rule: a3, off_db: 3.0, ttt_s: 0.16}
+      - {rule: cho, o_prep_db: -2.0, o_exec_db: 3.0}
+    output: results/metrics.csv
+"""
+from __future__ import annotations
+
+import dataclasses
+import json
+import math
+import os
+import sys
+import typing
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple, Union
+
+
+class ConfigError(ValueError):
+    """Invalid configuration; the message names the offending key."""
+
+
+# ---------------------------------------------------------------------------
+# sections of a scenario
+# ---------------------------------------------------------------------------
+@dataclass
+class LayoutConfig:
+    """Deployment geometry.
+
+    ``street_grid`` is the urban grid of 3GPP TR 37.885 Annex A: blocks of
+    ``pitch_m`` (433 m x 250 m between street centre lines), streets
+    ``street_width_m`` wide.  The default of 3 x 3 blocks is the minimum area
+    of TR 37.885 Table A-1.  Sites stand on the pavement every
+    ``site_spacing_m`` metres, ``site_offset_m`` from the street centre line.
+
+    ``open_area`` is the same rectangle without buildings, with sites on a
+    hexagonal grid of spacing ``site_spacing_m``.
+    """
+    kind: str = "street_grid"
+    blocks: Tuple[int, int] = (3, 3)
+    pitch_m: Tuple[float, float] = (433.0, 250.0)
+    street_width_m: float = 20.0
+    site_spacing_m: float = 100.0
+    site_offset_m: float = 9.0
+    sites: Optional[Tuple[Tuple[float, float], ...]] = None
+
+    @property
+    def size_m(self) -> Tuple[float, float]:
+        """Width and height of the simulated rectangle [m]."""
+        return (self.blocks[0] * self.pitch_m[0] + self.street_width_m,
+                self.blocks[1] * self.pitch_m[1] + self.street_width_m)
+
+
+@dataclass
+class RadioConfig:
+    """Carrier, link budget, propagation and the antenna abstraction (TR 38.901)."""
+    carrier_ghz: float = 10.0
+    bandwidth_mhz: float = 200.0
+    tx_power_dbm: float = 35.0          # per site
+    bs_gain_db: float = 20.0            # beam gain towards a served or measuring user
+    ue_gain_db: float = 0.0
+    noise_figure_db: float = 7.0
+    isolation: float = 0.30             # mean-to-peak gain of an interfering data beam
+    bs_height_m: float = 10.0
+    ue_height_m: float = 1.5
+    pathloss: str = "umi_street_canyon"  # or "uma"
+    shadow_los_db: float = 4.0
+    shadow_nlos_db: float = 7.82
+    shadow_decorr_m: float = 10.0
+    shadow_site_corr: float = 0.5       # correlation of the shadowing between sites
+    place_share: float = 1.0            # share of shadowing variance tied to place (1 = fully place-tied)
+    clutter_los: bool = True            # spatially consistent LOS state on top of the buildings
+    los_corr_m: float = 50.0
+    time_var_db: float = 1.5            # time-varying component (moving blockers)
+    time_var_tau_s: float = 1.0
+    l1_error_db: float = 1.0            # error of one L1 RSRP sample
+    map_res_m: float = 1.0
+
+    @property
+    def noise_dbm(self) -> float:
+        """Thermal noise over the carrier plus the noise figure [dBm]."""
+        return -174.0 + 10.0 * math.log10(self.bandwidth_mhz * 1e6) + self.noise_figure_db
+
+
+@dataclass
+class ProtocolConfig:
+    """Measurement chain, handover timing and the failure model.
+
+    Defaults follow 3GPP TR 36.839 / TR 36.842 (Qout -8 dB, Qin -6 dB,
+    T310 1 s, N310 = N311 = 1, preparation 50 ms, execution 40 ms) and the L3
+    filter of TS 38.331 clause 5.5.3.2.
+    """
+    step_s: float = 0.01
+    l1_period_s: float = 0.04
+    l3_k: int = 4
+    label_period_s: float = 0.2
+    report_interval_s: float = 0.12
+    qout_db: float = -8.0
+    qin_db: float = -6.0
+    qout_window_s: float = 0.2
+    qin_window_s: float = 0.1
+    n310: int = 1
+    n311: int = 1
+    t310_s: float = 1.0
+    prep_s: float = 0.05
+    exec_s: float = 0.04
+    reest_s: float = 1.0
+    cho_recovery_s: float = 0.4
+    pingpong_s: float = 1.0
+
+
+@dataclass
+class Service:
+    """A service class (5QI of TS 23.501 Table 5.7.4-1) and its label thresholds."""
+    key: str
+    fiveqi: int
+    gbr: bool
+    t_min_s: float       # minimum useful time of stay in the target
+    theta_q_db: float    # minimum mean SINR gain
+    share: float         # share of users
+    rate_mbps: float     # demanded rate
+
+
+DEFAULT_SERVICES = (
+    Service("voice", 1, True, 4.0, 0.7, 0.20, 0.1),
+    Service("video_call", 2, True, 6.0, 1.0, 0.20, 4.0),
+    Service("gaming", 3, True, 7.0, 1.2, 0.15, 30.0),
+    Service("streaming", 6, False, 3.0, 1.5, 0.30, 25.0),
+    Service("web", 9, False, 2.0, 0.4, 0.15, 10.0),
+)
+
+
+@dataclass
+class TrafficConfig:
+    """Services, background load and the scheduler abstraction."""
+    services: Tuple[Service, ...] = DEFAULT_SERVICES
+    se_max: float = 7.4                 # spectral-efficiency cap [bit/s/Hz]
+    hotspot_share: float = 0.25
+    hotspot_load: Tuple[float, float] = (0.55, 0.85)
+    normal_load: Tuple[float, float] = (0.05, 0.25)
+    load_tau_s: float = 0.2
+    rate_scale: float = 1.0
+    label_load: float = 1.0             # load assumed for the SINR of the outcome label
+
+
+@dataclass
+class SpeedGroup:
+    """A share of users with a uniform speed range and lateral displacement range."""
+    share: float
+    v_min: float
+    v_max: float
+    lateral_m: Tuple[float, float] = (0.0, 3.0)
+
+
+@dataclass
+class MobilityConfig:
+    """Number of users and their speeds; ``groups`` overrides the named ``profile``."""
+    users: int = 40
+    profile: str = "veh16"
+    groups: Optional[Tuple[SpeedGroup, ...]] = None
+
+
+@dataclass
+class RunConfig:
+    duration_s: float = 120.0
+    warmup_s: float = 20.0              # initial part not counted in the metrics
+
+
+@dataclass
+class Scenario:
+    """One simulated condition.  Together with a seed it fixes a *world*."""
+    name: str = "street-grid"
+    layout: LayoutConfig = field(default_factory=LayoutConfig)
+    radio: RadioConfig = field(default_factory=RadioConfig)
+    protocol: ProtocolConfig = field(default_factory=ProtocolConfig)
+    traffic: TrafficConfig = field(default_factory=TrafficConfig)
+    mobility: MobilityConfig = field(default_factory=MobilityConfig)
+    run: RunConfig = field(default_factory=RunConfig)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return _plain(dataclasses.asdict(self))
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Scenario":
+        sc = _build(cls, data or {}, "scenario.")
+        sc.validate()
+        return sc
+
+    def with_overrides(self, overrides: Dict[str, Any]) -> "Scenario":
+        """Copy with changed values; keys are dotted paths such as ``"layout.site_spacing_m"``."""
+        d = self.to_dict()
+        for key, value in overrides.items():
+            node = d
+            parts = key.split(".")
+            for p in parts[:-1]:
+                if not isinstance(node.get(p), dict):
+                    raise ConfigError("unknown key 'scenario.%s'" % key)
+                node = node[p]
+            if parts[-1] not in node:
+                raise ConfigError("unknown key 'scenario.%s'" % key)
+            node[parts[-1]] = value
+        return Scenario.from_dict(d)
+
+    def validate(self) -> None:
+        """Range checks that name the offending key."""
+        L, R, P, M, T = self.layout, self.radio, self.protocol, self.mobility, self.run
+        _check(L.kind in ("street_grid", "open_area"), "layout.kind", "must be 'street_grid' or 'open_area'")
+        _check(L.blocks[0] >= 1 and L.blocks[1] >= 1, "layout.blocks", "needs at least 1 x 1 blocks")
+        _check(L.site_spacing_m > 0, "layout.site_spacing_m", "must be positive")
+        _check(L.street_width_m > 0, "layout.street_width_m", "must be positive")
+        _check(R.pathloss in ("umi_street_canyon", "uma"), "radio.pathloss",
+               "must be 'umi_street_canyon' or 'uma'")
+        _check(0.5 <= R.carrier_ghz <= 100.0, "radio.carrier_ghz", "TR 38.901 covers 0.5-100 GHz")
+        _check(0.0 <= R.place_share <= 1.0, "radio.place_share", "must be in [0, 1]")
+        _check(0.0 <= R.shadow_site_corr <= 1.0, "radio.shadow_site_corr", "must be in [0, 1]")
+        _check(R.map_res_m > 0, "radio.map_res_m", "must be positive")
+        _check(P.step_s > 0, "protocol.step_s", "must be positive")
+        mp = P.l1_period_s / P.step_s
+        _check(abs(mp - round(mp)) < 1e-9 and mp >= 1, "protocol.l1_period_s",
+               "must be a whole multiple of protocol.step_s")
+        _check(P.l3_k >= 0, "protocol.l3_k", "must be >= 0")
+        _check(P.n310 >= 1 and P.n311 >= 1, "protocol.n310", "N310 and N311 must be >= 1")
+        _check(M.users >= 1, "mobility.users", "must be >= 1")
+        if M.groups is None:
+            from .mobility import PROFILES
+            _check(M.profile in PROFILES, "mobility.profile", "unknown profile; known: %s" % ", ".join(PROFILES))
+        _check(T.duration_s > T.warmup_s >= 0, "run.duration_s", "must exceed run.warmup_s (>= 0)")
+        shares = sum(s.share for s in self.traffic.services)
+        _check(len(self.traffic.services) > 0 and shares > 0, "traffic.services", "needs a positive total share")
+
+
+def _check(ok: bool, key: str, msg: str) -> None:
+    if not ok:
+        raise ConfigError("scenario.%s: %s" % (key, msg))
+
+
+# ---------------------------------------------------------------------------
+# experiment = scenario + seeds + rules + output
+# ---------------------------------------------------------------------------
+@dataclass
+class Experiment:
+    scenario: Scenario = field(default_factory=Scenario)
+    seeds: Tuple[int, ...] = (1,)
+    rules: Tuple[Dict[str, Any], ...] = ({"rule": "a3"},)
+    output: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Experiment":
+        data = dict(data or {})
+        unknown = set(data) - {"scenario", "seeds", "rules", "output"}
+        if unknown:
+            raise ConfigError("unknown key '%s'; allowed: scenario, seeds, rules, output" % sorted(unknown)[0])
+        sc = Scenario.from_dict(data.get("scenario") or {})
+        seeds = data.get("seeds", [1])
+        if isinstance(seeds, int):
+            seeds = [seeds]
+        if isinstance(seeds, dict):                    # {first: 1, last: 10}
+            seeds = list(range(int(seeds["first"]), int(seeds["last"]) + 1))
+        if not seeds or not all(isinstance(s, int) and not isinstance(s, bool) and s >= 0 for s in seeds):
+            raise ConfigError("seeds: expected a list of non-negative integers")
+        rules = data.get("rules") or [{"rule": "a3"}]
+        for i, r in enumerate(rules):
+            if not isinstance(r, dict) or "rule" not in r:
+                raise ConfigError("rules[%d]: expected a mapping with a 'rule' key" % i)
+        return cls(sc, tuple(seeds), tuple(dict(r) for r in rules), data.get("output"))
+
+
+def read_file(path: Union[str, os.PathLike]) -> Dict[str, Any]:
+    """Read a YAML (.yaml/.yml), TOML (.toml) or JSON (.json) file into a dictionary."""
+    path = os.fspath(path)
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".yaml", ".yml"):
+        import yaml
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    if ext == ".toml":
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:                                          # pragma: no cover
+            import tomli as tomllib
+        with open(path, "rb") as f:
+            return tomllib.load(f)
+    if ext == ".json":
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    raise ConfigError("%s: unknown file type (use .yaml, .yml, .toml or .json)" % path)
+
+
+def load_config(source: Union[str, os.PathLike, Dict[str, Any]]) -> Experiment:
+    """Experiment from a file path or a dictionary."""
+    data = source if isinstance(source, dict) else read_file(source)
+    return Experiment.from_dict(data)
+
+
+# ---------------------------------------------------------------------------
+# dictionary -> dataclass with type checks
+# ---------------------------------------------------------------------------
+def _build(cls, data, where):
+    if dataclasses.is_dataclass(data) and isinstance(data, cls):
+        return data
+    if not isinstance(data, dict):
+        raise ConfigError("%s: expected a mapping, got %r" % (where.rstrip("."), data))
+    hints = typing.get_type_hints(cls)
+    names = [f.name for f in dataclasses.fields(cls)]
+    kw = {}
+    for key, value in data.items():
+        if key not in names:
+            raise ConfigError("unknown key '%s%s'; allowed: %s" % (where, key, ", ".join(names)))
+        kw[key] = _coerce(value, hints[key], where + key)
+    try:
+        return cls(**kw)
+    except TypeError as e:
+        raise ConfigError("%s: %s" % (where.rstrip("."), e))
+
+
+def _coerce(v, tp, key):
+    origin = typing.get_origin(tp)
+    args = typing.get_args(tp)
+    if origin is Union:                                 # Optional[X]
+        if v is None and type(None) in args:
+            return None
+        inner = [a for a in args if a is not type(None)]
+        return _coerce(v, inner[0], key)
+    if dataclasses.is_dataclass(tp):
+        return _build(tp, v, key + ".")
+    if origin in (tuple, Tuple):
+        if not isinstance(v, (list, tuple)):
+            raise ConfigError("%s: expected a list, got %r" % (key, v))
+        if len(args) == 2 and args[1] is Ellipsis:
+            return tuple(_coerce(x, args[0], "%s[%d]" % (key, i)) for i, x in enumerate(v))
+        if len(v) != len(args):
+            raise ConfigError("%s: expected %d values, got %d" % (key, len(args), len(v)))
+        return tuple(_coerce(x, a, "%s[%d]" % (key, i)) for i, (x, a) in enumerate(zip(v, args)))
+    if tp is float:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ConfigError("%s: expected a number, got %r" % (key, v))
+        return float(v)
+    if tp is int:
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or float(v) != int(v):
+            raise ConfigError("%s: expected an integer, got %r" % (key, v))
+        return int(v)
+    if tp is bool:
+        if not isinstance(v, bool):
+            raise ConfigError("%s: expected true or false, got %r" % (key, v))
+        return v
+    if tp is str:
+        if not isinstance(v, str):
+            raise ConfigError("%s: expected a string, got %r" % (key, v))
+        return v
+    return v
+
+
+def _plain(x):
+    """Tuples -> lists, recursively (for JSON/YAML output)."""
+    if isinstance(x, dict):
+        return {k: _plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(v) for v in x]
+    return x
