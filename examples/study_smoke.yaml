@@ -1,0 +1,51 @@
+# A small but complete study: A3 and conditional handover tuned on an equal budget, then compared
+# with paired tests.  It runs in a few minutes on the built-in 'smoke' scenario:
+#   handoverlab study examples/study_smoke.yaml --workers 2
+#   handoverlab report results/study-smoke
+# The numbers are too few for conclusions; enlarge seeds, users and run length for a real study.
+name: study-smoke
+description: A3 and CHO tuned with equal budgets on two site spacings of the smoke scenario.
+scenario:
+  base: smoke                       # 2 x 2-block street grid, 20 users
+  radio: {isolation: 1.0}           # no beam isolation: more interference, so that failures occur
+  mobility: {users: 12, profile: veh30}
+  run: {duration_s: 20.0, warmup_s: 4.0}
+conditions:                         # full factorial over dotted scenario keys
+  layout.site_spacing_m: [100.0, 150.0]
+seeds:
+  tuning: [901, 902]                # never used in the test stage (gate 'seed_overlap')
+  test: {first: 1, last: 6}
+tuning:
+  settings: 8                       # every tuned method evaluates 8 settings per group
+  random: 5                         # 5 drawn at random, then 3 around the best of them
+  reference: {rule: a3, name: A3-ref, off_db: 3.0, ttt_s: 0.16}
+  budgets: {standard: 1.0, strict: 0.5}   # shares of the reference failure rate
+  tolerance: 0.05
+  group_by: [layout.site_spacing_m] # tune per site spacing
+  min_reference_failures: 3
+  gates:
+    grid_edge: warn                 # 'block' stops the study before the test stage
+    budget_binding: warn
+    budget_met: warn
+    equal_budget: block
+    seed_overlap: block
+    flat_optimum: warn
+methods:
+  A3:
+    rule: a3
+    grid:
+      off_db: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+      ttt_s: [0.0, 0.04, 0.08, 0.16, 0.32]
+    natural_bounds: {ttt_s: lower}  # 0 s is a floor, not an edge of the search
+  CHO:
+    rule: cho
+    fixed: {o_prep_db: -2.0, n_max: 4}
+    grid:
+      o_exec_db: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+      ttt_exec_s: [0.0, 0.04, 0.08, 0.16, 0.32]
+    natural_bounds: {ttt_exec_s: lower}
+compare:
+  baseline: A3-ref
+  metrics: [unnecessary_pm, failures_pm, handovers_pm, prepared_cells_mean]
+  bootstrap: 2000
+output: results/study-smoke

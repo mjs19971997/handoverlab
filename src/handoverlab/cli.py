@@ -11,6 +11,10 @@ Commands
         Run the verification checks and print a pass/fail report.
     scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
         List the built-in scenarios, or show the card of one.
+    study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report]
+        Run or resume a study: tuning with gates, test stage, result tables.
+    report DIR [-o OUT] [--format md html] [--no-figures]
+        Write the Markdown/HTML report of a study directory.
     rules
         List the available handover rules.
     init [PATH]
@@ -110,6 +114,61 @@ def _cmd_verify(args) -> int:
     return 0 if rep.ok else 1
 
 
+def _cmd_study(args) -> int:
+    from .studies import GateError, StudyError, dry_run, load_study, run_study, study_status, write_report
+    try:
+        study = load_study(args.study)
+    except (ConfigError, OSError, ValueError, KeyError) as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    if args.dry_run:
+        print("\n".join(dry_run(study)))
+        return 0
+    if args.status:
+        print("\n".join(study_status(study, args.output)))
+        return 0
+    if args.workers is not None and args.workers < 1:
+        print("error: --workers must be at least 1", file=sys.stderr)
+        return 2
+    say = None if args.quiet else (lambda msg: print(msg, flush=True))
+    try:
+        res = run_study(study, args.output, args.workers, progress=say,
+                        stop_after="tuning" if args.tuning_only else None)
+    except GateError as e:
+        print("error: %s" % e, file=sys.stderr)
+        print("The gate report is in %s; change the grids or the gate policy and run the study again."
+              % os.path.join(_study_root(study, args.output), "tuned", "gates.json"), file=sys.stderr)
+        return 3
+    except StudyError as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 4
+    if args.report and res.completed:
+        for p in write_report(res.root):
+            if not args.quiet and not p.endswith(".png"):
+                print("wrote %s" % p)
+    if not args.quiet:
+        print("study %s: %s" % (study.name, "complete" if res.completed else "stopped after tuning"))
+    return 0
+
+
+def _study_root(study, out):
+    from .studies.study import output_dir
+    return os.path.abspath(output_dir(study, out))
+
+
+def _cmd_report(args) -> int:
+    from .studies import ReportError, write_report
+    try:
+        files = write_report(args.dir, args.output, args.format, figures=not args.no_figures)
+    except (ReportError, OSError, ValueError) as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    for p in files:
+        if not p.endswith(".png"):
+            print("wrote %s" % p)
+    return 0
+
+
 def _cmd_scenarios(args) -> int:
     from .config import ConfigError
     from .scenarios import builtin_scenario, card_markdown, layout_svg, scenario_card, scenario_names
@@ -197,6 +256,23 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--svg", metavar="FILE", help="write a drawing of the layout")
     s.add_argument("--docs", metavar="DIR", help="write Markdown cards and layout drawings of all scenarios")
     s.set_defaults(func=_cmd_scenarios)
+    st = sub.add_parser("study", help="run or resume a study (tuning with gates, test stage, tables)")
+    st.add_argument("study", help="study file (.yaml, .yml, .toml or .json)")
+    st.add_argument("-o", "--output", metavar="DIR", help="study directory (default: 'output' of the study file)")
+    st.add_argument("--workers", type=int,
+                    help="worker processes (default: the study file's 'workers', else the CPUs minus four)")
+    st.add_argument("--tuning-only", action="store_true", help="stop after the tuning gates")
+    st.add_argument("--dry-run", action="store_true", help="show what would run, run nothing")
+    st.add_argument("--status", action="store_true", help="show finished, failed and remaining jobs")
+    st.add_argument("--report", action="store_true", help="write the report when the study is complete")
+    st.add_argument("-q", "--quiet", action="store_true", help="print nothing but errors")
+    st.set_defaults(func=_cmd_study)
+    rp = sub.add_parser("report", help="write the Markdown/HTML report of a study directory")
+    rp.add_argument("dir", help="study directory")
+    rp.add_argument("-o", "--output", metavar="OUT", help="report directory (default: DIR/report)")
+    rp.add_argument("--format", nargs="+", choices=("md", "html"), default=["md", "html"])
+    rp.add_argument("--no-figures", action="store_true", help="tables only")
+    rp.set_defaults(func=_cmd_report)
     ru = sub.add_parser("rules", help="list the available handover rules")
     ru.set_defaults(func=_cmd_rules)
     i = sub.add_parser("init", help="write an example configuration")
