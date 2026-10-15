@@ -30,8 +30,8 @@ from .. import __version__
 from .config import Study, label
 from .runner import MODEL_VERSION, Job, default_workers, run_jobs
 from .store import StudyStore, atomic_write_json, read_json, write_table
-from .tuning import (GateResult, MethodTuning, describe_setting, evaluate_gates, first_round, refine,
-                     seed_overlap_gate, select, setting_key, summary_lines)
+from .tuning import (GateResult, MethodTuning, describe_setting, evaluate_gates, extension_values, first_round,
+                     refine, seed_overlap_gate, select, setting_key, summary_lines)
 
 
 class StudyError(RuntimeError):
@@ -207,11 +207,101 @@ def analyse_tuning(study: Study, store: StudyStore, jobs: Sequence[Job]) -> Dict
         groups[g] = dict(group=g, reference=dict(name=t.reference_name, spec=t.reference, **ref), budgets=budgets,
                          budget_shares=dict(t.budgets), methods=mdoc, gates=[x.as_dict() for x in gg])
         atomic_write_json(store.path("tuned", _file_label(g) + ".json"), groups[g])
+    write_gate_report(study, store, gates)
+    return dict(groups=groups, gates=gates)
+
+
+def write_gate_report(study: Study, store: StudyStore, gates: Sequence[GateResult]) -> None:
+    """Write ``tuned/gates.json`` (every gate, the blocking ones, the warnings, the selection rule)."""
     doc = dict(ok=not any(x.blocking for x in gates), blocking=[x.as_dict() for x in gates if x.blocking],
                warnings=[x.as_dict() for x in gates if not x.ok and not x.blocking],
                gates=[x.as_dict() for x in gates], selection=_selection_text(study))
     atomic_write_json(store.path("tuned", "gates.json"), doc)
-    return dict(groups=groups, gates=gates)
+
+
+# ---------------------------------------------------------------------------- grid extensions (amendments)
+AMENDMENTS = "amendments.json"
+
+
+def load_amendments(store: StudyStore) -> List[Dict[str, Any]]:
+    """Recorded grid extensions of a study directory (one entry per extension round, oldest first)."""
+    p = store.path(AMENDMENTS)
+    return list(read_json(p).get("rounds", [])) if os.path.exists(p) else []
+
+
+def apply_amendments(study: Study, rounds: Sequence[Dict[str, Any]]) -> Study:
+    """A copy of ``study`` whose grids include every recorded extension."""
+    if not rounds:
+        return study
+    import copy
+    sx = copy.deepcopy(study)
+    by_name = {m.name: m for m in sx.methods}
+    for rd in rounds:
+        for c in rd["changes"]:
+            m = by_name.get(c["method"])
+            if m is None or c["param"] not in m.grid:
+                continue
+            vals = list(m.grid[c["param"]])
+            for v in c["added"]:
+                if v not in vals:
+                    vals.append(v)
+            m.grid[c["param"]] = sorted(vals)
+    return sx
+
+
+def plan_extension(study: Study, gates: Sequence[GateResult], steps: int):
+    """Grid extensions for failed ``grid_edge`` gates; returns (changes, problems).
+
+    One change per method, parameter and side, with the values to add (checked
+    by constructing the rule with each of them).  ``problems`` names the edges
+    that cannot be extended.
+    """
+    from ..rules import make_rule
+    by_name = {m.name: m for m in study.methods}
+    changes: Dict[tuple, Dict[str, Any]] = {}
+    problems: List[str] = []
+    for g in gates:
+        m = by_name[g.method]
+        for p, side in g.edges:
+            key = (m.name, p, side)
+            where = "%s, budget %s" % (g.group, g.budget)
+            if key in changes:
+                changes[key]["where"].append(where)
+                continue
+            vals = m.grid[p]
+            ok = []
+            for v in extension_values(vals, side, steps):
+                cfg = {k: vv[0] for k, vv in m.grid.items()}
+                cfg[p] = v
+                try:
+                    make_rule(m.spec(cfg))
+                except (ValueError, TypeError) as e:          # value outside what the rule accepts
+                    problems.append("%s.%s = %s is not accepted by rule %s (%s)" % (m.name, p, v, m.rule, e))
+                    break
+                ok.append(v)
+            if ok:
+                changes[key] = dict(method=m.name, param=p, side=side, added=ok, grid_before=list(vals),
+                                    where=[where])
+            elif not any(x.startswith("%s.%s " % (m.name, p)) for x in problems):
+                problems.append("%s.%s cannot be extended below %s (declare natural_bounds: {%s: %s} if this end "
+                                "is a physical limit)" % (m.name, p, vals[0] if side == "lower" else vals[-1], p,
+                                                          side))
+    return list(changes.values()), problems
+
+
+def _write_amendments(store: StudyStore, rounds: Sequence[Dict[str, Any]]) -> None:
+    atomic_write_json(store.path(AMENDMENTS), dict(rounds=list(rounds)))
+    lines = ["# Amendments", "", "Grid extensions made by the gate policy `grid_edge: extend` (newest last).", ""]
+    for rd in rounds:
+        lines.append("## Extension %d (%s)" % (rd["round"], rd["time"]))
+        lines.append("")
+        for c in rd["changes"]:
+            lines.append("- `%s.%s`: added %s at the %s end (grid before: %s); selected at the edge in %s."
+                         % (c["method"], c["param"], ", ".join(map(str, c["added"])), c["side"],
+                            ", ".join(map(str, c["grid_before"])), "; ".join(c["where"])))
+        lines.append("")
+    with open(store.path("AMENDMENTS.md"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines))
 
 
 def _selection_text(study: Study) -> str:
@@ -240,7 +330,12 @@ def plan_test(study: Study, tuned: Optional[Dict[str, Any]]) -> List[Job]:
             else:
                 out.append(dict(name=m.name, spec=m.spec(), method=m.name, budget=None, setting=None))
         return out
-    return _jobs(study, "test", study.test_seeds, rules, events=study.events)
+    return _jobs(study, "test", study.test_seeds, rules, events=job_events(study.events))
+
+
+def job_events(level: str):
+    """Event-log level as stored in a job (``False``, ``True`` or ``"full"``; keeps older job IDs valid)."""
+    return {"off": False, "summary": True, "full": "full"}[level]
 
 
 # ---------------------------------------------------------------------------- tables
@@ -255,7 +350,7 @@ def run_rows(study: Study, records: Sequence[Dict[str, Any]]) -> List[Dict[str, 
             row.update(seed=rec["seed"], rule=r["name"], method=r["method"], budget=r["budget"],
                        setting=setting_key(r["setting"]) if r.get("setting") else None, key=r["key"],
                        family=r["family"], fingerprint=r["fingerprint"], n_events=r["n_events"], reused=r["reused"],
-                       run_key=r["run_key"], events=r.get("events"))
+                       run_key=r["run_key"], events=r.get("events"), trace=r.get("trace"))
             row.update({"param." + k: (v if not isinstance(v, bool) else int(v)) for k, v in r["params"].items()})
             row.update(r["metrics"])
             rows.append(row)
@@ -354,12 +449,35 @@ def run_study(study: Study, out: Optional[str] = None, workers: Optional[int] = 
     status = "failed"
     try:
         if study.has_tuning:
-            j1 = plan_round1(study)
-            _stage(study, store, "tune1", j1, w, say, res)
-            j2 = plan_round2(study, store, j1)
-            _stage(study, store, "tune2", j2, w, say, res)
+            rounds = load_amendments(store)
+            while True:
+                sx = apply_amendments(study, rounds)
+                j1 = plan_round1(sx)
+                _stage(sx, store, "tune1", j1, w, say, res)
+                j2 = plan_round2(sx, store, j1)
+                _stage(sx, store, "tune2", j2, w, say, res)
+                tuned = analyse_tuning(sx, store, j1 + j2)
+                ext = [g for g in tuned["gates"] if g.gate == "grid_edge" and not g.ok and g.policy == "extend"]
+                if not ext:
+                    break
+                changes, problems = plan_extension(sx, ext, study.tuning.extend_steps)
+                if changes and len(rounds) < study.tuning.max_extensions:
+                    rounds.append(dict(round=len(rounds) + 1, time=_now(), changes=changes))
+                    _write_amendments(store, rounds)
+                    for c in changes:
+                        say("  extend %s.%s at the %s end by %s (extension %d of at most %d); tuning again"
+                            % (c["method"], c["param"], c["side"], ", ".join(map(str, c["added"])), len(rounds),
+                               study.tuning.max_extensions))
+                    continue
+                why = ("the grid was extended %d time(s), the cap max_extensions = %d"
+                       % (len(rounds), study.tuning.max_extensions)) if changes else "; ".join(problems)
+                for g in ext:
+                    g.policy = "block"
+                    g.message += " (policy extend; not resolved by extension: %s)" % why
+                write_gate_report(sx, store, tuned["gates"])
+                break
+            study = sx
             all_jobs += j1 + j2
-            tuned = analyse_tuning(study, store, j1 + j2)
             res.gates = tuned["gates"]
             for line in summary_lines(res.gates):
                 say("  gate " + line)
@@ -407,49 +525,6 @@ def _stage(study: Study, store: StudyStore, stage: str, jobs: Sequence[Job], wor
                          % (len(failed), stage, store.path("failed")))
 
 
-def study_status(study: Study, out: Optional[str] = None) -> List[str]:
-    """Lines with the planned, finished and failed jobs of every stage that can be planned now."""
-    store = StudyStore(output_dir(study, out))
-    lines = ["study %s in %s" % (study.name, store.root)]
-    failed = set()
-    if os.path.isdir(store.path("failed")):
-        failed = {os.path.splitext(f)[0] for f in os.listdir(store.path("failed"))}
-
-    def line(stage, jobs):
-        done = sum(store.has_job(j.stage, j.id) for j in jobs)
-        bad = sum(j.id in failed for j in jobs)
-        lines.append("  %-6s %4d jobs: %4d done, %3d failed, %4d to run" % (stage, len(jobs), done, bad,
-                                                                          len(jobs) - done))
-        return done == len(jobs)
-
-    tuned = None
-    if study.has_tuning:
-        j1 = plan_round1(study)
-        if not line("tune1", j1):
-            lines.append("  tune2, test: planned after round 1")
-            return lines
-        j2 = plan_round2(study, store, j1)
-        if not line("tune2", j2):
-            lines.append("  test: planned after tuning")
-            return lines
-        gp = store.path("tuned", "gates.json")
-        if not os.path.exists(gp):
-            lines.append("  gates: not evaluated yet; test: planned after tuning")
-            return lines
-        g = read_json(gp)
-        lines.append("  gates: %s (%d blocking, %d warnings)" % ("pass" if g["ok"] else "BLOCKED",
-                                                                 len(g["blocking"]), len(g["warnings"])))
-        if not g["ok"]:
-            return lines
-        tuned = dict(groups={})
-        for f in os.listdir(store.path("tuned")):
-            if f != "gates.json" and f.endswith(".json"):
-                d = read_json(store.path("tuned", f))
-                tuned["groups"][d["group"]] = d
-    line("test", plan_test(study, tuned))
-    return lines
-
-
 def dry_run(study: Study) -> List[str]:
     """What the study would run, without running anything."""
     lines = ["study %s: %d condition(s), %d tuning seed(s), %d test seed(s)"
@@ -478,5 +553,6 @@ def dry_run(study: Study) -> List[str]:
     return lines
 
 
-__all__ = ["StudyError", "GateError", "StudyResult", "run_study", "study_status", "dry_run", "plan_round1",
-           "plan_round2", "plan_test", "analyse_tuning", "run_rows", "tuning_rows", "output_dir"]
+__all__ = ["StudyError", "GateError", "StudyResult", "run_study", "dry_run", "plan_round1",
+           "plan_round2", "plan_test", "analyse_tuning", "run_rows", "tuning_rows", "output_dir", "load_amendments",
+           "apply_amendments", "plan_extension", "write_gate_report", "job_events"]

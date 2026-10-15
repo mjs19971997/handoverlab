@@ -16,7 +16,7 @@ A study file (YAML, TOML or JSON) describes a whole comparison::
       reference: {rule: a3, name: A3-ref, off_db: 3.0, ttt_s: 0.16}
       budgets: {standard: 1.0, strict: 0.5}   # shares of the reference failure rate
       group_by: [layout.site_spacing_m]  # tune per value of these condition keys (default: all keys)
-      gates: {grid_edge: block}          # warn | block | off per gate
+      gates: {grid_edge: block}          # warn | block | off per gate (grid_edge also: extend)
     methods:
       A3:
         rule: a3
@@ -45,12 +45,13 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ..config import ConfigError, Scenario, read_file
 from ..rules import get_rule_class
-from .tuning import BOUNDS, DEFAULT_POLICY, GATES
+from .tuning import BOUNDS, DEFAULT_POLICY, GATES, POLICIES
 
 _TOP = ("name", "description", "scenario", "conditions", "seeds", "tuning", "methods", "compare", "events",
         "output", "workers")
 _TUNING = ("settings", "random", "reference", "budgets", "tolerance", "group_by", "gates", "binding_share",
-           "min_reference_failures", "flat_share", "objective", "constraint", "tie_breaks")
+           "min_reference_failures", "flat_share", "objective", "constraint", "tie_breaks", "extend_steps",
+           "max_extensions")
 _METHOD = ("rule", "grid", "fixed", "natural_bounds", "settings")
 _COMPARE = ("baseline", "metrics", "level", "bootstrap", "budget")
 
@@ -92,6 +93,8 @@ class Tuning:
     objective: str = "unnecessary_pm"
     constraint: str = "failures_pm"
     tie_breaks: Tuple[str, ...] = ("prepared_cells_mean", "failures_pm")
+    extend_steps: int = 2                           # grid_edge: extend: values added per extension
+    max_extensions: int = 2                         # grid_edge: extend: at most this many extension rounds
 
     @property
     def n_random(self) -> int:
@@ -121,7 +124,7 @@ class Study:
     methods: List[Method]
     tuning: Tuning
     compare: Compare
-    events: bool = False
+    events: str = "off"                             # event-log level of the test stage
     output: Optional[str] = None
     workers: Optional[int] = None
     description: str = ""
@@ -180,7 +183,8 @@ class Study:
                         tolerance=t.tolerance, group_by=self.group_keys(), gates=t.gates,
                         binding_share=t.binding_share, min_reference_failures=t.min_reference_failures,
                         flat_share=t.flat_share, objective=t.objective, constraint=t.constraint,
-                        tie_breaks=list(t.tie_breaks)),
+                        tie_breaks=list(t.tie_breaks), extend_steps=t.extend_steps,
+                        max_extensions=t.max_extensions),
             methods={m.name: dict(rule=m.rule, grid=m.grid, fixed=m.fixed, natural_bounds=m.natural_bounds,
                                   settings=m.settings if m.settings is not None else t.settings)
                      for m in self.methods},
@@ -370,9 +374,16 @@ def study_from_dict(data: Dict[str, Any], base_dir: str = ".") -> Study:
         for k, v in g.items():
             if k not in GATES:
                 raise ConfigError("unknown key 'tuning.gates.%s'; gates: %s" % (k, ", ".join(GATES)))
-            if v not in ("warn", "block", "off"):
-                raise ConfigError("tuning.gates.%s: must be warn, block or off" % k)
+            if v == "extend" and k != "grid_edge":
+                raise ConfigError("tuning.gates.%s: 'extend' is a policy of grid_edge only" % k)
+            if v not in POLICIES:
+                raise ConfigError("tuning.gates.%s: must be warn, block or off%s"
+                                  % (k, " (or extend)" if k == "grid_edge" else ""))
             t.gates[k] = v
+    if "extend_steps" in td:
+        t.extend_steps = _int(td["extend_steps"], "tuning.extend_steps", 1)
+    if "max_extensions" in td:
+        t.max_extensions = _int(td["max_extensions"], "tuning.max_extensions", 0)
     if "binding_share" in td:
         t.binding_share = _number(td["binding_share"], "tuning.binding_share", 0.0, 1.0)
     if "min_reference_failures" in td:
@@ -412,7 +423,12 @@ def study_from_dict(data: Dict[str, Any], base_dir: str = ".") -> Study:
         if cd["budget"] not in t.budgets:
             raise ConfigError("compare.budget: not one of the tuning budgets (%s)" % ", ".join(t.budgets))
         c.budget = str(cd["budget"])
-    st = Study(name, sc, conditions, tun_seeds, test, methods, t, c, bool(data.get("events", False)),
+    from ..eventlog import event_level
+    try:
+        events = event_level(data.get("events", False))
+    except ValueError as e:
+        raise ConfigError("events: %s" % e)
+    st = Study(name, sc, conditions, tun_seeds, test, methods, t, c, events,
                data.get("output"), None, str(data.get("description") or ""), dict(data))
     if data.get("workers") is not None:
         st.workers = _int(data["workers"], "workers", 1)

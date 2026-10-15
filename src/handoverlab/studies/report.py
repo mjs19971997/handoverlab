@@ -412,6 +412,17 @@ def build_report(root: str, figures: bool = True) -> Tuple[Doc, Dict[str, Any]]:
             doc.p("Every gate passed (%s). The full gate report is in `tuned/gates.json`."
                   % ", ".join("%s %d" % kv for kv in passed.items()))
         summary["gates"] = g
+        ap = data["store"].path("amendments.json")
+        if os.path.exists(ap):
+            rounds = read_json(ap).get("rounds", [])
+            doc.h(3, "Grid extensions")
+            doc.p("The gate policy `grid_edge: extend` made %d grid extension(s) in %d round(s); after each round every "
+                  "method was tuned again with the same budget (also in `AMENDMENTS.md`)."
+                  % (sum(len(r["changes"]) for r in rounds), len(rounds)))
+            doc.table(["round", "date", "method", "parameter", "end", "added", "grid before"],
+                      [[r["round"], r["time"], c["method"], c["param"], c["side"], ", ".join(map(str, c["added"])),
+                        ", ".join(map(str, c["grid_before"]))] for r in rounds for c in r["changes"]])
+            summary["amendments"] = rounds
         summary["tuning"] = {}
         for gname, gd in tuned["groups"].items():
             doc.h(3, "Group %s" % gname)

@@ -37,7 +37,13 @@ Gates (checked after tuning, before any test run)
 
 Each gate has a policy: ``block`` (the study stops before the test stage
 with a message that names the cause), ``warn`` (reported in the gate report
-and in every table) or ``off``.
+and in every table) or ``off``.  ``grid_edge`` also accepts ``extend``: the
+grid of the parameter is widened at the offending end by ``extend_steps``
+values with the spacing of the last two values (:func:`extension_values`),
+the methods are tuned again with the same budget, and this repeats up to
+``max_extensions`` times; each extension is recorded as a dated amendment.
+If the cap is reached, or the grid cannot be widened (for example below
+zero), the gate blocks.
 """
 from __future__ import annotations
 
@@ -50,6 +56,7 @@ GATES = ("grid_edge", "budget_binding", "budget_met", "equal_budget", "seed_over
 DEFAULT_POLICY = {"grid_edge": "block", "budget_binding": "warn", "budget_met": "warn", "equal_budget": "block",
                   "seed_overlap": "block", "flat_optimum": "warn"}
 BOUNDS = ("lower", "upper", "both")
+POLICIES = ("warn", "block", "off", "extend")       # "extend" only for grid_edge
 
 
 def setting_key(cfg: Dict[str, Any]) -> str:
@@ -157,20 +164,24 @@ class GateResult:
     group: str = ""
     method: str = ""
     budget: str = ""
+    edges: List[List[str]] = field(default_factory=list)     # grid_edge: [parameter, "lower" | "upper"]
 
     @property
     def blocking(self) -> bool:
-        return (not self.ok) and self.policy == "block"
+        return (not self.ok) and self.policy in ("block", "extend")
 
     @property
     def status(self) -> str:
         if self.ok:
             return "pass"
-        return "BLOCK" if self.policy == "block" else "warn"
+        return {"block": "BLOCK", "extend": "EXTEND"}.get(self.policy, "warn")
 
     def as_dict(self) -> Dict[str, Any]:
-        return dict(gate=self.gate, status=self.status, policy=self.policy, group=self.group, method=self.method,
-                    budget=self.budget, message=self.message)
+        d = dict(gate=self.gate, status=self.status, policy=self.policy, group=self.group, method=self.method,
+                 budget=self.budget, message=self.message)
+        if self.edges:
+            d["edges"] = [list(e) for e in self.edges]
+        return d
 
 
 @dataclass
@@ -204,9 +215,9 @@ def evaluate_gates(group: str, methods: Sequence[MethodTuning], budgets: Dict[st
     """
     out: List[GateResult] = []
 
-    def add(gate, ok, msg, method="", budget=""):
+    def add(gate, ok, msg, method="", budget="", edges=None):
         if policy.get(gate, "warn") != "off":
-            out.append(GateResult(gate, ok, policy.get(gate, "warn"), msg, group, method, budget))
+            out.append(GateResult(gate, ok, policy.get(gate, "warn"), msg, group, method, budget, list(edges or [])))
 
     # equal budget
     declared = {m.name: m.budget_n for m in methods}
@@ -250,7 +261,7 @@ def evaluate_gates(group: str, methods: Sequence[MethodTuning], budgets: Dict[st
                 else "no setting meets the budget %.4g; the lowest failure rate (%.4g) is used"
                 % (bval, c[constraint]), m.name, bname)
             # grid edge
-            edges = []
+            edges, where = [], []
             for p, vals in m.grid.items():
                 if len(vals) < 2 or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals):
                     continue
@@ -258,16 +269,44 @@ def evaluate_gates(group: str, methods: Sequence[MethodTuning], budgets: Dict[st
                 v = setting[p]
                 if v == min(vals) and nb not in ("lower", "both"):
                     edges.append("%s = %s is the smallest grid value" % (p, _fmt(v)))
+                    where.append([p, "lower"])
                 if v == max(vals) and nb not in ("upper", "both"):
                     edges.append("%s = %s is the largest grid value" % (p, _fmt(v)))
+                    where.append([p, "upper"])
             add("grid_edge", not edges, "; ".join(edges) if edges else "selected setting inside the grid",
-                m.name, bname)
+                m.name, bname, where)
             # flat optimum
             if sel.met_budget and sel.n_meeting:
                 share = sel.n_near / sel.n_meeting
                 add("flat_optimum", share <= flat_share,
                     "%d of %d settings within the budget lie within %.0f %% of the lowest %s" % (
                         sel.n_near, sel.n_meeting, 100 * tolerance, objective), m.name, bname)
+    return out
+
+
+def extension_values(values: Sequence[Any], side: str, steps: int) -> List[Any]:
+    """``steps`` new grid values beyond the ``side`` end ("lower" or "upper") with the spacing of the last two.
+
+    Integer grids stay integer; float values are rounded to 10 decimals.  A
+    grid whose values are all non-negative is not extended below zero.
+    """
+    vals = sorted(values)
+    if len(vals) < 2 or steps < 1:
+        return []
+    ints = all(isinstance(v, int) and not isinstance(v, bool) for v in vals)
+    if side == "upper":
+        step, start = vals[-1] - vals[-2], vals[-1]
+    elif side == "lower":
+        step, start = vals[0] - vals[1], vals[0]
+    else:
+        raise ValueError("side must be 'lower' or 'upper', got %r" % side)
+    out = []
+    for i in range(1, steps + 1):
+        v = start + step * i
+        v = int(v) if ints else round(float(v), 10)
+        if side == "lower" and vals[0] >= 0 and v < 0:
+            break
+        out.append(v)
     return out
 
 
@@ -292,6 +331,6 @@ def summary_lines(gates: Sequence[GateResult]) -> List[str]:
     return lines
 
 
-__all__ = ["GATES", "DEFAULT_POLICY", "BOUNDS", "setting_key", "grid_size", "first_round", "refine", "Selection",
+__all__ = ["GATES", "DEFAULT_POLICY", "BOUNDS", "POLICIES", "extension_values", "setting_key", "grid_size", "first_round", "refine", "Selection",
            "select", "GateResult", "MethodTuning", "seed_overlap_gate", "evaluate_gates", "describe_setting",
            "summary_lines"]

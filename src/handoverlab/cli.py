@@ -2,11 +2,12 @@
 """Command line: ``handoverlab run config.yaml``.
 
 Commands
-    run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--debug]
+    run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--event-level LEVEL] [--debug]
         Run the experiment in CONFIG (YAML, TOML or JSON) and write one row per
         seed and rule to OUT (.csv or .json; default: the ``output`` key of
         the configuration, else ``results/<config name>.csv``).  ``--events``
-        writes the event logs as a table (.parquet with pyarrow, else .csv).
+        writes the event logs as a table (.parquet with pyarrow, else .csv);
+        with ``--event-level full`` also the procedure trace (FILE-trace).
     verify [--only GROUP ...] [--full] [--ns3] [--results FILE --sample N] [--json OUT]
         Run the verification checks and print a pass/fail report.
     scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
@@ -15,6 +16,10 @@ Commands
         Run or resume a study: tuning with gates, test stage, result tables.
     report DIR [-o OUT] [--format md html] [--no-figures]
         Write the Markdown/HTML report of a study directory.
+    status STUDY|DIR [-o DIR] [--workers N]
+        Finished, failed and remaining jobs per stage and the time still needed.
+    gui [--port N] [--address A] [--headless]
+        Start the browser dashboard (needs ``pip install handoverlab[gui]``).
     rules
         List the available handover rules.
     init [PATH]
@@ -71,18 +76,21 @@ def _cmd_run(args) -> int:
         "results", os.path.splitext(os.path.basename(args.config))[0] + ".csv")
     log = (lambda msg: print(msg, file=sys.stderr)) if not args.quiet else None
     try:
-        results = run_experiment(exp, log_events=bool(args.events), progress=log, debug=args.debug or None)
+        level = args.event_level if args.events else "off"
+        results = run_experiment(exp, log_events=level, progress=log, debug=args.debug or None)
     except (KeyError, ValueError) as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
     write_results(results, out, exp.scenario.to_dict())
-    ev_path = None
+    ev_path = tr_path = None
     if args.events:
         import warnings
-        from .eventlog import write_events
+        from .eventlog import trace_path, write_events, write_trace
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             ev_path = write_events(results, args.events)
+            if level == "full":
+                tr_path = write_trace(results, trace_path(args.events))
         for w in caught:
             print("note: %s" % w.message, file=sys.stderr)
     if not args.quiet:
@@ -90,8 +98,9 @@ def _cmd_run(args) -> int:
         for r in results:
             print("%-12s %5d " % (r.rule[:12], r.seed) + " ".join("%12.4f" % r.metrics[k] for k in SUMMARY))
         print("wrote %s" % out)
-        if ev_path:
-            print("wrote %s" % ev_path)
+        for p in (ev_path, tr_path):
+            if p:
+                print("wrote %s" % p)
     return 0
 
 
@@ -125,7 +134,7 @@ def _cmd_study(args) -> int:
         print("\n".join(dry_run(study)))
         return 0
     if args.status:
-        print("\n".join(study_status(study, args.output)))
+        print("\n".join(study_status(study, args.output, args.workers)))
         return 0
     if args.workers is not None and args.workers < 1:
         print("error: --workers must be at least 1", file=sys.stderr)
@@ -149,6 +158,22 @@ def _cmd_study(args) -> int:
     if not args.quiet:
         print("study %s: %s" % (study.name, "complete" if res.completed else "stopped after tuning"))
     return 0
+
+
+def _cmd_status(args) -> int:
+    from .studies import study_status
+    try:
+        lines = study_status(args.target, args.output, args.workers)
+    except (ConfigError, OSError, ValueError, KeyError) as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    print("\n".join(lines))
+    return 0
+
+
+def _cmd_gui(args) -> int:
+    from .gui import launch
+    return launch(port=args.port, headless=args.headless, address=args.address)
 
 
 def _study_root(study, out):
@@ -235,6 +260,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--seeds", type=int, nargs="+", help="override the seeds of the configuration")
     r.add_argument("--events", metavar="FILE",
                    help="also write the event logs to FILE (.parquet if pyarrow is installed, else .csv)")
+    r.add_argument("--event-level", choices=("summary", "full"), default="summary",
+                   help="with --events: 'summary' (one row per attempt and failure, default) or 'full' "
+                        "(also the procedure trace, written next to FILE as FILE-trace)")
     r.add_argument("--debug", action="store_true", help="check the engine invariants while running (slower)")
     r.add_argument("-q", "--quiet", action="store_true", help="print nothing but errors")
     r.set_defaults(func=_cmd_run)
@@ -273,6 +301,16 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--format", nargs="+", choices=("md", "html"), default=["md", "html"])
     rp.add_argument("--no-figures", action="store_true", help="tables only")
     rp.set_defaults(func=_cmd_report)
+    ss = sub.add_parser("status", help="finished, failed and remaining jobs of a study and the time still needed")
+    ss.add_argument("target", help="study file or study directory")
+    ss.add_argument("-o", "--output", metavar="DIR", help="study directory (for a study file; default: its 'output')")
+    ss.add_argument("--workers", type=int, help="workers assumed for the estimate (default: those of the last session)")
+    ss.set_defaults(func=_cmd_status)
+    g = sub.add_parser("gui", help="start the browser dashboard (pip install handoverlab[gui])")
+    g.add_argument("--port", type=int, default=8501, help="port of the local server (default 8501)")
+    g.add_argument("--address", default="localhost", help="address to listen on (default localhost)")
+    g.add_argument("--headless", action="store_true", help="do not open a browser window")
+    g.set_defaults(func=_cmd_gui)
     ru = sub.add_parser("rules", help="list the available handover rules")
     ru.set_defaults(func=_cmd_rules)
     i = sub.add_parser("init", help="write an example configuration")
