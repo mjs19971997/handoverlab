@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Unio
 
 from .channel.source import RadioSource
 from .config import Experiment, Scenario
+from .engine.batch import EngineBatch
 from .engine.core import Engine
 from .rules import Rule, make_rule, rule_key
 from .world import World, build_world
@@ -68,15 +69,20 @@ def _key(spec: RuleSpec, obj: Rule) -> Optional[str]:
 
 
 def run_world(world: World, rules: Sequence[RuleSpec], log_events: bool = False,
-              chunk_steps: int = 1000, debug: Optional[bool] = None) -> List[RunResult]:
+              chunk_steps: int = 1000, debug: Optional[bool] = None, batch: bool = True) -> List[RunResult]:
     """Run every rule of ``rules`` on ``world`` with identical radio samples.
 
     ``debug`` turns on the invariant checks of the engine (see
     :mod:`handoverlab.engine.invariants`); results are the same either way.
+    With ``batch`` (the default) the engines of all rules share one step loop
+    (:class:`~handoverlab.engine.batch.EngineBatch`); results are
+    bit-identical to running them one by one (``batch=False``), only faster.
+    Engines in debug mode always run one by one.
     """
     t0 = time.perf_counter()
     objs = [_instantiate(s) for s in rules]
     engines = [Engine(world, r, log_events, debug) for r in objs]
+    runners = [EngineBatch(engines)] if batch and EngineBatch.supported(engines) else engines
     t_radio = 0.0
     it = RadioSource(world, chunk_steps).chunks()
     while True:
@@ -85,7 +91,7 @@ def run_world(world: World, rules: Sequence[RuleSpec], log_events: bool = False,
         t_radio += time.perf_counter() - ta
         if ch is None:
             break
-        for e in engines:
+        for e in runners:
             e.advance(ch)
     out = []
     for spec, r, e in zip(rules, objs, engines):

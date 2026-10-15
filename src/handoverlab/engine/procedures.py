@@ -91,10 +91,11 @@ class BaselineProcedure(Procedure):
         self.te = np.full((U, M), INF)              # time since which A3 holds
         self.pend = np.zeros(U, dtype=bool)         # handover command on its way
         self.pend_t = np.zeros(U)
+        self.n_pend = 0                             # number of commands on their way
 
     def step(self, t):
         eng = self.eng
-        if not np.count_nonzero(self.pend):
+        if not self.n_pend:
             return
         for u in np.nonzero(self.pend & (t >= self.pend_t - EPS))[0]:
             if eng.run[u]:
@@ -119,17 +120,20 @@ class BaselineProcedure(Procedure):
             t_rep = max(obs.t, te[u, tgt] + (ttt[u] if per_user_ttt else ttt))
             eng.new_flight(u, tgt, t_rep, -1, 0, o[tgt] if isinstance(o, np.ndarray) else o)
             self.pend[u] = True
+            self.n_pend += 1
             self.pend_t[u] = t_rep + eng.P.prep_s
             eng.C["reports"] += int(counted)
 
     def cancel_command(self, u):
-        self.pend[u] = False
+        if self.pend[u]:
+            self.pend[u] = False
+            self.n_pend -= 1
 
     def on_attach(self, u):
         self.te[u] = INF
 
     def on_failure(self, u):
-        self.pend[u] = False
+        self.cancel_command(u)
         self.te[u] = INF
 
 

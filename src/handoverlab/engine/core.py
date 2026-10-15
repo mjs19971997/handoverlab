@@ -106,7 +106,8 @@ class Engine:
         self.state = np.zeros(U, dtype=np.int8)
         self.t_done = np.zeros(U)
         self.re_cell = np.zeros(U, dtype=int)
-        self.serv = None
+        self.serv = np.zeros(U, dtype=np.intp)
+        self.started = False
         self.prev = np.full(U, -1)
         self.last_ho = np.full(U, -1e9)
         # radio-link monitoring
@@ -320,7 +321,8 @@ class Engine:
     # ------------------------------------------------------------------ main loop
     def _init(self, ch):
         self.l3.reset(ch.l1[0])
-        self.serv = np.argmax(self.meas, axis=1)
+        self.serv[:] = np.argmax(self.meas, axis=1)
+        self.started = True
         ln = ch.lin[0]
         ls = ln[self.ar, self.serv]
         s = ls / (ln @ self.rc - self.rc[self.serv] * ls + self.noise)
@@ -330,7 +332,7 @@ class Engine:
     def advance(self, ch) -> None:
         """Simulate the steps of one radio chunk."""
         w0 = time.perf_counter()
-        if self.serv is None:
+        if not self.started:
             self._init(ch)
         P, dt, ar = self.P, self.dt, self.ar
         state, run = self.state, self.run
@@ -362,8 +364,8 @@ class Engine:
             if simple:
                 start = (qo < qout) & con & ~run
             else:
-                self.n_o = (self.n_o + 1) * (qo < qout)
-                self.n_i = (self.n_i + 1) * (qi > qin)
+                self.n_o[:] = (self.n_o + 1) * (qo < qout)
+                self.n_i[:] = (self.n_i + 1) * (qi > qin)
                 start = con & ~run & (self.n_o >= P.n310)
             if cnz(start):
                 run |= start
@@ -412,7 +414,13 @@ class Engine:
             self._finalize(u, t, "win")
 
     def _measure(self, ch, j, k, t, ln, tot):
-        ar, acc, state = self.ar, self.acc, self.state
+        counted = self._measure_rule(ch, j, k, t, ln)
+        self._load(ln, tot, counted)
+        self.nmeas += 1
+
+    def _measure_rule(self, ch, j, k, t, ln) -> bool:
+        """Measurement instant, first part: L3 filter, outcome labels and the handover procedure."""
+        ar, state = self.ar, self.state
         meas = self.l3.update(ch.l1[j])
         counted = t >= self.t0c
         if self.nmeas % self.lab_every == 0:
@@ -428,7 +436,11 @@ class Engine:
         else:
             obs = Observation(t, k, meas, gap, serv, con, self.X[k], self.Y[k], self.V, self.TH[k])
         self.proc.measure(obs, counted)
-        # --- load, scheduling, delivered rate
+        return counted
+
+    def _load(self, ln, tot, counted) -> None:
+        """Measurement instant, second part: load, scheduling and delivered rate (see also EngineBatch)."""
+        ar, acc, state = self.ar, self.acc, self.state
         serv = self.serv
         con = state == CONNECTED
         ls = ln[ar, serv]
@@ -445,7 +457,7 @@ class Engine:
         thr = np.where(ok, self.rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
         rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
         self.rho += self.a_rho * (rho_new - self.rho)
-        self.rc = self.chi * self.rho
+        np.multiply(self.chi, self.rho, out=self.rc)
         if counted:
             acc["steps"] += self.mp
             acc["out_steps"] += self.mp * int(np.count_nonzero(con & (sinr < self.qout)))
@@ -453,7 +465,6 @@ class Engine:
             acc["sinr"] += float(10.0 * np.log10(sinr[con]).sum()); acc["se"] += float(se[con].sum())
             acc["ncon"] += int(con.sum()); acc["load"] += float(rho_new.mean()); acc["nmeas"] += 1
             acc["prep_time"] += self.proc.prepared_total() * self.mdt
-        self.nmeas += 1
 
     # ------------------------------------------------------------------ results
     def finish(self) -> Dict[str, float]:

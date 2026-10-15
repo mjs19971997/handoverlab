@@ -69,6 +69,9 @@ def invariant_checks(rep, seed: int = 11, duration_s: float = 30.0) -> None:
     again = run_world(world, BUILTIN_RULES)
     rep.check("same world twice: identical event logs and metrics (debug mode on and off)",
               all(a.fingerprint == b.fingerprint and a.metrics == b.metrics for a, b in zip(res, again)))
+    single = run_world(world, BUILTIN_RULES, batch=False)
+    rep.check("engines batched in one step loop = engines run one by one (event logs and metrics)",
+              all(a.fingerprint == b.fingerprint and a.metrics == b.metrics for a, b in zip(again, single)))
     rev = run_world(world, list(reversed(BUILTIN_RULES)))
     rep.check("rules are independent: the order of the rules in a run changes nothing",
               all(a.fingerprint == b.fingerprint for a, b in zip(res, reversed(rev))))
