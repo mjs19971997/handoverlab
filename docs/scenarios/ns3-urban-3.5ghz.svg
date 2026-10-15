@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+<rect x="0" y="0" width="640" height="376" fill="#f4f4f0" stroke="#999"/>
+<rect x="14.4" y="195.0" width="298.3" height="166.1" fill="#b9b9b0"/>
+<rect x="14.4" y="14.4" width="298.3" height="166.1" fill="#b9b9b0"/>
+<rect x="327.2" y="195.0" width="298.3" height="166.1" fill="#b9b9b0"/>
+<rect x="327.2" y="14.4" width="298.3" height="166.1" fill="#b9b9b0"/>
+<circle cx="320.0" cy="187.8" r="3" fill="#c0392b"/>
+<circle cx="608.9" cy="187.8" r="3" fill="#c0392b"/>
+<circle cx="31.1" cy="187.8" r="3" fill="#c0392b"/>
+<circle cx="464.5" cy="7.2" r="3" fill="#c0392b"/>
+<circle cx="175.5" cy="7.2" r="3" fill="#c0392b"/>
+<circle cx="464.5" cy="368.4" r="3" fill="#c0392b"/>
+<circle cx="175.5" cy="368.4" r="3" fill="#c0392b"/>
+<text x="4" y="393" font-family="sans-serif" font-size="12" fill="#333">ns3-urban-3.5ghz: 7 sites, 886 m x 520 m (grey: buildings, red: sites)</text>
+</svg>

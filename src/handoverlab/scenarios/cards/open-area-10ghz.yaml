@@ -1,0 +1,28 @@
+# Scenario card (machine-readable).  docs/scenarios/open-area-10ghz.md is generated from this file.
+name: open-area-10ghz
+title: Open area with hexagonal sites, nothing tied to place
+since: 0.2.0
+purpose: >
+  The counterpart of `urban-grid-10ghz` without buildings: the same rectangle, sites on a hexagonal
+  grid with 100 m spacing, the LOS state of TR 38.901 drawn as a process along each user's own path
+  and all shadowing moving with the user (`place_share = 0`).  Nothing repeats by place, so a rule
+  that learns from places should gain nothing here.  Users move between random waypoints.
+layout_note: >
+  The 1319 m x 770 m rectangle of the 3 x 3 grid without buildings; hexagonal site grid.
+scenario:
+  name: open-area-10ghz
+  layout: {kind: open_area, blocks: [3, 3], site_spacing_m: 100.0}
+  radio: {place_share: 0.0}
+  mobility: {users: 40, profile: veh16}
+  run: {duration_s: 120.0, warmup_s: 20.0}
+sources:
+  layout.kind: "assumption (open area, hexagonal sites)"
+  layout.site_spacing_m: "assumption (hexagonal spacing)"
+  radio.place_share: "assumption (no place-tied shadowing)"
+  mobility.profile: "random waypoints at vehicular speed (assumption)"
+limitations:
+  - "The LOS state follows the TR 38.901 LOS probability with the UMi street-canyon formula although there are no streets; it stands for scattered obstacles."
+  - "Random-waypoint users cross the area in straight lines; their density is higher in the middle."
+  - "Same received-power-level abstraction and uncalibrated failure model as the street grid."
+references:
+  - "Determinism and invariant checks; the open-area golden fingerprint of `handoverlab verify` uses the 2 x 2 rectangle."

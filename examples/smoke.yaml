@@ -1,0 +1,11 @@
+# A quick run on the built-in 'smoke' scenario (see docs/scenarios/smoke.md), with the event logs
+# written as a table and the engine invariants checked:
+#   handoverlab run examples/smoke.yaml --events results/smoke_events.csv --debug
+scenario:
+  base: smoke                  # 2 x 2-block grid, 150 m sites, 20 users, 30 s
+  mobility: {users: 10}        # values given here change the built-in scenario
+seeds: [1, 2]
+rules:
+  - {rule: a3, name: A3, off_db: 3.0, ttt_s: 0.16}
+  - {rule: cho, name: CHO, o_prep_db: -2.0, o_exec_db: 3.0, ttt_exec_s: 0.08, n_max: 4}
+output: results/smoke.json

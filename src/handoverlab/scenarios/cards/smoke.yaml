@@ -1,0 +1,31 @@
+# Scenario card (machine-readable).  docs/scenarios/smoke.md is generated from this file.
+name: smoke
+title: Small street grid that runs in seconds
+since: 0.2.0
+purpose: >
+  A quick, complete run of every part of the simulator: a 2 x 2-block street grid with buildings,
+  the spatially consistent LOS state, place-tied shadowing, 20 vehicular users and 30 s of simulated
+  time.  It is the scenario of the golden event-log fingerprints, of the rule contract checks
+  (`handoverlab.testing.check_rule`) and of first experiments.  It is too small and too short for
+  statistical conclusions.
+layout_note: >
+  Two by two blocks of the TR 37.885 urban grid (smaller than the minimum 3 x 3 area of
+  TR 37.885 Table A-1), sites every 150 m along the streets.
+scenario:
+  name: smoke
+  layout: {kind: street_grid, blocks: [2, 2], site_spacing_m: 150.0}
+  radio: {map_res_m: 2.0}
+  mobility: {users: 20, profile: veh16}
+  run: {duration_s: 30.0, warmup_s: 5.0}
+sources:
+  layout.blocks: "assumption (smaller than TR 37.885 Table A-1, for speed)"
+  layout.site_spacing_m: "assumption"
+  radio.map_res_m: "numerical setting (coarser map for speed)"
+  run.duration_s: "numerical setting (short run)"
+limitations:
+  - "Below the minimum area of TR 37.885 Table A-1; users near the edge see fewer neighbours."
+  - "About 10 UE-minutes per seed: rates have a large sampling error; use it for checks, not for results."
+  - "The coarser 2 m radio map smooths the LOS edges a little compared with the 1 m default."
+references:
+  - "Golden event-log fingerprints of the built-in rules (`handoverlab verify`, check group `fingerprints`)."
+  - "Invariant checks in debug mode and the equivalence 'CHO with immediate execution = A3' (`handoverlab verify`)."

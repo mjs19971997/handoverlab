@@ -1,0 +1,27 @@
+# Scenario card (machine-readable).  docs/scenarios/urban-grid-10ghz.md is generated from this file.
+name: urban-grid-10ghz
+title: Dense small cells in the TR 37.885 urban grid at 10 GHz
+since: 0.2.0
+purpose: >
+  The main scenario of HandoverLab and its default values: the minimum 3 x 3-block area of the
+  TR 37.885 urban grid with small cells every 100 m along the streets, a 10 GHz carrier with the
+  TR 38.901 UMi street-canyon model, line of sight from the building geometry plus the spatially
+  consistent LOS state, and shadowing tied to place, so that every user passing a spot sees the same
+  blockage.  40 vehicular users at about 60 km/h, 120 s with 20 s warm-up.  Use it to compare
+  handover rules where blockage repeats by place.
+layout_note: >
+  Three by three blocks (433 m x 250 m between street centre lines, 20 m streets), 76 sites.
+scenario:
+  name: urban-grid-10ghz
+  layout: {kind: street_grid, blocks: [3, 3], site_spacing_m: 100.0}
+  radio: {carrier_ghz: 10.0, pathloss: umi_street_canyon}
+  mobility: {users: 40, profile: veh16}
+  run: {duration_s: 120.0, warmup_s: 20.0}
+limitations:
+  - "Received-power level only: no fast fading, no link-level physical layer, one beam gain and one isolation factor."
+  - "TR 38.901 UMi parameters are used at 10 GHz; the model's validity in the 7-24 GHz range was re-examined in Rel-19."
+  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+  - "The radio map of 76 sites and 0.2 million street pixels takes some time to build (about 17 s on a modest machine, once per seed)."
+references:
+  - "Radio statistics of `handoverlab verify` (path loss, LOS share, shadowing standard deviation and correlation) on a grid with the same radio settings."
+  - "Regression against the bh6 prototype on the 2 x 2-block version of this grid (tests/test_regression_bh6*.py)."
