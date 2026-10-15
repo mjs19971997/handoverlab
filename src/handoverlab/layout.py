@@ -142,7 +142,10 @@ def los_matrix(px, py, sites: np.ndarray, buildings: np.ndarray) -> np.ndarray:
     if len(buildings) == 0 or P == 0:
         return res
     tiny = 1e-9
-    rects = np.asarray(buildings, dtype=float).tolist()
+    rects = np.asarray(buildings, dtype=float)
+    # side tests of every point against every rectangle, computed once for all sites
+    side = [(px < x0, px > x1, py < y0, py > y1) for x0, y0, x1, y1 in rects.tolist()]
+    skip = np.empty(P, dtype=bool)
     for m in range(M):
         sx, sy = float(sites[m, 0]), float(sites[m, 1])
         dx = px - sx
@@ -150,16 +153,22 @@ def los_matrix(px, py, sites: np.ndarray, buildings: np.ndarray) -> np.ndarray:
         dx = np.where(np.abs(dx) < tiny, tiny, dx)
         dy = np.where(np.abs(dy) < tiny, tiny, dy)
         blocked = np.zeros(P, dtype=bool)
-        for x0, y0, x1, y1 in rects:
-            skip = blocked.copy()
+        # nearest rectangles first: they block most points, which later rectangles then skip.  The
+        # result does not depend on the order (a point is blocked if any rectangle blocks it).
+        gap = np.hypot(np.maximum(np.maximum(rects[:, 0] - sx, sx - rects[:, 2]), 0.0),
+                       np.maximum(np.maximum(rects[:, 1] - sy, sy - rects[:, 3]), 0.0))
+        for r in np.argsort(gap, kind="stable"):
+            x0, y0, x1, y1 = rects[r].tolist()
+            lt_x0, gt_x1, lt_y0, gt_y1 = side[r]
+            np.copyto(skip, blocked)
             if sx < x0:
-                skip |= px < x0
+                skip |= lt_x0
             if sx > x1:
-                skip |= px > x1
+                skip |= gt_x1
             if sy < y0:
-                skip |= py < y0
+                skip |= lt_y0
             if sy > y1:
-                skip |= py > y1
+                skip |= gt_y1
             i = np.flatnonzero(~skip)
             if not i.size:
                 continue

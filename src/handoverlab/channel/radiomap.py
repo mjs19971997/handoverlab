@@ -53,19 +53,51 @@ class GaussianField:
             return g / g.std()
 
         common = one() if site_corr > 0 else 0.0
-        self.f = np.empty((self.ny, self.nx, n_sites), dtype=np.float32)
+        f = np.empty((n_sites, self.ny, self.nx), dtype=np.float32)     # one contiguous plane per site
         for m in range(n_sites):
-            self.f[:, :, m] = ca * common + cb * one()
+            f[m] = ca * common + cb * one()
+        self.f = np.ascontiguousarray(f.transpose(1, 2, 0))              # (ny, nx, M) for fast lookups
+        self._flat = self.f.reshape(-1, n_sites)
 
-    def at(self, x, y) -> np.ndarray:
-        """Bilinear interpolation at points (P,) -> (P, M)."""
+    def _weights(self, x, y):
         gx = np.clip((x - self.x0) / self.res, 0.0, self.nx - 1.001)
         gy = np.clip((y - self.y0) / self.res, 0.0, self.ny - 1.001)
         ix, iy = gx.astype(int), gy.astype(int)
-        tx, ty = (gx - ix).astype(np.float32)[:, None], (gy - iy).astype(np.float32)[:, None]
-        f = self.f
-        return (f[iy, ix] * (1 - tx) * (1 - ty) + f[iy, ix + 1] * tx * (1 - ty)
-                + f[iy + 1, ix] * (1 - tx) * ty + f[iy + 1, ix + 1] * tx * ty)
+        return iy * self.nx + ix, (gx - ix).astype(np.float32), (gy - iy).astype(np.float32)
+
+    def at(self, x, y) -> np.ndarray:
+        """Bilinear interpolation at points (P,) -> (P, M).
+
+        Evaluated as ``f00 (1-tx)(1-ty) + f10 tx (1-ty) + f01 (1-tx) ty + f11 tx ty``
+        from left to right, with the products in that order.
+        """
+        k, tx, ty = self._weights(x, y)
+        tx, ty = tx[:, None], ty[:, None]
+        ux, uy = 1 - tx, 1 - ty
+        f, nx = self._flat, self.nx
+        v = np.take(f, k, axis=0)
+        v *= ux
+        v *= uy
+        for kk, a, b in ((k + 1, tx, uy), (k + nx, ux, ty), (k + nx + 1, tx, ty)):
+            w = np.take(f, kk, axis=0)
+            w *= a
+            w *= b
+            v += w
+        return v
+
+    def at_pairs(self, x, y, p, m) -> np.ndarray:
+        """Same values as ``at(x, y)[p, m]`` for the point/site pairs ``(p, m)`` only."""
+        k, tx, ty = self._weights(x, y)
+        k, tx, ty = k[p], tx[p], ty[p]
+        ux, uy = 1 - tx, 1 - ty
+        f, nx = self._flat, self.nx
+        v = f[k, m] * ux
+        v *= uy
+        for kk, a, b in ((k + 1, tx, uy), (k + nx, ux, ty), (k + nx + 1, tx, ty)):
+            w = f[kk, m] * a
+            w *= b
+            v += w
+        return v
 
 
 class RadioMap:
@@ -107,22 +139,31 @@ class RadioMap:
             shadow *= np.float32(np.sqrt(radio.place_share))
         self.los = None
         self.los_share = float("nan")
+        self.gain = np.empty((P + 1, M), dtype=np.float32)            # last row: off-street dummy
+        gain = self.gain[:P]
         if self.is_grid:
             los = los_matrix(px, py, layout.sites, layout.buildings)
             d2 = np.hypot(px[:, None] - layout.sites[None, :, 0], py[:, None] - layout.sites[None, :, 1])
             if radio.clutter_los:
-                lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0).at(px, py)
-                los &= lat < ndtri(np.clip(p_los(d2, radio.pathloss), 1e-9, 1.0 - 1e-9))
-            pl = path_loss(d2, los, radio.pathloss, radio.carrier_ghz, radio.bs_height_m, radio.ue_height_m)
-            gain = -pl.astype(np.float32)
+                # spatially consistent LOS state; only links that the buildings leave clear need it
+                ip, im = np.nonzero(los)
+                lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0).at_pairs(px, py, ip, im)
+                dd = d2[ip, im]
+                los[ip, im] = lat < ndtri(np.clip(p_los(dd, radio.pathloss), 1e-9, 1.0 - 1e-9))
+            gain[...] = path_loss(d2, los, radio.pathloss, radio.carrier_ghz, radio.bs_height_m,
+                                  radio.ue_height_m)
+            np.negative(gain, out=gain)
             if shadow is not None:
-                gain += shadow * np.where(los, np.float32(radio.shadow_los_db), np.float32(radio.shadow_nlos_db))
-            self.los = np.vstack([los, np.zeros((1, M), dtype=bool)])
+                shadow *= np.where(los, np.float32(radio.shadow_los_db), np.float32(radio.shadow_nlos_db))
+                gain += shadow
+            self.los = np.zeros((P + 1, M), dtype=bool)
+            self.los[:P] = los
             self.los_share = float(los.mean())
+        elif shadow is not None:
+            gain[...] = shadow
         else:
-            gain = shadow if shadow is not None else np.zeros((P, M), dtype=np.float32)
-        fill = FLOOR_DB if self.is_grid else 0.0
-        self.gain = np.vstack([gain, np.full((1, M), fill, dtype=np.float32)]).astype(np.float32)  # (P + 1, M)
+            gain[...] = 0.0
+        self.gain[P] = FLOOR_DB if self.is_grid else 0.0
 
     # ------------------------------------------------------------------
     def _grid_coords(self, x, y):

@@ -63,15 +63,46 @@ def uma_nlos(d2d, fc_ghz: float, h_bs: float = 25.0, h_ut: float = 1.5):
 
 _MODELS = {"umi_street_canyon": (umi_los, _umi_nlos_prime), "uma": (uma_los, _uma_nlos_prime)}
 
+# coefficients of the formulas above: LOS (A + B log10 d3 + 20 log10 fc; A + 40 log10 d3 + 20 log10 fc - C
+# log10(d'BP^2 + dh^2)) and NLOS' (D log10 d3 + E + F log10 fc - G (h_UT - 1.5))
+_COEF = {"umi_street_canyon": (32.4, 21.0, 9.5, 35.3, 22.4, 21.3, 0.3),
+         "uma": (28.0, 22.0, 9.0, 39.08, 13.54, 20.0, 0.6)}
+
 
 def path_loss(d2d, los, model: str, fc_ghz: float, h_bs: float, h_ut: float):
-    """Path loss of ``model`` ("umi_street_canyon" or "uma") for a boolean LOS state."""
-    try:
-        f_los, f_nlos_prime = _MODELS[model]
-    except KeyError:
+    """Path loss of ``model`` ("umi_street_canyon" or "uma") for a boolean LOS state.
+
+    Gives exactly the values of ``np.where(los, X_los(...), X_nlos(...))``,
+    but computes the logarithm of the distance once, the second breakpoint
+    branch only where it applies and the rest in place (the radio map of a
+    large grid evaluates tens of millions of links).
+    """
+    if model not in _COEF:
         raise ValueError("unknown path-loss model %r; known: %s" % (model, ", ".join(_MODELS)))
-    pl_los = f_los(d2d, fc_ghz, h_bs, h_ut)
-    return np.where(los, pl_los, np.maximum(pl_los, f_nlos_prime(d2d, fc_ghz, h_bs, h_ut)))
+    a, b, c, d, e, f, g = _COEF[model]
+    d2d = np.asarray(d2d, dtype=float)
+    scalar = d2d.ndim == 0
+    if scalar:
+        d2d = d2d.reshape(1)
+    dh2 = (h_bs - h_ut) ** 2
+    lg = np.log10(np.sqrt(d2d * d2d + dh2))
+    lf = 20.0 * math.log10(fc_ghz)
+    dbp = breakpoint_distance(fc_ghz, h_bs, h_ut)
+    pl = b * lg
+    pl += a                                             # same rounding as a + b * lg
+    pl += lf
+    far = d2d > dbp
+    if far.any():
+        pl[far] = a + 40.0 * lg[far] + lf - c * math.log10(dbp * dbp + dh2)
+    los = np.broadcast_to(np.asarray(los, dtype=bool), pl.shape)
+    if not los.all():
+        nl = d * lg                                     # NLOS' over the whole array, in place
+        nl += e
+        nl += f * math.log10(fc_ghz)
+        nl -= g * (h_ut - 1.5)
+        np.maximum(pl, nl, out=nl)
+        np.copyto(pl, nl, where=~los)
+    return pl.reshape(()) if scalar else pl
 
 
 def p_los_umi(d2d):
