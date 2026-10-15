@@ -1,7 +1,8 @@
 # HandoverLab user guide
 
-This guide covers version 0.1.0a1 (stage 1). It explains the ideas behind a run, the configuration
-keys, the command line, the Python API, how to write your own handover rule, and what the metrics
+This guide covers version 0.2.0a1 (stage 2). It explains the ideas behind a run, the built-in
+scenarios, the configuration keys, the command line, the Python API, how to write and check your own
+handover rule, event logs and their fingerprints, the verification checks, and what the metrics
 mean.
 
 ## 1. Concepts
@@ -45,6 +46,23 @@ right at each intersection with probabilities 0.5 / 0.25 / 0.25.
 The rectangle of the same grid size without buildings and with a hexagonal site grid. The LOS state
 is drawn as a process along each user's path (nothing repeats by place), and users move between
 random waypoints. With `radio.place_share = 0` all shadowing also moves with the user.
+
+### Built-in scenarios
+
+Four named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
+parameter with its source, known limitations and the reference results it was checked against
+([docs/scenarios](scenarios)).
+
+| Name | Content |
+|---|---|
+| [`smoke`](scenarios/smoke.md) | 2 x 2-block grid, 150 m sites, 20 users, 30 s: runs in seconds; checks and first steps |
+| [`urban-grid-10ghz`](scenarios/urban-grid-10ghz.md) | the defaults: 3 x 3-block grid, 100 m sites, 10 GHz, 40 users, 120 s |
+| [`open-area-10ghz`](scenarios/open-area-10ghz.md) | same rectangle without buildings, hexagonal sites, nothing tied to place |
+| [`ns3-urban-3.5ghz`](scenarios/ns3-urban-3.5ghz.md) | the set-up of the comparison with ns-3 / 5G-LENA: seven sites, 3.5 GHz, light load |
+
+Use one by name (`scenario: smoke`) or as the base of your own values
+(`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
+`handoverlab scenarios` lists them and `handoverlab scenarios smoke` prints a card.
 
 ## 3. Configuration
 
@@ -105,6 +123,7 @@ output: results/metrics.csv
 | | `prep_s`, `exec_s` | `0.05`, `0.04` | preparation delay; execution interruption |
 | | `reest_s`, `cho_recovery_s` | `1`, `0.4` | outage of a re-establishment; of a recovery into a prepared cell |
 | | `pingpong_s` | `1` | ping-pong window |
+| | `cfg_loss_as_failure` | `false` | check mode: a lost conditional configuration fails like a lost handover command |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |
@@ -126,17 +145,23 @@ In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a ch
 ## 4. Command line
 
 ```text
-handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [-q]
+handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--debug] [-q]
+handoverlab verify [--only GROUP ...] [--full] [--ns3] [--results FILE [--sample N]] [--json OUT] [-q]
+handoverlab scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
 handoverlab rules
 handoverlab init [PATH]
 handoverlab --version
 ```
 
 `run` writes one row per seed and rule. A `.csv` output has the columns `seed`, `rule`, `family`,
-the rule parameters (`param.*`) and all metrics; a `.json` output also stores the resolved scenario,
-the timing of every run and the versions of Python, NumPy and SciPy. `--events` writes the event log
-(one row per handover attempt and per failure without a handover) to a CSV file.
-`python -m handoverlab` works as well.
+`fingerprint` (of the event log), `n_events`, the rule parameters (`param.*`) and all metrics; a
+`.json` output also stores the resolved scenario, the rule key, the timing of every run and the
+versions of Python, NumPy and SciPy. `--events` writes the event logs as one table (see section 8):
+Parquet for a `.parquet` name if `pyarrow` is installed (`pip install handoverlab[parquet]`), CSV
+otherwise. `--debug` checks the engine invariants while running (section 9).
+
+`verify` runs the verification checks and prints PASS, FAIL or NOTE for each (section 9).
+`scenarios` lists the built-in scenarios or prints one card. `python -m handoverlab` works as well.
 
 ## 5. Python API
 
@@ -149,6 +174,9 @@ results = hl.run_experiment(exp)                        # list of RunResult
 world = hl.build_world(sc, seed=1)                      # one world ...
 results = hl.run_world(world, [{"rule": "a3"}, {"rule": "cho"}], log_events=True)   # ... many rules
 results[0].metrics["unnecessary_pm"], results[0].events[:3]
+results[0].fingerprint                                  # SHA-256 of the event log, always set
+hl.simulate(sc, [{"rule": "a3"}], seeds=[1], debug=True)   # with invariant checks
+hl.write_events(results, "events.parquet")              # event table (CSV without pyarrow)
 ```
 
 ## 6. Writing a handover rule
@@ -196,6 +224,33 @@ Rules in an installed package are found through the entry-point group `handoverl
 a3_speed = "my_rules:SpeedScaledA3"
 ```
 
+### Checking a rule: the contract test kit
+
+`handoverlab.testing.check_rule` runs a rule on the `smoke` scenario and checks the contract of the
+rule interface. Put it in the tests of your plug-in package:
+
+```python
+from handoverlab.testing import check_rule
+from my_rules import SpeedScaledA3
+
+def test_contract():
+    check_rule(SpeedScaledA3, params={"off_db": 3.0, "ttt_s": 0.32, "v_ref": 8.0},
+               reduces_to=("a3", {"off_db": 3.0, "ttt_s": 0.32}, {"v_ref": 1e9}))
+```
+
+| Check | Meaning |
+|---|---|
+| `construct` | the rule is built from `params`; `params()` is JSON-serialisable and reports them; the family is valid |
+| `recreate` | `cls(**rule.params())` reports the same parameters, so stored results can be repeated |
+| `debug run` | a run in debug mode raises nothing: hook values have valid shapes and no NaN, the observation is not written to, all invariants hold |
+| `deterministic` | two runs give identical event logs and metrics |
+| `global random state` | NumPy's and Python's global random state are untouched (use `ctx.rng`) |
+| `independent` | next to another rule on the same world the rule gives the same event log as alone |
+| `reduces_to` | optional: with the given parameter changes the rule gives the event log of a built-in rule |
+
+`check_rule` raises `AssertionError` that lists every failed check; with
+`raise_on_failure=False` it returns the report instead.
+
 ## 7. Metrics
 
 Rates are per UE-minute of the measured part of the run (suffix `_pm`); counts start with `n_`. The
@@ -222,15 +277,74 @@ full catalogue with units is `handoverlab.engine.METRICS`.
 `unused_preparations_pm`, `lost_configurations_pm`, `recoveries_pm`, `interruption_s_pm`,
 `outage_pct`, `rate_mbps`, `delivered_share`, `sinr_db`, `spectral_eff`, `mean_load`.
 
-## 8. Limitations
+## 8. Event logs and fingerprints
+
+With `log_events=True` (Python) or `--events FILE` (command line) every run keeps its event log: one
+row per handover attempt and per link failure without a handover. The columns and units are in
+`handoverlab.eventlog.EVENT_COLUMNS`:
+
+| Column | Meaning |
+|---|---|
+| `seed`, `rule` | the run (in tables) |
+| `t_attempt`, `t_exec`, `t_end` | start of the attempt, start of the execution (-1 if none), time of the outcome [s] |
+| `ue`, `kind` | user; `ho` baseline handover, `cho` conditional handover, `rlf` failure without handover |
+| `src`, `tgt` | source cell; target cell (for `rlf`: cell of the re-establishment) |
+| `outcome`, `cause` | outcome label (section 7) and failure cause |
+| `dwell`, `gain_db` | time of stay in the target [s]; mean SINR gain over the evaluation window [dB] |
+| `n_prepared`, `o_exec` | prepared cells at the attempt; execution or A3 offset (-99 if none) [dB] |
+| `x`, `y` | position at `t_end` [m] |
+
+`hl.write_events(results, path)` writes the logs of many runs as one table (Parquet with typed
+columns if `pyarrow` is installed and the name ends in `.parquet`, else CSV) and
+`hl.read_events(path)` reads it back.
+
+The **fingerprint** of a log is the SHA-256 of its canonical CSV form (`hl.fingerprint(events)`).
+Every run computes it, also when the log is not kept, and it is written into every result row. Two
+runs with the same fingerprint have identical event logs. Use it to check that a study gives the
+same events on another machine: `handoverlab verify --results results.json --sample 5` repeats
+five stored runs and compares fingerprints and metrics.
+
+## 9. Verification and debug mode
+
+`handoverlab verify` runs these check groups (about two minutes) and prints a report:
+
+| Group | Checks |
+|---|---|
+| `pathloss` | TR 38.901 path loss, breakpoint and LOS probability against values computed by hand |
+| `radio` | shadowing standard deviation and correlation, LOS share against the LOS probability, time-varying part, L1 error, L3 filter |
+| `invariants` | built-in rules in debug mode on a stressed scenario, conservation of all counts, determinism, independence of rules, global random state |
+| `equivalences` | CHO with immediate execution = A3; a plug-in that reduces to A3 = A3 |
+| `fingerprints` | golden event-log fingerprints of eight short reference runs |
+
+`--only GROUP ...` selects groups, `--full` uses more seeds and longer runs, `--ns3` adds the
+comparison with stored ns-3 / 5G-LENA results (a few minutes), `--results FILE` recomputes a stored
+study, `--json OUT` writes the report. The exit status is 0 if no check failed. On another NumPy or
+SciPy build than the reference, golden fingerprints may differ in single events; the report says so
+and then requires only the counts to agree. Details and the results of this version:
+[verification.md](verification.md).
+
+**Debug mode** (`debug=True` in `simulate`, `run_world` and `Engine`; `handoverlab run --debug`;
+or the environment variable `HANDOVERLAB_DEBUG=1`) checks the invariants of the engine at every
+step: valid connection states and serving cells, T310 only while connected, no attempt towards the
+serving cell, an execution always belongs to an attempt, finite SINR, one outcome per attempt,
+event-log times in order, valid shapes and no NaN in the values a rule returns, and a read-only
+observation for the rule. A violation raises `hl.InvariantError` naming the time, the users and the
+rule. Debug mode changes no result and roughly doubles the run time. The conservation checks at the
+end of a run (attempts = sum of outcomes, failures = sum of causes, every attempt has one outcome,
+preparations = lost + cancelled + used + unused + open) always run.
+
+## 10. Limitations
 
 - Received-power level only: no link-level physical layer, no fast fading, no HARQ, no beam
   management (one beam gain and one isolation factor), no packet-level protocol stack.
 - The failure model follows the TR 36.839 approach and is not calibrated in absolute terms; failure
   rates are best read relative to each other.
 - The radio map of a large grid takes some time and memory to build (for the default 3 x 3 grid at
-  100 m spacing, about 76 sites and 0.2 million street pixels; tens of seconds on a modest machine).
-  Use a larger `site_spacing_m`, a coarser `map_res_m` or fewer blocks for quick experiments.
+  100 m spacing, 76 sites and 0.2 million street pixels: about 17 s on a modest machine, see
+  [performance.md](performance.md)). Use a larger `site_spacing_m`, a coarser `map_res_m` or fewer
+  blocks for quick experiments.
 - Results are bit-identical for the same seed, version and machine. Across NumPy/SciPy builds or
   platforms, averaged quantities can differ in the last bits and, rarely, a single threshold event can
-  move.
+  move; event-log fingerprints show whether this happened.
+- Compared with ns-3 / 5G-LENA, handover and unnecessary-handover rates agree (median ratios 0.95 and
+  1.04 over 24 A3 settings), failure rates do not (see [verification.md](verification.md)).

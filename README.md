@@ -7,8 +7,34 @@ conditional handover) for many users moving through a street grid or an open are
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: alpha, stage 1 (0.1.0a1).** The core simulator, configuration files, the rule plug-in
-> interface and the command line are in place. Interfaces may still change until 1.0.
+> **Status: alpha, stage 2 (0.2.0a1).** The core simulator, configuration files, the rule plug-in
+> interface and the command line (stage 1) are now checked in depth: invariant checks, golden
+> event-log fingerprints, radio statistics against TR 38.901, a contract test kit for rule plug-ins,
+> a `verify` command, scenario cards and a reference comparison with ns-3 / 5G-LENA. Interfaces may
+> still change until 1.0.
+
+## What stage 2 adds
+
+- **`handoverlab verify`**: path loss and LOS probability against hand-computed TR 38.901 values,
+  radio statistics (shadowing standard deviation and correlation, LOS share, time variation, L1
+  error), invariants and conservation of counts, determinism, equivalences (CHO with immediate
+  execution = A3), golden event-log fingerprints; a pass/fail report and a JSON copy.
+- **Debug mode** (`debug=True`, `run --debug`, `HANDOVERLAB_DEBUG=1`): invariant checks at every
+  step and a read-only observation for rules; results unchanged.
+- **Event-log fingerprints**: the SHA-256 of every run's event log is stored with its metrics;
+  `verify --results` recomputes stored runs and compares them.
+- **Event logs as tables**: Parquet (with `pyarrow`) or CSV, typed columns, read back with
+  `read_events`.
+- **Contract test kit** for rule plug-ins: `handoverlab.testing.check_rule`.
+- **Scenario cards** for four built-in scenarios (`smoke`, `urban-grid-10ghz`, `open-area-10ghz`,
+  `ns3-urban-3.5ghz`), usable by name in configuration files.
+- **Wider regression** against the bh6 prototype: ten cases, 36 runs, identical metrics and event
+  logs.
+- **Reference comparison with ns-3 / 5G-LENA** over 24 A3 settings: handover and
+  unnecessary-handover rates within the limits (median ratios 0.95 and 1.04, rank correlation 0.99).
+- **Faster world build**: about a third less time for the radio map, with bit-identical results.
+
+See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/performance.md).
 
 ## What stage 1 contains
 
@@ -41,7 +67,8 @@ HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed wit
 git clone https://github.com/mjs19971997/handoverlab.git
 cd handoverlab
 python -m pip install -e ".[test]"
-python -m pytest            # optional: run the tests (about a minute)
+python -m pytest            # optional: run the tests (a few minutes)
+handoverlab verify          # optional: verification report (about two minutes)
 ```
 
 ## Quick start
@@ -53,9 +80,11 @@ handoverlab init config.yaml
 handoverlab run config.yaml -o results/metrics.csv
 ```
 
-`run` writes one row per seed and rule with all metrics, to CSV or (with a `.json` output name)
-to JSON together with the resolved scenario and the package versions. `handoverlab rules` lists the
-available rules. Configurations can be YAML, TOML or JSON; see [examples/](examples).
+`run` writes one row per seed and rule with all metrics and the fingerprint of the event log, to
+CSV or (with a `.json` output name) to JSON together with the resolved scenario and the package
+versions. `handoverlab rules` lists the available rules and `handoverlab scenarios` the built-in
+scenarios (`scenario: smoke` in a configuration uses one). Configurations can be YAML, TOML or JSON;
+see [examples/](examples).
 
 ## Example
 
@@ -80,18 +109,25 @@ handover rule takes a few lines; see the [user guide](docs/user_guide.md).
 
 ## Documentation
 
-- [User guide](docs/user_guide.md): concepts, configuration keys, command line, Python API, rule
-  plug-ins, metrics, limitations.
+- [User guide](docs/user_guide.md): concepts, scenarios, configuration keys, command line, Python
+  API, rule plug-ins and their contract checks, event logs, verification, metrics, limitations.
+- [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
+- [Verification](docs/verification.md) and [performance](docs/performance.md).
 - [Changelog](CHANGELOG.md) and [contribution guide](CONTRIBUTING.md).
 
 ## Roadmap
 
-1. **Stage 1 (this release)**: core simulator, configuration, rule interface, command line, tests.
-2. Stage 2: verification and continuous integration in depth (invariant checks, golden event-log
-   fingerprints, radio statistics checks, rule contract test kit), event logs as tables, a
-   `verify` command, scenario cards.
-3. Later: equal-budget tuning with automatic checks, paired statistics, resumable studies,
-   L1/L2-triggered mobility, further scenarios, and a browser dashboard next to the command line.
+1. Stage 1 (0.1.0a1): core simulator, configuration, rule interface, command line, tests.
+2. **Stage 2 (this release)**: verification in depth (invariant checks, golden event-log
+   fingerprints, radio statistics, rule contract test kit, wider bh6 regression, ns-3 reference
+   case), event logs as tables, the `verify` command, scenario cards, a faster world build.
+3. Stage 3: studies: equal-budget tuning of rules with automatic gates (grid edge, binding failure
+   budget, equal budgets, seed separation), a paired statistics module, job records and Parquet
+   result tables with resumable and reusable runs, reports, and the engine speed-ups of the
+   performance plan (per-step work moved to measurement instants, batched engines, optional
+   compiled kernels).
+4. Then: tutorials and reference documentation, release 1.0 with a DOI; later L1/L2-triggered
+   mobility, further scenarios, and a browser dashboard next to the command line.
 
 ## Citation
 

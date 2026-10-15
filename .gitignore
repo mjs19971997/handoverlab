@@ -8,3 +8,4 @@ dist/
 .ipynb_checkpoints/
 results/
 *.log
+*.prof
