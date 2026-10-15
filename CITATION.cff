@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "HandoverLab: system-level simulation of handover and mobility beyond 5G"
+version: 0.1.0a1
+date-released: 2026-10-15
+license: MIT
+repository-code: "https://github.com/mjs19971997/handoverlab"
+type: software
+authors:
+  - family-names: "Jalili Sanjarani"
+    given-names: "Mostafa"
+  - family-names: "Elmi Sola"
+    given-names: "Yasser"
+keywords:
+  - handover
+  - conditional handover
+  - mobility
+  - system-level simulation
+  - 5G
+  - beyond 5G

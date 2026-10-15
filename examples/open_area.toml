@@ -1,0 +1,36 @@
+# The same comparison in an open area: no buildings, LOS state and shadowing
+# drawn along each user's path, so nothing is repeatable by place.
+# Run with:  handoverlab run examples/open_area.toml
+seeds = [1]
+output = "results/open_area.json"
+
+[scenario]
+name = "open-area-10GHz"
+
+[scenario.layout]
+kind = "open_area"
+blocks = [3, 3]              # the rectangle of the 3 x 3 street grid
+site_spacing_m = 150.0       # hexagonal site grid
+
+[scenario.radio]
+carrier_ghz = 10.0
+place_share = 0.0            # no place-tied shadowing
+
+[scenario.mobility]
+users = 20
+profile = "veh16"
+
+[scenario.run]
+duration_s = 60.0
+warmup_s = 10.0
+
+[[rules]]
+rule = "a3"
+off_db = 3.0
+ttt_s = 0.16
+
+[[rules]]
+rule = "cho"
+o_prep_db = -2.0
+o_exec_db = 3.0
+ttt_exec_s = 0.08

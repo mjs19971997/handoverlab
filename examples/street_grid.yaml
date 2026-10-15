@@ -1,0 +1,23 @@
+# A3 versus conditional handover in the TR 37.885 urban street grid.
+# Run with:  handoverlab run examples/street_grid.yaml
+scenario:
+  name: street-grid-10GHz
+  layout:
+    kind: street_grid          # TR 37.885 Annex A urban grid
+    blocks: [3, 3]             # minimum area of TR 37.885 Table A-1
+    site_spacing_m: 150.0
+  radio:
+    carrier_ghz: 10.0
+    pathloss: umi_street_canyon
+    place_share: 1.0           # shadowing fully tied to place
+  mobility:
+    users: 20
+    profile: veh16             # 14.4-17.6 m/s on the street centre lines
+  run:
+    duration_s: 60.0
+    warmup_s: 10.0
+seeds: [1]
+rules:
+  - {rule: a3, name: A3, off_db: 3.0, ttt_s: 0.16}
+  - {rule: cho, name: CHO, o_prep_db: -2.0, o_exec_db: 3.0, ttt_exec_s: 0.08, n_max: 4}
+output: results/street_grid.csv
