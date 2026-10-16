@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handoverlab"
-version = "0.3.0a1"
+version = "0.4.0a1"
 description = "System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks"
 readme = "README.md"
 license = { text = "MIT" }
@@ -38,6 +38,8 @@ classifiers = [
 test = ["pytest>=7"]
 parquet = ["pyarrow>=8"]
 report = ["matplotlib>=3.3"]
+gui = ["streamlit>=1.37", "matplotlib>=3.3"]
+docs = ["mkdocs>=1.6", "mkdocstrings[python]>=0.26"]
 
 [project.scripts]
 handoverlab = "handoverlab.cli:main"
@@ -45,6 +47,7 @@ handoverlab = "handoverlab.cli:main"
 [project.urls]
 Homepage = "https://github.com/mjs19971997/handoverlab"
 Issues = "https://github.com/mjs19971997/handoverlab/issues"
+Documentation = "https://mjs19971997.github.io/handoverlab/"
 
 [tool.setuptools.packages.find]
 where = ["src"]

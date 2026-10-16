@@ -6,6 +6,68 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.4.0a1] - 2026-10-15
+
+Fourth alpha release (stage 4: dashboard, documentation, study tooling).
+
+### Added
+
+- Browser dashboard (extra `gui`: Streamlit and matplotlib; `handoverlab gui [--port] [--address]
+  [--headless]`): scenario and setting pickers (street grid or open area, blocks, site spacing,
+  carrier frequency, path loss, users, speed profile, run length, warm-up, seeds), up to four A3 or
+  CHO rules with their parameters, a run button with progress, a map of the users on the layout
+  coloured by serving cell (time slider and play, with counts up to the chosen time), charts of
+  handovers, unnecessary handovers, failures, failure causes, delivered rate and cumulative events,
+  a metrics table, and downloads of metrics (CSV), results (JSON), event logs and traces (CSV),
+  figures (PNG) and an experiment file that `handoverlab run` repeats exactly. It runs locally
+  only. The logic (`handoverlab.gui.logic`) needs no Streamlit and is tested on its own; the page
+  is tested headless with Streamlit's test runner.
+- Event-log levels `off`, `summary` and `full` (`log_events` in `simulate`, `run_world` and
+  `Engine`; `run --events FILE --event-level full`; `events: off | summary | full` in study files).
+  Level `full` adds a procedure trace (`RunResult.trace`): initial serving cell, measurement
+  reports, preparations, releases, configurations reaching the UE or lost, executions,
+  attachments after a handover or a re-establishment, and failures; `TRACE_FIELDS`,
+  `TRACE_EVENTS`, `write_trace`, `read_trace`, `trace_path` and `serving_cells` (serving cell of
+  every user at given times). Study test stages at level `full` store a trace table per run.
+- `run_world(progress=...)`: a callback with the share of the run simulated so far.
+- `handoverlab status STUDY|DIR [--workers N]` and `handoverlab.studies.status_data`: planned,
+  finished, failed and remaining jobs per stage, rule runs still to simulate, gate state, sessions
+  and the time left, estimated from the study's finished jobs (world-build time and engine time per
+  rule run and user-second); stages not yet plannable are counted from the study file. A study
+  directory alone is enough (`load_study_dir` reads `study.lock.json`). `study --status` shows the
+  same.
+- Gate policy `extend` for `grid_edge` with `tuning.extend_steps` (default 2) and
+  `tuning.max_extensions` (default 2): a grid whose selected value lies on its edge is widened by
+  values with the spacing of the last two (never below zero for a non-negative grid, and only with
+  values the rule accepts), every method is tuned again with the same budget (stored rule runs are
+  reused), and this repeats up to the cap, after which a remaining edge blocks. Extensions are
+  recorded with their date in `amendments.json` and `AMENDMENTS.md`, applied again on resumption,
+  and listed in the report.
+- Documentation: tutorials (first run, writing your own rule, a fair tuning study, reading the
+  report), a dashboard guide, a command-line reference, an API reference generated from the
+  docstrings (MkDocs with mkdocstrings, `mkdocs.yml`, extra `docs`), a page on the failure-model
+  calibration, and a workflow that builds the site on every push and publishes it on GitHub Pages
+  when the repository enables it.
+- Failure-model calibration against stored ns-3 / 5G-LENA results (`docs/calibration.md`): the ns-3
+  failures are characterised (96 % late handover commands, no effect of T310, dependence on the
+  time-to-trigger, the preparation delay and the traffic); a Qout filter window of about 0.12 s
+  fits the mean failure rate and the ranking of the 24 reference settings but fails every
+  held-back set, so no calibrated preset is added and the default is unchanged.
+  `handoverlab.verify.ns3.compare` and `scenario_for` take `overrides` for such experiments.
+- Example `examples/speed_rule.py` (a rule plug-in with its contract check).
+- CI: the dashboard tests and a headless start of the dashboard in one job.
+
+### Changed
+
+- `RunResult` has a new field `trace`; `Engine` accepts a level name for `log_events`.
+- Study files accept `events` as a level name; `true` still means `summary` and keeps the job IDs
+  of earlier versions.
+- `GateResult` has a field `edges` (parameter and end of every grid edge) and the status `EXTEND`.
+- `study_status` moved to `handoverlab.studies.status` (still importable from
+  `handoverlab.studies`) and now applies grid extensions and shows the time left.
+- Results are unchanged: the golden fingerprints and the bh6 regression pass, and the model
+  version stays 1.
+
 ## [0.3.0a1] - 2026-10-15
 
 Third alpha release (stage 3: studies).
@@ -140,7 +202,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v0.3.0a1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v0.4.0a1...HEAD
+[0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.3.0a1...v0.4.0a1
 [0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.2.0a1...v0.3.0a1
 [0.2.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.1.0a1...v0.2.0a1
 [0.1.0a1]: https://github.com/mjs19971997/handoverlab/releases/tag/v0.1.0a1

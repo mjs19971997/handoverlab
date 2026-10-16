@@ -7,10 +7,44 @@ conditional handover) for many users moving through a street grid or an open are
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: alpha, stage 3 (0.3.0a1).** On top of the core simulator (stage 1) and its verification in
-> depth (stage 2), HandoverLab now runs whole studies: equal-budget tuning of every rule with
-> automatic gates, paired statistics, stored and resumable results in worker processes, and
-> Markdown/HTML reports. Interfaces may still change until 1.0.
+> **Status: alpha, stage 4 (0.4.0a1).** On top of the core simulator (stage 1), its verification
+> (stage 2) and whole studies with tuning gates and paired statistics (stage 3), HandoverLab now has
+> a browser dashboard, tutorials and an API reference, event-log levels, a status view with the
+> time left, and a grid-edge gate that widens a grid by itself. Interfaces may still change until
+> 1.0.
+
+![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+
+## What stage 4 adds
+
+- **Dashboard** (`pip install "handoverlab[gui]"`, then `handoverlab gui`): a local page in the
+  browser to pick a street grid or open area, speed profile, frequency, users and up to four rules
+  with their parameters; a run button with progress; a map of the users moving on the layout,
+  coloured by serving cell (time slider and play); charts of handovers, failures and rate; and
+  downloads of the results (CSV, JSON, event logs), the figures and an experiment file that
+  `handoverlab run` repeats exactly. It runs on your computer only; the core package does not
+  depend on it. See the [dashboard guide](docs/guides/dashboard.md).
+- **Tutorials and reference**: [your first run](docs/tutorials/first-run.md),
+  [writing your own rule](docs/tutorials/own-rule.md),
+  [a fair tuning study](docs/tutorials/tuning-study.md),
+  [reading the report](docs/tutorials/reading-the-report.md); an API reference generated from the
+  docstrings and a command-line reference (`mkdocs build`, `pip install "handoverlab[docs]"`), and
+  a workflow that builds the site and can publish it on GitHub Pages.
+- **Event-log levels** `off`, `summary` and `full`: `full` adds a trace of the procedure
+  (reports, preparations, configurations, executions, attachments, failures) from which the
+  serving cell of every user follows at any time. The level never changes a result.
+- **`handoverlab status STUDY`**: finished, failed and remaining jobs per stage, rule runs still to
+  simulate and the time left, estimated from the study's own finished jobs.
+- **Gate policy `extend`**: a grid whose selected value sits on its edge is widened with the same
+  spacing and every method is tuned again with the same budget, up to a cap; each extension is a
+  dated amendment in the study directory and the report.
+- **Failure-model calibration against ns-3 / 5G-LENA, from stored ns-3 outputs only**: 96 % of the
+  ns-3 failures are late handover commands. A Qout filter window of about 0.12 s (instead of 0.2 s)
+  fits the mean failure rate of the 24 reference settings (0.35-0.41 against 0.43 per UE-minute,
+  rank correlation 0.97) but fails every held-back set (three times too many failures in the
+  second ns-3 data set, different responses to the preparation delay and the number of users).
+  So no calibrated preset is offered, the default is unchanged, and failure rates stay relative
+  quantities; see [docs/calibration.md](docs/calibration.md).
 
 ## What stage 3 adds
 
@@ -84,12 +118,13 @@ See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/
 ## Install from source
 
 HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed with it; matplotlib
-(reports, extra `report`) and pyarrow (Parquet tables, extra `parquet`) are optional.
+(reports, extra `report`), pyarrow (Parquet tables, extra `parquet`), Streamlit (the dashboard,
+extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional.
 
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git
 cd handoverlab
-python -m pip install -e ".[test,report]"
+python -m pip install -e ".[test,report]"    # add gui for the dashboard: ".[test,report,gui]"
 python -m pytest            # optional: run the tests (a few minutes)
 handoverlab verify          # optional: verification report (about two minutes)
 ```
@@ -116,7 +151,15 @@ handoverlab study examples/study_smoke.yaml --workers 2 --report
 ```
 
 The report lands in `results/study-smoke/report/` (`report.html`, `report.md`, figures);
-re-running the command skips everything that is already done.
+re-running the command skips everything that is already done, and `handoverlab status
+results/study-smoke` shows what is left and how long it will take.
+
+Or explore in the browser:
+
+```bash
+python -m pip install -e ".[gui]"
+handoverlab gui                      # http://localhost:8501, on your computer only
+```
 
 ## Example
 
@@ -141,11 +184,21 @@ handover rule takes a few lines; see the [user guide](docs/user_guide.md).
 
 ## Documentation
 
+The documentation is a MkDocs site (`python -m pip install -e ".[docs]"`, then `mkdocs serve`);
+the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
+
+- Tutorials: [your first run](docs/tutorials/first-run.md),
+  [writing your own rule](docs/tutorials/own-rule.md),
+  [a fair tuning study](docs/tutorials/tuning-study.md),
+  [reading the report](docs/tutorials/reading-the-report.md).
 - [User guide](docs/user_guide.md): concepts, scenarios, configuration keys, command line, Python
-  API, rule plug-ins and their contract checks, event logs, verification, metrics, studies (tuning,
-  gates, storage, workers, reports), paired statistics, limitations.
+  API, rule plug-ins and their contract checks, event logs and their levels, verification, metrics,
+  studies (tuning, gates, storage, workers, status, reports), paired statistics, limitations.
+- [Dashboard](docs/guides/dashboard.md), [command-line reference](docs/reference/cli.md) and the
+  API reference (generated from the docstrings, in the site).
 - [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
-- [Verification](docs/verification.md) and [performance](docs/performance.md).
+- [Verification](docs/verification.md), [failure-model calibration](docs/calibration.md) and
+  [performance](docs/performance.md).
 - [Changelog](CHANGELOG.md) and [contribution guide](CONTRIBUTING.md).
 
 ## Roadmap
@@ -154,14 +207,18 @@ handover rule takes a few lines; see the [user guide](docs/user_guide.md).
 2. Stage 2 (0.2.0a1): verification in depth (invariant checks, golden event-log fingerprints, radio
    statistics, rule contract test kit, wider bh6 regression, ns-3 reference case), event logs as
    tables, the `verify` command, scenario cards, a faster world build.
-3. **Stage 3 (this release)**: studies: equal-budget tuning with automatic gates, the selection
-   rule, paired statistics, job records and Parquet tables, resumable studies with reused runs,
-   worker processes, `study` and `report` commands, batched engines.
-4. Stage 4: tutorials and reference documentation (how-to guides for studies, plug-ins and
-   calibration), event-log levels, a `status` view with remaining time per stage, the grid-edge
-   policy `extend`, release 1.0 with a DOI.
-5. Later: optional compiled kernels for the step loop, L1/L2-triggered mobility, further scenarios
-   (highway, TR 38.901 calibration), and a browser dashboard next to the command line.
+3. Stage 3 (0.3.0a1): studies: equal-budget tuning with automatic gates, the selection rule, paired
+   statistics, job records and Parquet tables, resumable studies with reused runs, worker
+   processes, `study` and `report` commands, batched engines.
+4. **Stage 4 (this release)**: browser dashboard (extra `gui`), tutorials, API and command-line
+   reference with a documentation site, event-log levels, `status` with the time left, the
+   grid-edge policy `extend`, failure-model calibration against ns-3 / 5G-LENA.
+5. Before 1.0: freeze and document the public interfaces (configuration schema, rule interface,
+   metric names) with a schema version; how-to guides (add a scenario, run on many cores, export
+   event logs); a lint job and a coverage threshold in CI; a nightly job with the long checks and a
+   comparison of fingerprints between Linux and Windows; then release 1.0 with an archived DOI.
+6. Later: optional compiled kernels for the step loop, L1/L2-triggered mobility, further scenarios
+   (highway, TR 38.901 calibration).
 
 ## Citation
 
