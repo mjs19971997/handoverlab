@@ -50,9 +50,29 @@ The rectangle of the same grid size without buildings and with a hexagonal site 
 is drawn as a process along each user's path (nothing repeats by place), and users move between
 random waypoints. With `radio.place_share = 0` all shadowing also moves with the user.
 
+### Highway (`layout.kind = "highway"`, since 1.0.0rc3)
+
+The straight multi-lane road of the TR 37.885 highway case along the x axis: `layout.lanes` lanes
+(default 3) of `layout.lane_width_m` (4 m) per direction over `layout.road_length_m` (2000 m),
+eastbound south of the centre line and westbound north of it, no buildings. Roadside sites stand
+every `layout.site_spacing_m` metres along the road, `layout.site_offset_m` beyond the road edge,
+alternately on the two sides. As in the open area, the LOS state is a process along each user's
+path. Vehicles keep their lane (the lateral range of their speed group is the displacement from the
+lane centre, at most half a lane) and their speed; at the end of the road a vehicle turns into the
+same lane of the other direction. The profiles `hwy` (70-140 km/h), `hwy70` (about 70 km/h) and
+`hwy140` (126-140 km/h) are meant for it. See the how-to [highway and vehicular
+scenarios](guides/highway.md).
+
+### Sites from a file
+
+`layout.sites_file` (since 1.0.0rc3) names a CSV file with a header row and the columns `x` and
+`y` in metres (other columns are ignored; a relative path is taken from the current directory). It
+is read when the scenario is loaded and fills `layout.sites`, so the coordinates are part of the
+resolved scenario, of result files and of study job IDs. It works with every layout kind.
+
 ### Built-in scenarios
 
-Five named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
+Six named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
 parameter with its source, known limitations and the reference results it was checked against
 ([docs/scenarios](scenarios)).
 
@@ -63,6 +83,7 @@ parameter with its source, known limitations and the reference results it was ch
 | [`open-area-10ghz`](scenarios/open-area-10ghz.md) | same rectangle without buildings, hexagonal sites, nothing tied to place |
 | [`ns3-urban-3.5ghz`](scenarios/ns3-urban-3.5ghz.md) | the set-up of the comparison with ns-3 / 5G-LENA: seven sites, 3.5 GHz, light load |
 | [`fr3-urban-15ghz`](scenarios/fr3-urban-15ghz.md) | the default grid in the upper mid-band (FR3): 15 GHz, 400 MHz, 3.5 dB more beam gain (since 1.0.0rc2) |
+| [`highway-10ghz`](scenarios/highway-10ghz.md) | the TR 37.885 highway: 2000 m, 3 + 3 lanes, roadside sites every 500 m, vehicles at 70-140 km/h (since 1.0.0rc3) |
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
@@ -92,13 +113,16 @@ output: results/metrics.csv
 
 | Section | Key | Default | Meaning |
 |---|---|---|---|
-| `layout` | `kind` | `street_grid` | `street_grid` or `open_area` |
+| `layout` | `kind` | `street_grid` | `street_grid`, `open_area` or `highway` |
 | | `blocks` | `[3, 3]` | number of blocks in x and y |
 | | `pitch_m` | `[433, 250]` | distance between street centre lines [m] |
 | | `street_width_m` | `20` | street width [m] |
 | | `site_spacing_m` | `100` | site spacing along the streets / hexagonal spacing [m] |
-| | `site_offset_m` | `9` | site distance from the street centre line [m] |
+| | `site_offset_m` | `9` | site distance from the street centre line (highway: from the road edge) [m] |
 | | `sites` | none | explicit site list `[[x, y], ...]` [m] |
+| | `lanes`, `lane_width_m` | `3`, `4` | highway: lanes per direction and their width [m] (since 1.0.0rc3) |
+| | `road_length_m` | `2000` | highway: length of the road [m] (since 1.0.0rc3) |
+| | `sites_file` | none | CSV file with columns `x`, `y` that fills `sites` (since 1.0.0rc3) |
 | `radio` | `carrier_ghz` | `10` | carrier frequency (0.5-100 GHz) |
 | | `bandwidth_mhz` | `200` | carrier bandwidth |
 | | `tx_power_dbm` | `35` | transmit power per site |
@@ -133,11 +157,14 @@ output: results/metrics.csv
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |
 | | `load_tau_s`, `rate_scale`, `label_load` | `0.2`, `1`, `1` | load smoothing; rate multiplier; load assumed by the label |
 | `mobility` | `users` | `40` | number of users |
-| | `profile` | `veh16` | `ped`, `veh8`, `veh16`, `veh30`, `mix`, `c8`, `c16`, `c30` |
+| | `profile` | `veh16` | `ped`, `veh8`, `veh16`, `veh30`, `mix`, `c8`, `c16`, `c30`; highway: `hwy`, `hwy70`, `hwy140` |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
 
 In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a changed copy.
+`Scenario.to_dict()` leaves out the keys added after 1.0.0rc2 while they have their default value,
+so that results and study job IDs of scenarios that do not use them are unchanged;
+`to_dict(full=True)` lists every key.
 
 ### Built-in rules
 
