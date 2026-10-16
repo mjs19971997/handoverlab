@@ -56,16 +56,18 @@ EVENT_COLUMNS: Dict[str, Tuple[type, str, str]] = {
     "t_exec": (float, "s", "start of the execution, -1 if there was none"),
     "t_end": (float, "s", "time at which the outcome was decided"),
     "ue": (int, "", "user index"),
-    "kind": (str, "", "'ho' baseline handover, 'cho' conditional handover, 'rlf' link failure without handover"),
+    "kind": (str, "", "'ho' baseline handover, 'cho' conditional handover, 'daps' DAPS handover, 'ltm' "
+                      "L1/L2-triggered mobility, 'rlf' link failure without handover"),
     "src": (int, "", "source (serving) cell"),
     "tgt": (int, "", "target cell; for 'rlf' the cell of the re-establishment"),
     "outcome": (str, "", "useful, unnecessary, too_early, wrong_cell, too_late, censored; 'rlf' rows: too_late "
                          "or coverage"),
-    "cause": (str, "", "failure cause, empty if there was no failure"),
+    "cause": (str, "", "failure cause, empty if there was no failure; 'daps_fallback': a DAPS execution "
+                       "returned to the source (outcome too_early, not a failure)"),
     "dwell": (float, "s", "time of stay in the target"),
     "gain_db": (float, "dB", "mean SINR gain of the target over the source during the evaluation window"),
-    "n_prepared": (int, "", "prepared cells when the attempt started (CHO)"),
-    "o_exec": (float, "dB", "execution offset (CHO) or A3 offset; -99 if not applicable"),
+    "n_prepared": (int, "", "prepared cells when the attempt started (CHO), candidate cells (LTM)"),
+    "o_exec": (float, "dB", "execution offset (CHO), switch offset (LTM) or A3 offset; -99 if not applicable"),
     "x": (float, "m", "position of the user at t_end"),
     "y": (float, "m", "position of the user at t_end"),
 }
@@ -88,6 +90,8 @@ TRACE_EVENTS: Dict[str, str] = {
     "attach": "handover complete: the UE is connected to cell (value: SINR [dB])",
     "reestablish": "re-establishment complete in cell (value: SINR [dB])",
     "failure": "mobility failure; cell is the cell selected for re-establishment (note: cause)",
+    "switch": "LTM: cell switch command towards cell sent (value: switch offset [dB])",
+    "fallback": "DAPS: the target could not be joined; the UE stays in src (value: source SINR [dB])",
 }
 
 TRACE_COLUMNS: Dict[str, Tuple[type, str, str]] = {
@@ -308,6 +312,8 @@ def serving_cells(trace: Iterable[dict], n_users: int, times: Sequence[float]):
         e = ev["event"]
         if e in ("serve", "attach", "reestablish"):
             changes.setdefault(int(ev["ue"]), []).append((float(ev["t"]), int(ev["cell"])))
+        elif e == "fallback":                                 # DAPS: back in the source
+            changes.setdefault(int(ev["ue"]), []).append((float(ev["t"]), int(ev["src"])))
         elif e in ("exec", "failure"):
             changes.setdefault(int(ev["ue"]), []).append((float(ev["t"]), -1))
     for u, ch in changes.items():

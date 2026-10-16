@@ -8,8 +8,12 @@
    "CHO",
    "ConditionalRule",
    "ConfigError",
+   "DAPS",
+   "DAPSRule",
    "Experiment",
    "InvariantError",
+   "LTM",
+   "LTMRule",
    "LayoutConfig",
    "MobilityConfig",
    "ProtocolConfig",
@@ -40,15 +44,21 @@
   ],
   "handoverlab.rules": [
    "A3",
+   "BanditA3",
    "BaselineRule",
    "CHO",
    "ConditionalRule",
+   "DAPS",
+   "DAPSRule",
    "EARLY",
    "FailureRecord",
    "LATE",
+   "LTM",
+   "LTMRule",
    "MAX_CONDITIONAL_CELLS",
    "Observation",
    "OutcomeRecord",
+   "RULE_BASES",
    "Rule",
    "RuleContext",
    "UNNECESSARY",
@@ -148,6 +158,17 @@
     "self",
     "obs"
    ]
+  },
+  "DAPSRule": {},
+  "LTMRule": {
+   "prep_offsets": [
+    "self",
+    "obs"
+   ],
+   "switch_offsets": [
+    "self",
+    "obs"
+   ]
   }
  },
  "rule_attributes": {
@@ -164,6 +185,24 @@
    "stick_db",
    "ttt_exec_s",
    "ttt_prep_s"
+  ],
+  "DAPSRule": [
+   "fallback",
+   "family",
+   "interruption_s",
+   "source_data"
+  ],
+  "LTMRule": [
+   "cmd_delay_s",
+   "exec_s",
+   "family",
+   "n_max",
+   "recovery",
+   "release_hys_db",
+   "report_offset_db",
+   "stick_db",
+   "ttt_prep_s",
+   "ttt_switch_s"
   ]
  },
  "records": {
@@ -188,7 +227,8 @@
    "x",
    "y",
    "speed",
-   "heading"
+   "heading",
+   "l1_dbm"
   ],
   "OutcomeRecord": [
    "user",
@@ -346,7 +386,9 @@
   "exec",
   "attach",
   "reestablish",
-  "failure"
+  "failure",
+  "switch",
+  "fallback"
  ],
  "scenario_keys": [
   "layout.blocks",

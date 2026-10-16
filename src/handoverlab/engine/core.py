@@ -229,13 +229,14 @@ class Engine:
         self.f_tx[u] = t
         if self.trace_log is not None:
             self.trace_event(t, u, "exec", self.serv[u], tgt)
+        d = self.proc.exec_time(u)
         self.state[u] = EXECUTING
-        self.t_done[u] = t + self.P.exec_s
+        self.t_done[u] = t + d
         self.run[u] = False
         self.proc.cancel_command(u)
         if t >= self.t0c:
             self.C["exec"] += 1
-            self.acc["int_exec"] += min(self.P.exec_s, self.S * self.dt - t)
+            self.acc["int_exec"] += min(self.proc.exec_interruption(u, d), self.S * self.dt - t)
 
     def _attach(self, u, cell, s, t=None):
         if self.trace_log is not None:
@@ -253,7 +254,8 @@ class Engine:
         lt = ln[u, tgt]
         s = lt / (tot[u] - self.rc[tgt] * lt + self.noise)
         if s < self.qout:
-            self.fail(u, t, "exec")
+            if not (self.proc.fallback and self._fallback(u, t, ln, tot)):
+                self.fail(u, t, "exec")
             return
         src = int(self.serv[u])
         pp = (self.prev[u] == tgt) and (t - self.last_ho[u] < self.P.pingpong_s)
@@ -272,6 +274,21 @@ class Engine:
         self.w_n[u] = 0; self.w_g[u] = 0; self.w_m[u] = 0; self.w_cf[u] = 0; self.w_cff[u] = False
         self.w_mcf[u] = 0; self.w_mcff[u] = False; self.w_pp[u] = pp
         self.f_on[u] = False
+
+    def _fallback(self, u, t, ln, tot) -> bool:
+        """DAPS: the target could not be joined; return to the source if its SINR is at least Qout."""
+        src = int(self.serv[u])
+        ls = ln[u, src]
+        s = ls / (tot[u] - self.rc[src] * ls + self.noise)
+        if s < self.qout:
+            return False
+        self._feedback(u, src, self.f_tgt[u], self.f_key[u], EARLY, t)
+        if self.trace_log is not None:
+            self.trace_event(t, u, "fallback", src, self.f_tgt[u], 10.0 * np.log10(max(float(s), 1e-30)))
+        self._close_flight(u, t, "too_early", "daps_fallback")
+        self.state[u] = CONNECTED
+        self.proc.on_attach(u)
+        return True
 
     def fail(self, u, t, kind):
         """Mobility failure of user ``u``: "rlf" (T310 expired), "cmd" (command lost) or "exec"."""
@@ -453,9 +470,9 @@ class Engine:
         if self.debug:                                   # a rule must not write into what it observes
             ro = inv.readonly_copy
             obs = Observation(t, k, ro(meas), ro(gap), ro(serv), ro(con), ro(self.X[k]), ro(self.Y[k]), ro(self.V),
-                              ro(self.TH[k]))
+                              ro(self.TH[k]), ro(ch.l1[j]))
         else:
-            obs = Observation(t, k, meas, gap, serv, con, self.X[k], self.Y[k], self.V, self.TH[k])
+            obs = Observation(t, k, meas, gap, serv, con, self.X[k], self.Y[k], self.V, self.TH[k], ch.l1[j])
         self.proc.measure(obs, counted)
         return counted
 
@@ -464,6 +481,8 @@ class Engine:
         ar, acc, state = self.ar, self.acc, self.state
         serv = self.serv
         con = state == CONNECTED
+        if self.proc.dual:                                       # DAPS: the source serves during the execution
+            con = con | (state == EXECUTING)
         ls = ln[ar, serv]
         sinr = ls / (tot - self.rc[serv] * ls + self.noise)      # tot = ln @ rc of this step (rc unchanged)
         ok = con & (sinr >= self.qout)

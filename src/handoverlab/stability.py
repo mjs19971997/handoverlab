@@ -136,11 +136,11 @@ def public_surface() -> Dict[str, Any]:
     from .studies.config import _COMPARE, _METHOD, _TOP, _TUNING
 
     hooks = {}
-    for cls in (base.Rule, base.BaselineRule, base.ConditionalRule):
+    for cls in (base.Rule, base.BaselineRule, base.ConditionalRule, base.DAPSRule, base.LTMRule):
         hooks[cls.__name__] = {n: _params(f) for n, f in sorted(vars(cls).items())
                                if inspect.isfunction(f) and not n.startswith("_")}
     attrs = {cls.__name__: sorted(n for n, v in vars(cls).items() if not n.startswith("_") and not callable(v))
-             for cls in (base.Rule, base.ConditionalRule)}
+             for cls in (base.Rule, base.ConditionalRule, base.DAPSRule, base.LTMRule)}
     records = {cls.__name__: [f.name for f in dataclasses.fields(cls)]
                for cls in (base.RuleContext, base.Observation, base.OutcomeRecord, base.FailureRecord, RunResult)}
     return dict(

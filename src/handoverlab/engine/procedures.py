@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Handover procedures: baseline handover and conditional handover.
+"""Handover procedures: baseline, conditional, DAPS handover and L1/L2-triggered mobility.
 
 A procedure holds the per-user state of one handover family and implements
 the protocol around the decisions of a rule.  The engine calls it through a
@@ -24,6 +24,24 @@ Conditional handover (TS 38.300 clause 9.2.3.4)
     executes on its own.  After an execution the other prepared cells are
     released; after a failure the UE recovers faster (``cho_recovery_s``) if
     it selects a prepared cell.
+
+DAPS handover (TS 38.300 clause 9.2.3.2, TS 38.331 clause 5.3.5.8.3)
+    Triggered and prepared as a baseline handover.  During the execution the
+    source link keeps carrying data (the user-plane interruption is
+    ``interruption_s`` of the rule instead of ``exec_s``).  If the target
+    cannot be joined and the source SINR is still at least Qout, the UE falls
+    back to the source: the attempt ends as ``too_early`` with the cause
+    ``daps_fallback`` and no re-establishment follows.
+
+L1/L2-triggered mobility (TS 38.300 clause 9.2.3.5)
+    Candidate cells are configured as the prepared cells of a conditional
+    handover (L3 reports, preparation offset, ``n_max``, release).  The
+    network evaluates the unfiltered L1 measurements: when a configured
+    candidate is better than the serving cell by the switch offset for
+    ``ttt_switch_s``, it sends a cell switch command (MAC CE), which reaches
+    the UE after ``cmd_delay_s`` and is lost if T310 is running.  The
+    execution takes ``exec_s`` of the rule (RACH-less, with early timing
+    advance acquisition).
 """
 from __future__ import annotations
 
@@ -39,9 +57,19 @@ CONNECTED, EXECUTING, REESTABLISHING = 0, 1, 2      # connection state of a user
 class Procedure:
     """Interface between the engine and a handover family."""
     kind = ""
+    dual = False             # the source link carries data during an execution (DAPS)
+    fallback = False         # a failed execution falls back to the source if possible (DAPS)
 
     def __init__(self, eng, rule):
         self.eng, self.rule = eng, rule
+
+    def exec_time(self, u) -> float:
+        """Duration of an execution of user ``u`` [s]."""
+        return self.eng.P.exec_s
+
+    def exec_interruption(self, u, duration) -> float:
+        """User-plane interruption of an execution of the given duration [s]."""
+        return duration
 
     def step(self, t):
         """Called every step after radio-link monitoring (deliver commands or configurations)."""
@@ -208,7 +236,7 @@ class ConditionalProcedure(Procedure):
             self._deliver(t)
 
     def _deliver(self, t):
-        eng, rule = self.eng, self.rule
+        eng = self.eng
         due = self.ppend & (t >= self.ppend_t - EPS)
         for u, n in zip(*np.nonzero(due)):
             if not self.ppend[u, n]:
@@ -220,9 +248,7 @@ class ConditionalProcedure(Procedure):
                 if eng.trace_log is not None:
                     eng.trace_event(t, u, "config", eng.serv[u], n, self.oexec[u, n])
                 eng.C["cfg_ok"] += int(t >= eng.t0c)
-                meas = eng.meas
-                if rule.immediate or (rule.ttt_exec_s <= 0 and
-                                      meas[u, n] - meas[u, eng.serv[u]] > self.oexec[u, n]):
+                if self._exec_on_delivery(u, n):
                     eng.start_exec(u, int(n), t)
             else:
                 if eng.trace_log is not None:
@@ -235,19 +261,39 @@ class ConditionalProcedure(Procedure):
         self.n_pp = int(np.count_nonzero(self.ppend))
         self.pp_next = float(self.ppend_t.min()) if self.n_pp else INF
 
+    def _exec_on_delivery(self, u, n) -> bool:
+        """True if the UE executes towards ``n`` as soon as its configuration arrives."""
+        rule, meas = self.rule, self.eng.meas
+        return rule.immediate or (rule.ttt_exec_s <= 0 and meas[u, n] - meas[u, self.eng.serv[u]] > self.oexec[u, n])
+
+    def _config_offsets(self, obs):
+        """Offsets written into new configurations (execution offsets of the rule)."""
+        oe = self.rule.exec_offsets(obs)
+        if self.eng.debug:
+            check_rule_value(self.eng, "exec_offsets", oe, obs.t)
+        return oe
+
     # -- measurement instant -------------------------------------------
     def measure(self, obs, counted):
+        con = obs.connected
+        if self.prepared.any():
+            con = self._execute(obs, con)
+        self._report(obs, counted, con)
+
+    def _execute(self, obs, con):
+        """UE side: execution condition of the prepared cells; returns the users still connected."""
+        eng, gap, t = self.eng, obs.gap_db, obs.t
+        cx = self.prepared & (gap > self.oexec) & con[:, None]
+        self.tx = np.where(cx, np.minimum(self.tx, t), INF)
+        rdy = held_for(self.tx, t, self.rule.ttt_exec_s)
+        for u in np.nonzero(rdy.any(1))[0]:
+            eng.start_exec(u, int(np.argmax(np.where(rdy[u], gap[u], -INF))), t)
+        return eng.state == CONNECTED
+
+    def _report(self, obs, counted, con):
+        """UE side: reporting condition; network side: cells to prepare, keep or release."""
         eng, rule = self.eng, self.rule
         C, ar, serv, gap, t = eng.C, eng.ar, eng.serv, obs.gap_db, obs.t
-        con = obs.connected
-        # UE side: execution condition of the prepared cells
-        if self.prepared.any():
-            cx = self.prepared & (gap > self.oexec) & con[:, None]
-            self.tx = np.where(cx, np.minimum(self.tx, t), INF)
-            rdy = held_for(self.tx, t, rule.ttt_exec_s)
-            for u in np.nonzero(rdy.any(1))[0]:
-                eng.start_exec(u, int(np.argmax(np.where(rdy[u], gap[u], -INF))), t)
-            con = eng.state == CONNECTED
         # UE side: reporting condition
         cr = gap > rule.report_offset_db
         cr[ar, serv] = False
@@ -291,10 +337,9 @@ class ConditionalProcedure(Procedure):
             self.ppend_t[to_rel] = INF
             self.tx[to_rel] = INF
         if to_prep.any():
-            oe = rule.exec_offsets(obs)
+            oe = self._config_offsets(obs)
             keys = rule.memory_key(obs)
             if eng.debug:
-                check_rule_value(eng, "exec_offsets", oe, t)
                 if keys is not None:
                     check_rule_value(eng, "memory_key", keys, t, per_cell=False)
             C["prep_req_all"] += len(np.nonzero(to_prep)[0])
@@ -311,9 +356,97 @@ class ConditionalProcedure(Procedure):
                     eng.trace_event(t, u, "prepare", serv[u], n, self.oexec[u, n])
 
 
+class DAPSProcedure(BaselineProcedure):
+    """DAPS handover: a baseline handover whose source link stays up during the execution."""
+    kind = "daps"
+
+    def __init__(self, eng, rule):
+        super().__init__(eng, rule)
+        self.dual = bool(rule.source_data)
+        self.fallback = bool(rule.fallback)
+
+    def exec_interruption(self, u, duration):
+        return min(float(self.rule.interruption_s), duration) if self.dual else duration
+
+
+class LTMProcedure(ConditionalProcedure):
+    """L1/L2-triggered mobility: candidates configured on L3 reports, cell switch on L1 reports."""
+    kind = "ltm"
+
+    def __init__(self, eng, rule):
+        super().__init__(eng, rule)
+        U = eng.U
+        self.cmd = np.zeros(U, dtype=bool)          # cell switch command on its way
+        self.cmd_t = np.zeros(U)
+        self.cmd_tgt = np.zeros(U, dtype=int)
+        self.n_cmd = 0
+
+    def exec_time(self, u):
+        return float(self.rule.exec_s)
+
+    def recovers_into(self, u, cell):
+        return bool(self.rule.recovery) and bool(self.prepared[u, cell])
+
+    def _exec_on_delivery(self, u, n):
+        return False                                # the network decides the switch
+
+    def _config_offsets(self, obs):
+        so = self.rule.switch_offsets(obs)
+        if self.eng.debug:
+            check_rule_value(self.eng, "switch_offsets", so, obs.t)
+        return so
+
+    def cancel_command(self, u):
+        if self.cmd[u]:
+            self.cmd[u] = False
+            self.n_cmd -= 1
+
+    def on_failure(self, u):
+        self.cancel_command(u)
+
+    def step(self, t):
+        super().step(t)
+        if not self.n_cmd:
+            return
+        eng = self.eng
+        for u in np.nonzero(self.cmd & (t >= self.cmd_t - EPS))[0]:
+            if eng.run[u]:
+                eng.fail(u, t, "cmd")                   # command lost while T310 runs
+            else:
+                eng.start_exec(u, int(self.cmd_tgt[u]), t)
+
+    def _execute(self, obs, con):
+        """Network side: cell switch decision on the L1 reports of the configured candidates."""
+        eng, rule, t = self.eng, self.rule, obs.t
+        l1 = obs.l1_dbm if obs.l1_dbm is not None else obs.meas_dbm
+        lgap = l1 - l1[eng.ar, obs.serving][:, None]
+        so = rule.switch_offsets(obs)
+        if eng.debug:
+            check_rule_value(eng, "switch_offsets", so, t)
+        cx = self.prepared & (lgap > so) & (con & ~self.cmd)[:, None]
+        self.tx = np.where(cx, np.minimum(self.tx, t), INF)
+        rdy = held_for(self.tx, t, rule.ttt_switch_s)
+        for u in np.nonzero(rdy.any(1))[0]:
+            n = int(np.argmax(np.where(rdy[u], lgap[u], -INF)))
+            o = so[u, n] if isinstance(so, np.ndarray) else so
+            eng.new_flight(u, n, t, self.pkey[u, n], int(self.prepared[u].sum()), o)
+            if eng.trace_log is not None:
+                eng.trace_event(t, u, "switch", eng.serv[u], n, o)
+            self.cmd[u] = True
+            self.cmd_t[u] = t + float(rule.cmd_delay_s)
+            self.cmd_tgt[u] = n
+            self.n_cmd += 1
+            self.tx[u] = INF
+        return con
+
+
 def make_procedure(eng, rule) -> Procedure:
     if rule.family == "baseline":
         return BaselineProcedure(eng, rule)
     if rule.family == "conditional":
         return ConditionalProcedure(eng, rule)
+    if rule.family == "daps":
+        return DAPSProcedure(eng, rule)
+    if rule.family == "ltm":
+        return LTMProcedure(eng, rule)
     raise ValueError("rule %r has unknown family %r" % (getattr(rule, "name", rule), rule.family))

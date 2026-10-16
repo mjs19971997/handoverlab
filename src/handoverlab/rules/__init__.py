@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Handover rules and their registry.
 
-Built-in rules are registered under ``"a3"`` and ``"cho"``.  Your own rule can
+Built-in rules are registered under ``"a3"``, ``"cho"``, ``"daps"``, ``"ltm"``
+and ``"a3_bandit"``.  Your own rule can
 be registered in code::
 
     from handoverlab.rules import BaselineRule, register_rule
@@ -21,19 +22,22 @@ from __future__ import annotations
 import inspect
 from typing import Any, Dict, List, Optional, Type
 
-from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, BaselineRule, ConditionalRule,
-                   FailureRecord, Observation, OutcomeRecord, Rule, RuleContext)
-from .builtin import A3, CHO
+from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, BaselineRule, ConditionalRule, DAPSRule,
+                   FailureRecord, LTMRule, Observation, OutcomeRecord, Rule, RuleContext)
+from .builtin import A3, CHO, DAPS, LTM, BanditA3
 
 ENTRY_POINT_GROUP = "handoverlab.rules"
-_REGISTRY: Dict[str, Type[Rule]] = {"a3": A3, "cho": CHO}
+_REGISTRY: Dict[str, Type[Rule]] = {"a3": A3, "cho": CHO, "daps": DAPS, "ltm": LTM, "a3_bandit": BanditA3}
+
+#: base classes a rule must derive from (DAPSRule derives from BaselineRule)
+RULE_BASES = (BaselineRule, ConditionalRule, LTMRule)
 
 
 def register_rule(key: str):
     """Class decorator that makes a rule available under ``key``."""
     def deco(cls):
-        if not (inspect.isclass(cls) and issubclass(cls, (BaselineRule, ConditionalRule))):
-            raise TypeError("a rule must subclass BaselineRule or ConditionalRule")
+        if not (inspect.isclass(cls) and issubclass(cls, RULE_BASES)):
+            raise TypeError("a rule must subclass BaselineRule, ConditionalRule, DAPSRule or LTMRule")
         _REGISTRY[key] = cls
         return cls
     return deco
@@ -97,6 +101,7 @@ def make_rule(spec: Dict[str, Any]) -> Rule:
         raise ValueError("rule %r: %s (parameters: %s)" % (spec["rule"], e, ", ".join(allowed)))
 
 
-__all__ = ["Rule", "BaselineRule", "ConditionalRule", "RuleContext", "Observation", "OutcomeRecord",
-           "FailureRecord", "USEFUL", "UNNECESSARY", "EARLY", "LATE", "MAX_CONDITIONAL_CELLS", "A3", "CHO",
+__all__ = ["Rule", "BaselineRule", "ConditionalRule", "DAPSRule", "LTMRule", "RuleContext", "Observation",
+           "OutcomeRecord", "FailureRecord", "USEFUL", "UNNECESSARY", "EARLY", "LATE", "MAX_CONDITIONAL_CELLS", "A3",
+           "CHO", "DAPS", "LTM", "BanditA3", "RULE_BASES",
            "register_rule", "get_rule_class", "available_rules", "make_rule", "rule_key"]

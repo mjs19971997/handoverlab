@@ -5,7 +5,8 @@
 keeps the contract of the rule interface:
 
 ``construct``    the rule can be built from the given parameters; ``params()`` is a dictionary that can be
-                 written to JSON and reports the given values; the family is ``baseline`` or ``conditional``
+                 written to JSON and reports the given values; the family is ``baseline``, ``conditional``,
+                 ``daps`` or ``ltm``
 ``recreate``     a rule built from ``params()`` reports the same parameters (stored results can be repeated)
 ``debug run``    a run in debug mode raises nothing: every hook returns a number or an array of the right shape
                  without NaN, the rule does not write into the observation, all engine invariants hold
@@ -39,9 +40,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from .config import Scenario
-from .rules import BaselineRule, ConditionalRule, get_rule_class
+from .rules import RULE_BASES, BaselineRule, get_rule_class
 from .simulate import run_world
 from .world import build_world
+
+
+#: rule families known to the engine
+FAMILIES = ("baseline", "conditional", "daps", "ltm")
 
 
 @dataclass
@@ -85,8 +90,8 @@ def check_rule(rule: Union[type, str], params: Optional[Dict[str, Any]] = None,
     except Exception as e:                                   # noqa: BLE001 - reported, not hidden
         rep.add("construct", False, "%s: %s" % (type(e).__name__, e))
         return _finish(rep, raise_on_failure)
-    ok = inspect.isclass(cls) and issubclass(cls, (BaselineRule, ConditionalRule))
-    ok &= obj.family in ("baseline", "conditional")
+    ok = inspect.isclass(cls) and issubclass(cls, RULE_BASES)
+    ok &= obj.family in FAMILIES
     detail = ""
     try:
         p = obj.params()
@@ -120,7 +125,7 @@ def check_rule(rule: Union[type, str], params: Optional[Dict[str, Any]] = None,
     same_np = np.array_equal(np_state[1], np.random.get_state()[1]) and np_state[2] == np.random.get_state()[2]
     rep.add("global random state", same_np and py_state == random.getstate(),
             "" if same_np else "NumPy's global random state changed; draw from ctx.rng instead")
-    other = {"rule": "cho"} if obj.family == "baseline" else {"rule": "a3"}
+    other = {"rule": "cho"} if obj.family in ("baseline", "daps") else {"rule": "a3"}
     c = run_world(world, [other, cls(**params)])[1]
     rep.add("independent", c.fingerprint == a.fingerprint)
     # --- equivalence with a built-in rule

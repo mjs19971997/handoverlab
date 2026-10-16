@@ -68,6 +68,8 @@ class EngineBatch:
         self.offs = (np.arange(K) * self.M)[:, None]           # bin offsets of the engines for bincount
         self.free = np.maximum(1.0 - e0.bg, 0.0)
         self.dem = [float(e.rate.sum()) for e in self.engines]
+        dual = np.array([bool(e.proc.dual) for e in self.engines])
+        self.dual = dual[:, None] if dual.any() else None   # engines whose source serves during an execution
         self.wall = 0.0
 
     @staticmethod
@@ -160,6 +162,8 @@ class EngineBatch:
         serv, state, rc, rho, tot = self.serv, self.state, self.rc, self.rho, self.tot
         rate, gbr, bg, K, M = e0.rate, e0.gbr, e0.bg, self.K, self.M
         con = state == CONNECTED
+        if self.dual is not None:
+            con = con | ((state == EXECUTING) & self.dual)
         ls = ln[e0.ar, serv]
         sinr = ls / (tot - np.take_along_axis(rc, serv, axis=1) * ls + e0.noise)
         ok = con & (sinr >= e0.qout)

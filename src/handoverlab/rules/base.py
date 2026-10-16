@@ -22,6 +22,20 @@ Two families exist:
     ``ttt_exec_s``.  Hooks :meth:`ConditionalRule.prep_offsets` and
     :meth:`ConditionalRule.exec_offsets`.
 
+Two further families (since 1.0.0rc2) reuse these hooks:
+
+``DAPSRule``
+    Dual active protocol stack handover (Rel-16): triggered like a baseline
+    handover, but the source link keeps carrying data during the execution
+    and the UE falls back to the source if the target cannot be joined.
+    Hooks of :class:`BaselineRule`.
+
+``LTMRule``
+    L1/L2-triggered mobility (Rel-18): candidate cells are configured in
+    advance from L3 reports; the network switches the UE to a candidate on
+    L1 measurement reports with a MAC command.  Hooks
+    :meth:`LTMRule.prep_offsets` and :meth:`LTMRule.switch_offsets`.
+
 Rules that learn from outcomes set ``learns = True`` and implement
 :meth:`Rule.on_outcome` and :meth:`Rule.on_link_failure`.  A rule that needs
 randomness must use ``ctx.rng``, never NumPy's global state.
@@ -74,6 +88,7 @@ class Observation:
     y: np.ndarray
     speed: np.ndarray         # (U,) [m/s]
     heading: np.ndarray       # (U,) [rad]
+    l1_dbm: Optional[np.ndarray] = None  # (U, M) unfiltered L1 RSRP of this instant (since 1.0.0rc2)
 
 
 @dataclass
@@ -174,4 +189,61 @@ class ConditionalRule(Rule):
 
     def exec_offsets(self, obs: Observation) -> Union[float, np.ndarray]:
         """Execution offset [dB] written into a new conditional configuration: scalar or (U, M)."""
+        raise NotImplementedError
+
+
+class DAPSRule(BaselineRule):
+    """Dual active protocol stack (DAPS) handover (Rel-16, TS 38.300 clause 9.2.3.2).
+
+    Triggered like a baseline handover (hooks :meth:`BaselineRule.a3_offsets`
+    and :meth:`BaselineRule.time_to_trigger`).  Attributes read by the engine:
+
+    ``interruption_s``  user-plane interruption of an execution while the
+                        source link carries data (Rel-16 aims at 0 ms)
+    ``fallback``        an execution that cannot join the target falls back to
+                        the source if the source SINR is at least Qout (TS 38.331
+                        clause 5.3.5.8.3) instead of a re-establishment
+    ``source_data``     the source keeps serving data during the execution
+    """
+    family = "daps"
+    interruption_s = 0.0
+    fallback = True
+    source_data = True
+
+
+class LTMRule(Rule):
+    """L1/L2-triggered mobility (Rel-18, TS 38.300 clause 9.2.3.5).
+
+    Attributes read by the engine (set them in ``__init__``):
+
+    ``report_offset_db``  L3 report of a neighbour this much better than serving
+                          for ``ttt_prep_s`` (candidate configuration)
+    ``ttt_prep_s``        time-to-trigger of the L3 reporting condition
+    ``n_max``             largest set of candidate cells (at most 8)
+    ``release_hys_db``    a candidate is released when it falls this far below its
+                          preparation offset
+    ``stick_db``          ranking bonus of an already configured candidate
+    ``ttt_switch_s``      the L1 switch condition must hold this long
+    ``cmd_delay_s``       delay of the cell switch command (MAC CE)
+    ``exec_s``            execution time of the cell switch (RACH-less, early TA)
+    ``recovery``          a failed UE that selects a candidate recovers into it in
+                          ``cho_recovery_s`` (otherwise a full re-establishment)
+    """
+    family = "ltm"
+    report_offset_db = 0.0
+    ttt_prep_s = 0.0
+    n_max = 4
+    release_hys_db = 3.0
+    stick_db = 1.0
+    ttt_switch_s = 0.0
+    cmd_delay_s = 0.01
+    exec_s = 0.02
+    recovery = True
+
+    def prep_offsets(self, obs: Observation) -> Union[float, np.ndarray]:
+        """Candidate preparation offset [dB] on L3 measurements: a scalar or an array (U, M)."""
+        raise NotImplementedError
+
+    def switch_offsets(self, obs: Observation) -> Union[float, np.ndarray]:
+        """Cell switch offset [dB] on L1 measurements (``obs.l1_dbm``): a scalar or an array (U, M)."""
         raise NotImplementedError
