@@ -2,17 +2,32 @@
 
 A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
 
-HandoverLab simulates 3GPP Release-16 mobility procedures (baseline handover with Event A3, and
-conditional handover) for many users moving through a street grid or an open area, with a
+HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
+conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid or an open area, with a
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: release candidate 1.0.0rc1.** The public surface (configuration and result formats
+> **Status: release candidate 1.0.0rc2.** The public surface (configuration and result formats
 > with a schema version, the rule interface, metric names, commands and the documented Python
 > names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+
+## What 1.0.0rc2 adds
+
+- **DAPS handover** (Rel-16, rule `daps`): the source keeps serving during the execution, and a
+  failed execution falls back to the source instead of a re-establishment.
+- **L1/L2-triggered mobility** (Rel-18, rule `ltm`): candidate cells configured in advance, cell
+  switch decided on unfiltered L1 reports, a short RACH-less execution. Both come with base classes
+  (`DAPSRule`, `LTMRule`) for your own rules and pass the rule contract kit.
+- **A learning-based example rule** (`a3_bandit`): A3 offsets learned per cell by an
+  epsilon-greedy bandit from the outcome labels.
+- **An upper mid-band scenario** (`fr3-urban-15ghz`): the default grid at 15 GHz.
+- How-to guides: [DAPS and LTM](docs/guides/daps-ltm.md),
+  [a learning-based rule](docs/guides/learning-rule.md), [the upper mid-band](docs/guides/upper-mid-band.md).
+
+All of it is additive: existing defaults, results and fingerprints are unchanged.
 
 ## What 1.0.0rc1 adds
 
@@ -213,7 +228,8 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
   studies (tuning, gates, storage, workers, status, reports), paired statistics, limitations.
 - How-to guides: [dashboard](docs/guides/dashboard.md), [add a scenario](docs/guides/add-scenario.md),
   [run on many cores](docs/guides/many-cores.md), [export event logs](docs/guides/export-event-logs.md),
-  [reproduce and check results](docs/guides/reproduce.md).
+  [reproduce and check results](docs/guides/reproduce.md), [DAPS and LTM](docs/guides/daps-ltm.md),
+  [a learning-based rule](docs/guides/learning-rule.md), [the upper mid-band](docs/guides/upper-mid-band.md).
 - Reference: [command line](docs/reference/cli.md), [metric names](docs/reference/metrics.md) and the
   API (generated from the docstrings, in the site); [stability policy](docs/stability.md).
 - [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
@@ -233,13 +249,14 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
 4. Stage 4 (0.4.0a1): browser dashboard (extra `gui`), tutorials, API and command-line
    reference with a documentation site, event-log levels, `status` with the time left, the
    grid-edge policy `extend`, failure-model calibration against ns-3 / 5G-LENA.
-5. **Stage 5 (1.0.0rc1, this release)**: the public interfaces frozen and documented with a
+5. Stage 5 (1.0.0rc1): the public interfaces frozen and documented with a
    schema version (configuration, results, rule interface, metric names) and a stability policy;
    how-to guides; a lint job and a coverage threshold in CI; a nightly comparison of fingerprints
-   between Linux and Windows; release plumbing for PyPI and Zenodo. Next: 1.0.0 with an archived
-   DOI.
-6. Later: optional compiled kernels for the step loop, L1/L2-triggered mobility, further scenarios
-   (highway, TR 38.901 calibration).
+   between Linux and Windows; release plumbing for PyPI and Zenodo.
+6. **Stage 6 (1.0.0rc2, this release)**: DAPS handover, L1/L2-triggered mobility, a learning-based
+   example rule and an upper mid-band scenario, all additive. Next: 1.0.0 with an archived DOI.
+7. Later: conditional LTM, optional compiled kernels for the step loop, further scenarios (highway,
+   TR 38.901 calibration).
 
 ## Citation
 

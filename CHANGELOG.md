@@ -7,6 +7,54 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.0.0rc2] - 2026-10-15
+
+Second release candidate (stage 6: additive features). Everything is added next to what was there:
+the defaults, the results of `a3` and `cho`, the golden fingerprints and the bh6 regression are
+unchanged, and the model version stays 1. The public surface only grew; the snapshot
+`tests/data/public_api.json` was extended deliberately (see below).
+
+### Added
+
+- DAPS handover (Rel-16): rule base class `DAPSRule` (family `daps`, hooks of `BaselineRule`;
+  attributes `interruption_s`, `fallback`, `source_data`) and the built-in rule `daps` (`DAPS`).
+  The source keeps serving during the execution (interruption `interruption_s`, default 0); an
+  execution that cannot join the target falls back to the source if its SINR is at least Qout
+  (outcome `too_early`, new event-log cause `daps_fallback`, not a failure). With
+  `fallback: false, source_data: false` it equals `a3`.
+- L1/L2-triggered mobility (Rel-18): rule base class `LTMRule` (family `ltm`, hooks `prep_offsets`
+  and `switch_offsets`; attributes `report_offset_db`, `ttt_prep_s`, `n_max`, `release_hys_db`,
+  `stick_db`, `ttt_switch_s`, `cmd_delay_s`, `exec_s`, `recovery`) and the built-in rule `ltm`
+  (`LTM`): candidates configured on L3 reports, cell switch decided by the network on unfiltered L1
+  measurements, cell switch command with its own delay and loss, short execution, optional recovery
+  into a candidate.
+- A learning-based example rule `a3_bandit` (`BanditA3`): Event A3 whose offset every cell learns
+  with an epsilon-greedy bandit from the outcome labels; NumPy only.
+- `Observation.l1_dbm`: the unfiltered L1 samples of the measurement instant (appended field with a
+  default, so existing rules and code that builds observations keep working).
+- Built-in scenario `fr3-urban-15ghz`: the default grid in the upper mid-band at 15 GHz with a
+  400 MHz carrier and 3.5 dB more beam gain, with its scenario card.
+- Event-log kinds `daps` and `ltm`; trace events `switch` (LTM cell switch command) and `fallback`
+  (DAPS); `serving_cells` returns the source after a fallback.
+- `handoverlab.rules.RULE_BASES` and `handoverlab.testing.FAMILIES`; the contract kit and
+  `register_rule` accept `DAPSRule` and `LTMRule` rules.
+- Documentation: the procedures in the user guide; how-to guides for DAPS and LTM, for using and
+  writing a learning-based rule, and for the upper mid-band.
+- Tests of the DAPS, LTM and bandit trigger and update logic on prescribed received powers, and
+  their contract checks.
+
+### Changed
+
+- Version 1.0.0rc2.
+- The public-surface snapshot now also lists the hooks and attributes of `DAPSRule` and `LTMRule`,
+  the new exports (`DAPS`, `LTM`, `DAPSRule`, `LTMRule`, `BanditA3`, `RULE_BASES`), the
+  observation field `l1_dbm` and the trace events `switch` and `fallback`. Nothing was removed or
+  renamed.
+- Engine internals (not public): a procedure may set its execution time, its user-plane
+  interruption, a fallback to the source and data on the source during the execution; the
+  conditional procedure is split into execution and reporting steps that the LTM procedure reuses.
+  Results of the existing procedures are bit-identical.
+
 ## [1.0.0rc1] - 2026-10-15
 
 Release candidate for 1.0.0 (stage 5: release readiness). Results are unchanged: the golden
@@ -243,7 +291,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc2...HEAD
+[1.0.0rc2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc1...v1.0.0rc2
 [1.0.0rc1]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0rc1
 [0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/b0802c5c18634506e47a19454ca9b51293e712d7...e93b9c59e5a42665a47be91922ddd5aede998367
 [0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/a5ce5dd706c225c89c13a49fea239a89a1f56cb7...b0802c5c18634506e47a19454ca9b51293e712d7
