@@ -42,12 +42,17 @@ def load_reference() -> dict:
         return json.load(f)
 
 
-def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None):
-    """``ns3-urban-3.5ghz`` with the sites of ``isd_m`` and constant speed ``speed_mps`` (8, 16 or 30)."""
+def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrides: Optional[Dict] = None):
+    """``ns3-urban-3.5ghz`` with the sites of ``isd_m`` and constant speed ``speed_mps`` (8, 16 or 30).
+
+    ``overrides`` (dotted keys, such as ``{"protocol.qout_window_s": 0.12}``) change the scenario
+    further, for calibration experiments.
+    """
     ref = ref or load_reference()
-    return builtin_scenario("ns3-urban-3.5ghz").with_overrides({
+    sc = builtin_scenario("ns3-urban-3.5ghz").with_overrides({
         "name": "ns3-urban-3.5ghz-%dm-%dmps" % (isd_m, speed_mps),
         "layout.sites": ref["sites"][str(isd_m)], "mobility.profile": "c%d" % speed_mps})
+    return sc.with_overrides(overrides) if overrides else sc
 
 
 def spearman(a: Sequence[float], b: Sequence[float]) -> float:
@@ -55,8 +60,12 @@ def spearman(a: Sequence[float], b: Sequence[float]) -> float:
     return float(spearmanr(a, b)[0])
 
 
-def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None) -> Dict:
-    """Run part A of the reference in HandoverLab and return the per-setting table and the summary."""
+def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
+            overrides: Optional[Dict] = None) -> Dict:
+    """Run part A of the reference in HandoverLab and return the per-setting table and the summary.
+
+    ``overrides`` change the scenario of every condition (see :func:`scenario_for`).
+    """
     ref = load_reference()
     rows = [r for r in ref["rows"] if r["part"] == "A"]
     settings = sorted({(r["a3_offset_db"], r["ttt_ms"]) for r in rows})
@@ -65,7 +74,7 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
     keys = ("attempts_pm", "unnecessary_pm", "failures_pm", "sinr_db")
     sim = {}
     for isd, v in conds:
-        sc = scenario_for(isd, v, ref)
+        sc = scenario_for(isd, v, ref, overrides)
         for res in simulate(sc, rules, seeds=seeds):
             sim.setdefault((isd, v, res.rule), []).append([res.metrics[k] for k in keys])
         if progress:

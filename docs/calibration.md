@@ -1,0 +1,111 @@
+# Failure-model calibration against ns-3 / 5G-LENA
+
+**Result of version 0.4.0a1: no calibrated preset is offered, and the default failure model is
+unchanged.** One existing parameter, the Qout filter window `protocol.qout_window_s`, can be set so
+that HandoverLab reproduces the mean failure rate of the ns-3 reference and its ranking over the 24
+A3 settings. The same setting fails on every independent set of ns-3 results that was held back, so
+it is a fit to one data set and not a calibration. This page gives the evidence. Failure rates of
+HandoverLab therefore remain relative quantities, as stated in the
+[verification](verification.md#validation-the-known-difference-in-failure-rates) page: compare them
+between rules within HandoverLab, not with absolute values from another simulator.
+
+The work used only stored ns-3 / 5G-LENA output files (per-run attempt and link-failure tables and
+summaries of the study behind the scenario [`ns3-urban-3.5ghz`](scenarios/ns3-urban-3.5ghz.md));
+ns-3 was not run again. HandoverLab used seeds 500 and 501 per condition; seeds are different
+realisations in the two simulators, so only averages are compared.
+
+## What the ns-3 failures are
+
+The ns-3 runs used N310 = N311 = 1, T310 = 1 s, Qout = -8 dB, 50 ms preparation, 1 ms slots, ideal
+RRC and random access, the TR 36.839 handover-failure model, and 10 downlink packets per second per
+user.
+
+- **Almost all are late handovers.** Of 1268 failures in part A (0.432 per UE-minute), 96 % are
+  handover commands that arrive while T310 runs; 2 % are T310 expiries and 2 % connection
+  time-outs. The median time since the last successful handover is 12.4 s (under 1 s for 6 % of
+  failures): these are not early handovers or ping-pongs.
+- **Strong dependence on the time-to-trigger.** 0.031, 0.140, 0.436 and 1.119 failures per
+  UE-minute at a TTT of 100, 300, 500 and 1000 ms (36-fold). When the late command arrived, T310 had
+  been running for a median 299 ms (64 ms at TTT 100 ms, 419 ms at 1000 ms).
+- **Part B** (two settings, six conditions, 20 seeds each): 0.035 (1 dB / 300 ms) and 0.031
+  (6 dB / 100 ms) per UE-minute; 0.077-0.100 at 200 m with 16 or 30 m/s, at most 0.014 elsewhere.
+- **Further A3 runs** (6 dB / 100 ms, 200 m, 16 m/s, 10 seeds): 0.075 per UE-minute; T310 of 0.5 or
+  2 s gives 0.092 and 0.087 (no effect); a preparation delay of 20 or 100 ms gives 0.072 and 0.107;
+  10 or 40 users give 0.045 and 0.159, so the failure rate depends on the traffic.
+
+**The SINR gap is a matter of definition.** The mean serving SINR reported by the ns-3 study
+(11.5 dB) is computed from the RSRP of all cells with every other cell interfering. HandoverLab's
+SINR with fully loaded interferers matches it within 0.5 dB; its usual SINR (26 dB in this
+scenario) counts the interferers at their actual, light load. Neither number is what the ns-3
+failure detection sees: ns-3 checks Qout on the control symbols of the serving cell, where
+neighbours interfere only in the slots in which they send control information, so the interference
+seen by link monitoring depends on the traffic.
+
+## Parameters tried
+
+All on part A (24 A3 settings x 4 conditions); failures per UE-minute against ns-3's 0.432; rank:
+Spearman correlation of the failure rate over the 24 settings.
+
+| Change to the scenario card | Failures | Rank | Failures at TTT 100 / 300 / 500 / 1000 ms |
+|---|---|---|---|
+| none (interferer load 0.03, `qout_window_s` 0.2 s) | 0.126 | 0.54 | 0.065 / 0.078 / 0.090 / 0.271 |
+| interferer load 0.1 / 0.3 / 1.0 | 0.48 / 1.40 / 3.55 | 0.78 / 0.90 / -0.30 | trend flattens; unnecessary-handover ratio 0.73 and 0.28 at 0.3 and 1.0 (outside the limits) |
+| load 0.05-0.2 with `qout_window_s` 0.05-0.1 s | 0.71-2.43 | 0.93 to -0.38 | too many failures |
+| `qout_window_s` 0.08 / 0.10 / 0.11 / 0.12 / 0.13 / 0.15 s | 0.58 / 0.49 / 0.43 / 0.37 / 0.31 / 0.23 | 0.88 / 0.94 / 0.95 / 0.96 / 0.94 / 0.85 | at 0.12 s: 0.067 / 0.146 / 0.504 / 0.749 |
+| `qout_window_s` 0.1 s and Qout -9 dB (Qin -7 dB) | 0.40 | 0.96 | 0.040 / 0.219 / 0.632 / 0.713 |
+| `qout_window_s` 0.1 s and `qin_window_s` 0.05 / 0.2 s | 0.48 / 0.18 | 0.90 / 0.78 | |
+| prototype: count consecutive out-of-sync steps instead of filtering, window 0.2-0.6 s | 0.12-0.60 | 0.79-0.95 | no better than the filter window |
+
+The failure rate is steep in the window (0.49 at 0.10 s, 0.23 at 0.15 s). Handover and
+unnecessary-handover rates stayed within the acceptance limits for every window setting.
+
+## The best candidate and the hold-out test
+
+`protocol.qout_window_s: 0.12` (or 0.11) and nothing else changed, two seeds per condition:
+
+| | Window 0.11 s | Window 0.12 s | Scenario card (0.2 s) | ns-3 |
+|---|---|---|---|---|
+| Part A failures per UE-minute | 0.405 | 0.352 | 0.131 | 0.432 |
+| Part A rank over the 24 settings | 0.97 | 0.97 | 0.67 | |
+| Part A failures at TTT 100 / 300 / 500 / 1000 ms | 0.074 / 0.228 / 0.579 / 0.738 | 0.072 / 0.163 / 0.464 / 0.711 | 0.066 / 0.078 / 0.097 / 0.281 | 0.031 / 0.140 / 0.436 / 1.119 |
+| Part A handover ratio / rank | 0.91 / 0.99 | 0.92 / 0.99 | 0.92 / 0.99 | |
+| Part A unnecessary-handover ratio / rank | 0.93 / 0.99 | 0.94 / 0.99 | 0.97 / 0.99 | |
+| **Hold-out** part B failures (4 seeds) | 0.115 | 0.097 | 0.068 | 0.033 |
+| **Hold-out** part B rank over 12 cells | 0.73 | 0.69 | 0.70 | |
+
+On part A the window fits the level (also per condition: 0.32 / 0.57 / 0.20 / 0.33 against
+0.70 / 0.52 / 0.20 / 0.32 at 200 m / 16 m/s, 200 / 30, 400 / 16, 400 / 30) and the ranking, but the
+time-to-trigger trend is about 10-fold against ns-3's 36-fold. On the held-back results it fails:
+
+- **Part B** is three times too high, and its ranking is no better than with the scenario card.
+  In the worst cell (200 m, 30 m/s, 1 dB / 300 ms: 0.53 against 0.085) 64 % of HandoverLab's
+  failures are execution failures (the target is below Qout at the end of the execution), which
+  ns-3 with ideal random access practically does not produce. Leaving them out as a diagnostic
+  still gives 0.052 against 0.033, rank 0.66.
+- **The further A3 runs** (8 seeds): 0.022 against 0.075. A T310 of 0.5 or 2 s changes nothing in
+  either simulator (this agrees). A preparation delay from 20 to 100 ms raises HandoverLab's failures
+  5-fold (0.009 to 0.044) and ns-3's 1.5-fold (0.072 to 0.107). 10 or 40 users give 0.056 and 0.034
+  in HandoverLab (no trend) against a 3.5-fold rise in ns-3: HandoverLab's fixed interferer load
+  cannot respond to the traffic.
+
+## Conclusion and what would be needed
+
+A single parameter fits part A because it can shift the level of late failures, but it does not
+capture what drives the ns-3 failures: interference at link monitoring that depends on the traffic
+of the neighbours, and an execution step that practically never fails. A calibrated preset would
+need, at least, a link-monitoring SINR with its own, traffic-dependent interferer load (the way
+`traffic.label_load` sets the load for the outcome label), and an option for an execution that
+cannot fail, each checked against the held-back results above. Both change results, so they will
+come with a new model version, and only if the hold-out sets confirm them.
+
+Reproduce the part-A numbers with the comparison of `handoverlab verify --ns3`:
+
+```python
+from handoverlab.verify.ns3 import compare
+
+out = compare(seeds=[500, 501], overrides={"protocol.qout_window_s": 0.12})   # about 6 min on one core
+print(out["summary"]["fail_mean"], out["summary"]["fail_rank"], out["summary"]["ho_ratio_median"])
+```
+
+Part B is stored with the reference data (`handoverlab/verify/data/ns3_urban_a3.json`, means over
+20 runs per cell); the further A3 runs are not stored in the package, their means are given above.

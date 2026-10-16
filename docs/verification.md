@@ -1,8 +1,8 @@
 # Verification of HandoverLab
 
 This page describes how HandoverLab is checked, how to run the checks yourself and what they
-showed for version 0.2.0a1. Version 0.3.0a1 gives bit-identical results (the golden fingerprints
-and the bh6 regression are unchanged), so every number below still holds. Run everything with
+showed for version 0.2.0a1. Versions 0.3.0a1 and 0.4.0a1 give bit-identical results (the golden
+fingerprints and the bh6 regression are unchanged), so every number below still holds. Run everything with
 
 ```bash
 handoverlab verify                 # about two minutes; prints PASS / FAIL / NOTE per check
@@ -127,7 +127,8 @@ models, not a sampling effect, and it is not resolved in this version. What is k
   failure much sooner once the serving cell fades while the time-to-trigger runs.
 - **The interference is defined differently.** In this scenario the interfering cells of
   HandoverLab carry about 3 % load (light traffic), so the mean serving SINR is 14-15 dB higher than
-  in ns-3. With fully loaded interfering cells (`traffic.normal_load` and `traffic.hotspot_load` set
+  the SINR reported by the ns-3 study, which is computed from the RSRP of all cells with every
+  other cell interfering (a definition, not what the ns-3 failure detection sees). With fully loaded interfering cells (`traffic.normal_load` and `traffic.hotspot_load` set
   to 1) the mean SINR of HandoverLab matches ns-3 within 0.5 dB in every condition (8.4, 8.0, 15.7,
   15.0 dB against 8.0, 7.5, 15.4, 15.1 dB).
 - **Matching the SINR does not match the failures.** With fully loaded interferers HandoverLab gives
@@ -146,9 +147,16 @@ models, not a sampling effect, and it is not resolved in this version. What is k
 tuning budgets of a study are shares of a reference rule's failure rate for this reason), and
 report them as relative quantities. Do not compare an absolute failure rate from HandoverLab with
 another simulator or with field data. Handover and unnecessary-handover rates, the main outputs,
-agree with ns-3 within the limits above. A calibration of the failure model against ns-3 (for
-example the Qout threshold or a per-slot out-of-sync model) is planned for a later version; it will
-change results and therefore the golden fingerprints and the model version.
+agree with ns-3 within the limits above.
+
+**Calibration attempt (version 0.4.0a1).** 96 % of the ns-3 failures are handover commands that
+arrive while T310 runs, and T310 itself has no effect on their rate. One existing parameter, a Qout
+filter window `protocol.qout_window_s` of about 0.12 s instead of 0.2 s, reproduces the mean
+failure rate of part A (0.35-0.41 against 0.43 per UE-minute) and its ranking over the settings
+(0.97), but fails every held-back set: part B is three times too high, and the response to the
+preparation delay and to the number of users differs from ns-3. No calibrated preset is therefore
+offered and the default is unchanged. The evidence, and what a calibration would need, are on the
+[calibration page](calibration.md).
 
 Reproduce the comparison with `handoverlab verify --ns3`; the fully loaded variant is the same
 scenario with `traffic.normal_load: [1.0, 1.0]` and `traffic.hotspot_load: [1.0, 1.0]`.

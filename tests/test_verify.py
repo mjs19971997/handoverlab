@@ -78,3 +78,11 @@ def test_ns3_reference_data():
 
 def test_groups_listed():
     assert GROUPS == ("pathloss", "radio", "invariants", "equivalences", "fingerprints")
+
+
+def test_ns3_scenario_overrides():
+    from handoverlab.verify.ns3 import scenario_for
+    base = scenario_for(200, 16)
+    sc = scenario_for(200, 16, overrides={"protocol.qout_window_s": 0.12})
+    assert base.protocol.qout_window_s == 0.2 and sc.protocol.qout_window_s == 0.12
+    assert sc.layout.sites == base.layout.sites and sc.mobility.profile == "c16"
