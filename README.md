@@ -14,7 +14,7 @@ failure model, and an outcome label for every handover attempt.
 > names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
-![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+![The dashboard: users coloured by their serving cell](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard.png)
 
 ## What 1.0.0 brings
 

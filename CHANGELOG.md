@@ -7,6 +7,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-16
+
+### Fixed
+
+- The dashboard image in the README now uses an absolute URL, so it also shows on the PyPI
+  project page.
+- README and citation metadata carry the Zenodo DOI of version 1.0.0.
+
 ## [1.0.0] - 2026-10-16
 
 First stable release (stages 5 to 8). This section merges the release candidates 1.0.0rc1 to
@@ -330,7 +338,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0
 [0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/b0802c5c18634506e47a19454ca9b51293e712d7...e93b9c59e5a42665a47be91922ddd5aede998367
 [0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/a5ce5dd706c225c89c13a49fea239a89a1f56cb7...b0802c5c18634506e47a19454ca9b51293e712d7
