@@ -38,8 +38,8 @@ def launch(port: int = 8501, headless: bool = False, address: str = "localhost",
     """Start the dashboard server in this process (blocks until it is stopped with Ctrl+C)."""
     try:
         from streamlit.web import cli as stcli
-    except ImportError:
-        print("error: the dashboard needs Streamlit and matplotlib: pip install \"handoverlab[gui]\"",
+    except ImportError as e:
+        print("error: the dashboard needs Streamlit and matplotlib: pip install \"handoverlab[gui]\" (%s)" % e,
               file=sys.stderr)
         return 2
     sys.argv = ["streamlit"] + (argv if argv is not None else streamlit_args(port, headless, address))
