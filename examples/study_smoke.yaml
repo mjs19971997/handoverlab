@@ -3,8 +3,9 @@
 #   handoverlab study examples/study_smoke.yaml --workers 2
 #   handoverlab report results/study-smoke
 # The numbers are too few for conclusions; enlarge seeds, users and run length for a real study.
-# With these short runs the gates warn, for example that the selected A3 offset is the largest
-# value of its grid: widen the grid (and set grid_edge: block) before trusting a comparison.
+# The selected A3 offset first lands on the largest value of its grid; the gate policy 'extend'
+# widens the grid (6 dB -> 8 dB) and tunes again, recorded in results/study-smoke/AMENDMENTS.md.
+# A walk through this study: docs/tutorials/tuning-study.md.
 name: study-smoke
 description: A3 and CHO tuned with equal budgets on two site spacings of the smoke scenario.
 scenario:
@@ -25,8 +26,10 @@ tuning:
   tolerance: 0.05
   group_by: [layout.site_spacing_m] # tune per site spacing
   min_reference_failures: 3
+  extend_steps: 2                   # values added per extension
+  max_extensions: 2                 # at most two extension rounds, then the gate blocks
   gates:
-    grid_edge: warn                 # 'block' stops the study before the test stage
+    grid_edge: extend               # widen the grid and tune again ('block' stops the study instead)
     budget_binding: warn
     budget_met: warn
     equal_budget: block

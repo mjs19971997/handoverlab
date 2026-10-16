@@ -1,10 +1,12 @@
 # HandoverLab user guide
 
-This guide covers version 0.3.0a1 (stage 3). It explains the ideas behind a run, the built-in
+This guide covers version 0.4.0a1 (stage 4). It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
-handover rule, event logs and their fingerprints, the verification checks, what the metrics mean,
-and how to run a whole study: equal-budget tuning with automatic gates, paired tests, stored and
-resumable results, and reports.
+handover rule, event logs at their three levels and their fingerprints, the verification checks,
+what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
+(including widening a grid), paired tests, stored and resumable results, the status view, and
+reports. Step-by-step introductions are in the [tutorials](tutorials/first-run.md); the
+[dashboard](guides/dashboard.md) has its own page.
 
 ## 1. Concepts
 
@@ -146,11 +148,13 @@ In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a ch
 ## 4. Command line
 
 ```text
-handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--debug] [-q]
+handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--event-level summary|full] [--debug] [-q]
 handoverlab verify [--only GROUP ...] [--full] [--ns3] [--results FILE [--sample N]] [--json OUT] [-q]
 handoverlab scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
 handoverlab study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report] [-q]
 handoverlab report DIR [-o OUT] [--format md html] [--no-figures]
+handoverlab status STUDY|DIR [-o DIR] [--workers N]
+handoverlab gui [--port N] [--address A] [--headless]
 handoverlab rules
 handoverlab init [PATH]
 handoverlab --version
@@ -161,11 +165,16 @@ handoverlab --version
 `.json` output also stores the resolved scenario, the rule key, the timing of every run and the
 versions of Python, NumPy and SciPy. `--events` writes the event logs as one table (see section 8):
 Parquet for a `.parquet` name if `pyarrow` is installed (`pip install handoverlab[parquet]`), CSV
-otherwise. `--debug` checks the engine invariants while running (section 9).
+otherwise; with `--event-level full` the procedure traces go to a second table next to it
+(`events.csv` -> `events-trace.csv`). `--debug` checks the engine invariants while running
+(section 9).
 
 `verify` runs the verification checks and prints PASS, FAIL or NOTE for each (section 9).
-`scenarios` lists the built-in scenarios or prints one card. `study` runs or resumes a study and
-`report` writes its report (section 10). `python -m handoverlab` works as well.
+`scenarios` lists the built-in scenarios or prints one card. `study` runs or resumes a study,
+`status` shows what is left of it and how long that will take, and `report` writes its report
+(section 10). `gui` starts the browser dashboard ([dashboard](guides/dashboard.md); needs
+`pip install handoverlab[gui]`). `python -m handoverlab` works as well. The full option lists are
+in the [command-line reference](reference/cli.md).
 
 ## 5. Python API
 
@@ -176,11 +185,13 @@ sc = hl.Scenario()                                     # all defaults
 exp = hl.load_config("examples/street_grid.yaml")       # or a dict
 results = hl.run_experiment(exp)                        # list of RunResult
 world = hl.build_world(sc, seed=1)                      # one world ...
-results = hl.run_world(world, [{"rule": "a3"}, {"rule": "cho"}], log_events=True)   # ... many rules
+results = hl.run_world(world, [{"rule": "a3"}, {"rule": "cho"}], log_events="summary")   # ... many rules
 results[0].metrics["unnecessary_pm"], results[0].events[:3]
 results[0].fingerprint                                  # SHA-256 of the event log, always set
 hl.simulate(sc, [{"rule": "a3"}], seeds=[1], debug=True)   # with invariant checks
 hl.write_events(results, "events.parquet")              # event table (CSV without pyarrow)
+full = hl.run_world(world, [{"rule": "a3"}], log_events="full")[0]
+full.trace[:3]                                          # procedure trace (section 8)
 hl.run_world(world, rules, batch=False)                 # engines one by one (same results, slower)
 ```
 
@@ -288,8 +299,18 @@ full catalogue with units is `handoverlab.engine.METRICS`.
 
 ## 8. Event logs and fingerprints
 
-With `log_events=True` (Python) or `--events FILE` (command line) every run keeps its event log: one
-row per handover attempt and per link failure without a handover. The columns and units are in
+A run keeps as much of its history as its *event-log level* asks for:
+
+| Level | Kept | Typical use |
+|---|---|---|
+| `off` (default) | metrics and the fingerprint of the event log | tuning, large studies |
+| `summary` | the event log: one row per handover attempt and per failure without a handover | test stages, causes of failures |
+| `full` | the event log and the procedure trace | debugging a rule, following users, the dashboard map |
+
+Set it with `log_events="off" | "summary" | "full"` in `simulate` and `run_world` (`True` means
+`summary`), with `--events FILE --event-level summary|full` on the command line, or with
+`events: off | summary | full` in a study file (`true` means `summary`). The level never changes a
+result or a fingerprint. The event-log columns and units are in
 `handoverlab.eventlog.EVENT_COLUMNS`:
 
 | Column | Meaning |
@@ -306,6 +327,23 @@ row per handover attempt and per link failure without a handover. The columns an
 `hl.write_events(results, path)` writes the logs of many runs as one table (Parquet with typed
 columns if `pyarrow` is installed and the name ends in `.parquet`, else CSV) and
 `hl.read_events(path)` reads it back.
+
+The **trace** (level `full`, `RunResult.trace`) has one row per procedure event with the columns
+`t`, `ue`, `event`, `src` (serving cell before the event), `cell`, `value` and `note`:
+
+| Event | Meaning |
+|---|---|
+| `serve` | initial serving cell at the first step |
+| `report` | baseline handover: measurement report towards `cell` (`value`: A3 offset) |
+| `prepare`, `release` | conditional handover: preparation of `cell` requested (`value`: execution offset), or released |
+| `config`, `config_lost` | the conditional configuration of `cell` reached the UE, or was lost |
+| `exec` | execution starts: the UE leaves `src` for `cell` |
+| `attach`, `reestablish` | the UE is connected to `cell` after a handover or a re-establishment (`value`: SINR in dB) |
+| `failure` | mobility failure; `cell` is the cell chosen for re-establishment, `note` the cause |
+
+`hl.eventlog.serving_cells(trace, n_users, times)` turns a trace into the serving cell of every
+user at the given times (-1 while not connected); `write_trace` and `read_trace` store traces as
+tables like the event logs.
 
 The **fingerprint** of a log is the SHA-256 of its canonical CSV form (`hl.fingerprint(events)`).
 Every run computes it, also when the log is not kept, and it is written into every result row. Two
@@ -353,7 +391,7 @@ one command runs it, and re-running it resumes where it stopped.
 ```bash
 handoverlab study examples/study_smoke.yaml --dry-run     # what would run
 handoverlab study examples/study_smoke.yaml --workers 2   # run or resume
-handoverlab study examples/study_smoke.yaml --status      # finished, failed, remaining jobs
+handoverlab status results/study-smoke                    # finished, failed, remaining jobs, time left
 handoverlab report results/study-smoke                    # report.md, report.html, figures
 ```
 
@@ -389,7 +427,7 @@ compare:
 output: results/study-smoke
 ```
 
-The complete example is [examples/study_smoke.yaml](../examples/study_smoke.yaml). Every key is
+The complete example is [examples/study_smoke.yaml](https://github.com/mjs19971997/handoverlab/blob/main/examples/study_smoke.yaml). Every key is
 checked; an unknown key or a parameter that the rule does not have stops the study with a message
 that names it.
 
@@ -408,6 +446,7 @@ that names it.
 | `tuning.gates` | policy per gate: `warn`, `block` or `off` (defaults below) |
 | `tuning.binding_share`, `min_reference_failures`, `flat_share` | thresholds of the gates (0.9, 5, 0.5) |
 | `tuning.objective`, `constraint`, `tie_breaks` | metrics of the selection rule (`unnecessary_pm`, `failures_pm`, `[prepared_cells_mean, failures_pm]`) |
+| `tuning.extend_steps`, `max_extensions` | with `gates: {grid_edge: extend}`: values added at the edge per extension (2) and the most extension rounds (2) |
 | `methods.NAME.rule` | registered rule key (built-in or plug-in) |
 | `methods.NAME.grid` | parameter -> list of values; a method without a grid is not tuned |
 | `methods.NAME.fixed` | parameters that stay fixed |
@@ -415,7 +454,7 @@ that names it.
 | `methods.NAME.settings` | an own budget (the `equal_budget` gate then blocks the study) |
 | `compare.baseline` | the rule every other rule is compared with (default: the first test rule) |
 | `compare.metrics`, `level`, `bootstrap`, `budget` | metrics of the report, interval level (0.95), bootstrap resamples (2000), restriction to one budget |
-| `events` | keep the event logs of the test stage (`events/<run>.parquet`) |
+| `events` | event-log level of the test stage: `off` (default), `summary` (`events/<run>.parquet`) or `full` (also `events/<run>-trace.parquet`) |
 | `output`, `workers` | study directory (default `results/<name>`) and worker processes |
 
 ### Stages
@@ -446,7 +485,7 @@ fixed before any result is seen; every evaluated setting and its means are store
 
 | Gate | Fails when | Default |
 |---|---|---|
-| `grid_edge` | the selected value of a numeric parameter is the smallest or largest of its grid and that end is not a declared natural bound (per method, budget and group) | block |
+| `grid_edge` | the selected value of a numeric parameter is the smallest or largest of its grid and that end is not a declared natural bound (per method, budget and group); policy `extend` widens the grid and tunes again (below) | block |
 | `budget_binding` | more than 90 % of the settings of every method meet the budget, or the reference rule has fewer than 5 failures on the tuning runs: the budget does not constrain the trade-off | warn |
 | `budget_met` | no setting of a method meets the budget | warn |
 | `equal_budget` | methods evaluated different numbers of settings (except where a grid is smaller than the budget), or declared different budgets | block |
@@ -459,6 +498,16 @@ any test run with a message such as `grid_edge (layout.site_spacing_m=100, A3, b
 off_db = 6 is the largest grid value`. Extend the grid (or declare a natural bound) and run the
 study again; finished jobs are reused.
 
+**Policy `extend`.** With `gates: {grid_edge: extend}` the study widens the grid itself: at every
+edge where a selected value sits, `extend_steps` new values are added with the spacing of the last
+two grid values (`off_db: [.., 5, 6]` gains 7 and 8; a grid of non-negative values is never
+extended below zero), and then *every* method is tuned again with the same budget on the widened
+grids, so the budgets stay equal. Rule runs that were already simulated are reused. This repeats
+until no selected value sits on an edge or `max_extensions` extension rounds were made; then a
+remaining edge blocks like `block`, and so does an edge that cannot be widened (the message says
+why). Every extension is recorded with its date in `amendments.json` and `AMENDMENTS.md` of the
+study directory, applied again when the study is resumed, and listed in the report.
+
 ### Results, resumption and workers
 
 ```text
@@ -468,9 +517,11 @@ results/<study>/
   plan.json                job IDs of every stage of the current plan
   jobs/<stage>/<job>.json  one record per job: metrics, fingerprints, parameters, timing, peak memory
   failed/<job>.txt         traceback of a failed job (removed when it succeeds)
-  events/<run>.parquet     event logs of the test stage (with events: true)
+  events/<run>.parquet     event logs of the test stage (events: summary or full)
+  events/<run>-trace.parquet  procedure traces of the test stage (events: full)
   tuned/<group>.json       every evaluated setting, the selection per budget, the gates of a group
   tuned/gates.json         the gate report of the whole study
+  amendments.json          grid extensions made by the policy extend (and AMENDMENTS.md)
   tables/runs.parquet      one row per job and rule (CSV without pyarrow)
   tables/tuning.parquet    one row per evaluated setting
   report/                  report.md, report.html, summary.json, figures/
@@ -490,6 +541,26 @@ its traceback in `failed/` and stops the study after its stage; the next run ret
 per process. The default leaves cores free: the logical CPUs minus four (half of them on machines
 with fewer than eight). Jobs start longest first. Neither the worker count nor the order changes a
 result: two runs of the same study give identical event-log fingerprints.
+
+`handoverlab status STUDY` (a study file or directory) lists, per stage, the planned, finished,
+failed and remaining jobs and the rule runs still to simulate; stages that depend on earlier
+results are counted from the study file until they can be planned. It also estimates the time
+left from the finished jobs of the study (world-build time and engine time per rule run, scaled by
+users and simulated seconds), spread over the workers of the last session or `--workers N`:
+
+```text
+study study-smoke in results/study-smoke
+  last session (1) 2026-10-15T23:59:30+00:00: stopped after tuning
+  stage    jobs   done  failed  to run  rule runs
+  tune1       8      8       0       0          0
+  tune2       8      8       0       0          0
+  test       12      0       0      12         48
+  gates: pass (0 blocking, 5 warnings)
+  time left: about 34 s with 2 workers (69 s CPU; measured on 16 jobs: world 2.5 s, 3.36 s per rule run of 1000 user-seconds)
+```
+
+The estimate is a guide: other conditions or rules can be slower or faster, and a busy machine is
+slower.
 
 Parquet tables need `pyarrow` (`pip install handoverlab[parquet]`); without it the tables are CSV
 files with the same columns. `handoverlab.studies.read_table` reads either into a list of
@@ -557,6 +628,8 @@ intervals are wide; the report shows them next to every estimate.
 - Compared with ns-3 / 5G-LENA, handover and unnecessary-handover rates agree (median ratios 0.95 and
   1.04 over 24 A3 settings), failure rates do not: 0.13 against 0.43 per UE-minute (see the
   validation section of [verification.md](verification.md)). Compare failure rates between rules
-  within HandoverLab, not with absolute values from other simulators or from the field.
+  within HandoverLab, not with absolute values from other simulators or from the field. An attempt
+  to calibrate the failure model against ns-3 found no setting that holds on independent ns-3
+  results ([calibration](calibration.md)).
 - Tuning gates check the search, not the model: a study that passes every gate can still answer the
   wrong question if the scenario does not fit it.

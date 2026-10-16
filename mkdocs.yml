@@ -1,0 +1,73 @@
+# Documentation site: python -m pip install -e ".[docs]" && mkdocs serve   (or: mkdocs build)
+site_name: HandoverLab
+site_description: System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks
+site_url: https://mjs19971997.github.io/handoverlab/
+repo_url: https://github.com/mjs19971997/handoverlab
+edit_uri: blob/main/docs/
+copyright: MIT licence
+docs_dir: docs
+hooks:
+  - tools/mkdocs_hooks.py
+exclude_docs: |
+  fa/
+
+theme:
+  name: readthedocs
+  navigation_depth: 3
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - 1. Your first run: tutorials/first-run.md
+      - 2. Writing your own rule: tutorials/own-rule.md
+      - 3. A fair tuning study: tutorials/tuning-study.md
+      - 4. Reading the report: tutorials/reading-the-report.md
+  - Guides:
+      - User guide: user_guide.md
+      - Dashboard: guides/dashboard.md
+      - Scenario cards:
+          - smoke: scenarios/smoke.md
+          - urban-grid-10ghz: scenarios/urban-grid-10ghz.md
+          - open-area-10ghz: scenarios/open-area-10ghz.md
+          - ns3-urban-3.5ghz: scenarios/ns3-urban-3.5ghz.md
+  - Reference:
+      - Command line: reference/cli.md
+      - API:
+          - Top-level package: reference/api/index.md
+          - Configuration: reference/api/config.md
+          - Running rules: reference/api/simulate.md
+          - Rule interface: reference/api/rules.md
+          - Rule contract kit: reference/api/testing.md
+          - Event logs: reference/api/eventlog.md
+          - Engine and metrics: reference/api/engine.md
+          - Built-in scenarios: reference/api/scenarios.md
+          - Studies: reference/api/studies.md
+          - Paired statistics: reference/api/stats.md
+          - Verification: reference/api/verify.md
+          - Dashboard logic: reference/api/gui.md
+  - Explanation:
+      - Verification: verification.md
+      - Failure-model calibration: calibration.md
+      - Performance: performance.md
+
+markdown_extensions:
+  - tables
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_signature_annotations: true
+            separate_signature: false
+            filters: ["!^_"]
+            heading_level: 2
