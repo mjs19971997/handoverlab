@@ -10,7 +10,7 @@ from handoverlab.config import ConfigError
 from handoverlab.scenarios import DEFAULT_SOURCES, card_markdown, layout_svg
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "scenarios")
-NAMES = ["ns3-urban-3.5ghz", "open-area-10ghz", "smoke", "urban-grid-10ghz"]
+NAMES = ["fr3-urban-15ghz", "ns3-urban-3.5ghz", "open-area-10ghz", "smoke", "urban-grid-10ghz"]
 
 
 def test_builtin_names_and_cards():

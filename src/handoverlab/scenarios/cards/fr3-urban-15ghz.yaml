@@ -1,0 +1,33 @@
+# Scenario card (machine-readable).  docs/scenarios/fr3-urban-15ghz.md is generated from this file.
+name: fr3-urban-15ghz
+title: The TR 37.885 urban grid in the upper mid-band (FR3) at 15 GHz
+since: 1.0.0rc2
+purpose: >
+  The `urban-grid-10ghz` world moved to 15 GHz, the middle of the upper mid-band (FR3, 7.125 to
+  24.25 GHz) that 3GPP studies for 5G-Advanced and beyond: the same 3 x 3-block grid with small
+  cells every 100 m, the TR 38.901 UMi street-canyon model with building LOS and place-tied
+  shadowing, a 400 MHz carrier and an array of the same physical size as at 10 GHz, so that its
+  beam gain is 20 log10(15/10) = 3.5 dB higher.  Path loss grows by about as much, the noise by
+  3 dB (twice the bandwidth), so the signal-to-noise ratio is about 3 dB lower.  Use it next to
+  `urban-grid-10ghz` to see how a rule's trade-off between failures and unnecessary handovers moves
+  with the carrier; everything else stays the same.
+layout_note: >
+  Three by three blocks (433 m x 250 m between street centre lines, 20 m streets), 76 sites, as in
+  `urban-grid-10ghz`.
+scenario:
+  name: fr3-urban-15ghz
+  layout: {kind: street_grid, blocks: [3, 3], site_spacing_m: 100.0}
+  radio: {carrier_ghz: 15.0, bandwidth_mhz: 400.0, bs_gain_db: 23.5, pathloss: umi_street_canyon}
+  mobility: {users: 40, profile: veh16}
+  run: {duration_s: 120.0, warmup_s: 20.0}
+sources:
+  radio.carrier_ghz: "FR3 (7.125-24.25 GHz) of the Rel-19 7-24 GHz channel-model study (TR 38.901 V19); 15 GHz is an assumption"
+  radio.bandwidth_mhz: "assumption (400 MHz channel in the upper mid-band)"
+  radio.bs_gain_db: "assumption (array of the same aperture as at 10 GHz: +20 log10(15/10) dB)"
+limitations:
+  - "Received-power level only: no fast fading, no link-level physical layer, one beam gain and one isolation factor."
+  - "TR 38.901 UMi parameters are used at 15 GHz; the model's validity in the 7-24 GHz range was re-examined in Rel-19, and frequency-dependent material penetration or foliage loss is not modelled."
+  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other and to `urban-grid-10ghz`."
+  - "The radio map takes as long to build as for `urban-grid-10ghz` (once per seed)."
+references:
+  - "Same layout, mobility and seeds as `urban-grid-10ghz`; the path-loss formula is checked against hand values in the unit tests at all carriers."
