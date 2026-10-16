@@ -1,6 +1,6 @@
 # HandoverLab
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23409132.svg)](https://doi.org/10.5281/zenodo.23409132) [![PyPI](https://img.shields.io/pypi/v/handoverlab.svg)](https://pypi.org/project/handoverlab/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23409131.svg)](https://doi.org/10.5281/zenodo.23409131) [![PyPI](https://img.shields.io/pypi/v/handoverlab.svg)](https://pypi.org/project/handoverlab/)
 
 A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
 
@@ -9,12 +9,18 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.0.0, the first stable release** (`python -m pip install handoverlab`). The public surface (configuration and result formats
+> **Status: 1.0.1, a patch release of the first stable release 1.0.0** (`python -m pip install handoverlab`). The public surface (configuration and result formats
 > with a schema version, the rule interface, metric names, commands and the documented Python
-> names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
+> names) is frozen and follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard.png)
+
+## What 1.0.1 changes
+
+The README's image and links are absolute, so they also work on the PyPI project page, and the
+README gives the Zenodo DOIs; the package metadata state the licence as an SPDX
+expression. Results, fingerprints, job IDs and the public surface are as in 1.0.0.
 
 ## What 1.0.0 brings
 
@@ -39,7 +45,7 @@ Only text changed: results, fingerprints, job IDs and the public surface are as 
 - **A highway scenario** (`highway-10ghz`): a new layout kind `highway` (the straight multi-lane
   road of the TR 37.885 highway case, roadside sites at a configurable spacing and offset) and
   lane-keeping vehicles at 70-140 km/h (profiles `hwy`, `hwy70`, `hwy140`, or your own speed
-  groups). See the how-to [a highway](docs/guides/highway.md).
+  groups). See the how-to [a highway](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/highway.md).
 - **Site lists from CSV files** (`layout.sites_file`), for every layout kind.
 
 All of it is additive: existing defaults, results, fingerprints and study job IDs are unchanged.
@@ -54,8 +60,8 @@ All of it is additive: existing defaults, results, fingerprints and study job ID
 - **A learning-based example rule** (`a3_bandit`): A3 offsets learned per cell by an
   epsilon-greedy bandit from the outcome labels.
 - **An upper mid-band scenario** (`fr3-urban-15ghz`): the default grid at 15 GHz.
-- How-to guides: [DAPS and LTM](docs/guides/daps-ltm.md),
-  [a learning-based rule](docs/guides/learning-rule.md), [the upper mid-band](docs/guides/upper-mid-band.md).
+- How-to guides: [DAPS and LTM](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/daps-ltm.md),
+  [a learning-based rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/learning-rule.md), [the upper mid-band](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/upper-mid-band.md).
 
 All of it is additive: existing defaults, results and fingerprints are unchanged.
 
@@ -65,16 +71,16 @@ All of it is additive: existing defaults, results and fingerprints are unchanged
   refused with a clear message instead of being misread. The rule interface has a version, metric
   names are stable (renamed metrics keep their old name as a warning alias), and a deprecation
   helper warns before anything goes. A test compares the surface with a stored snapshot. See
-  [stability](docs/stability.md) and the [metric reference](docs/reference/metrics.md).
-- **How-to guides**: [add a scenario](docs/guides/add-scenario.md),
-  [run on many cores](docs/guides/many-cores.md),
-  [export event logs](docs/guides/export-event-logs.md),
-  [reproduce and check results](docs/guides/reproduce.md).
+  [stability](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md) and the [metric reference](https://github.com/mjs19971997/handoverlab/blob/main/docs/reference/metrics.md).
+- **How-to guides**: [add a scenario](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/add-scenario.md),
+  [run on many cores](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/many-cores.md),
+  [export event logs](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/export-event-logs.md),
+  [reproduce and check results](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/reproduce.md).
 - **Quality gates in CI**: a lint job (ruff), a minimum test coverage, and a nightly workflow that
   runs the long verification on Linux and Windows and compares the golden fingerprints of both
   systems.
 - **Release plumbing**: PyPI publishing with trusted publishing when a version tag is pushed,
-  Zenodo metadata for an archived DOI, and the release steps in [RELEASING](docs/RELEASING.md).
+  Zenodo metadata for an archived DOI, and the release steps in [RELEASING](https://github.com/mjs19971997/handoverlab/blob/main/docs/RELEASING.md).
 
 ## What stage 4 adds
 
@@ -84,11 +90,11 @@ All of it is additive: existing defaults, results and fingerprints are unchanged
   coloured by serving cell (time slider and play); charts of handovers, failures and rate; and
   downloads of the results (CSV, JSON, event logs), the figures and an experiment file that
   `handoverlab run` repeats exactly. It runs on your computer only; the core package does not
-  depend on it. See the [dashboard guide](docs/guides/dashboard.md).
-- **Tutorials and reference**: [your first run](docs/tutorials/first-run.md),
-  [writing your own rule](docs/tutorials/own-rule.md),
-  [a fair tuning study](docs/tutorials/tuning-study.md),
-  [reading the report](docs/tutorials/reading-the-report.md); an API reference generated from the
+  depend on it. See the [dashboard guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/dashboard.md).
+- **Tutorials and reference**: [your first run](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/first-run.md),
+  [writing your own rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/own-rule.md),
+  [a fair tuning study](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/tuning-study.md),
+  [reading the report](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/reading-the-report.md); an API reference generated from the
   docstrings and a command-line reference (`mkdocs build`, `pip install "handoverlab[docs]"`), and
   a workflow that builds the site and can publish it on GitHub Pages.
 - **Event-log levels** `off`, `summary` and `full`: `full` adds a trace of the procedure
@@ -105,7 +111,7 @@ All of it is additive: existing defaults, results and fingerprints are unchanged
   rank correlation 0.97) but fails every held-back set (three times too many failures in the
   second ns-3 data set, different responses to the preparation delay and the number of users).
   So no calibrated preset is offered, the default is unchanged, and failure rates stay relative
-  quantities; see [docs/calibration.md](docs/calibration.md).
+  quantities; see [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md).
 
 ## What stage 3 adds
 
@@ -126,8 +132,8 @@ All of it is additive: existing defaults, results and fingerprints are unchanged
 - **Faster engines**: the engines of all rules of a world share one step loop; with many rules per
   world (as in tuning) about half the engine time, with bit-identical results.
 
-See the [user guide](docs/user_guide.md#10-studies), [docs/performance.md](docs/performance.md) and
-the validation section of [docs/verification.md](docs/verification.md).
+See the [user guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/user_guide.md#10-studies), [docs/performance.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md) and
+the validation section of [docs/verification.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/verification.md).
 
 ## What stage 2 adds
 
@@ -151,7 +157,7 @@ the validation section of [docs/verification.md](docs/verification.md).
   failure rates differ (0.13 against 0.43 per UE-minute), as documented in the validation section.
 - **Faster world build**: about a third less time for the radio map, with bit-identical results.
 
-See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/performance.md).
+See [docs/verification.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/verification.md) and [docs/performance.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md).
 
 ## What stage 1 contains
 
@@ -213,7 +219,7 @@ handoverlab run config.yaml -o results/metrics.csv
 CSV or (with a `.json` output name) to JSON together with the resolved scenario and the package
 versions. `handoverlab rules` lists the available rules and `handoverlab scenarios` the built-in
 scenarios (`scenario: smoke` in a configuration uses one). Configurations can be YAML, TOML or JSON;
-see [examples/](examples).
+see [examples/](https://github.com/mjs19971997/handoverlab/tree/main/examples).
 
 A whole study, with tuning, gates, paired tests and a report (a few minutes):
 
@@ -228,7 +234,7 @@ results/study-smoke` shows what is left and how long it will take.
 Or explore in the browser:
 
 ```bash
-python -m pip install -e ".[gui]"
+python -m pip install "handoverlab[gui]"
 handoverlab gui                      # http://localhost:8501, on your computer only
 ```
 
@@ -250,32 +256,32 @@ for r in hl.simulate(scenario, rules, seeds=[1]):      # both rules run on the s
     print(r.rule, r.metrics["handovers_pm"], r.metrics["unnecessary_pm"], r.metrics["failures_pm"])
 ```
 
-The full script is [examples/compare_a3_cho.py](examples/compare_a3_cho.py). Writing your own
-handover rule takes a few lines; see the [user guide](docs/user_guide.md).
+The full script is [examples/compare_a3_cho.py](https://github.com/mjs19971997/handoverlab/blob/main/examples/compare_a3_cho.py). Writing your own
+handover rule takes a few lines; see the [user guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/user_guide.md).
 
 ## Documentation
 
-The documentation is a MkDocs site (`python -m pip install -e ".[docs]"`, then `mkdocs serve`);
-the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
+The documentation site is at **<https://mjs19971997.github.io/handoverlab/>**. It is a MkDocs site (`python -m pip install -e ".[docs]"`, then `mkdocs serve`);
+the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverlab/tree/main/docs) and readable on GitHub as well.
 
-- Tutorials: [your first run](docs/tutorials/first-run.md),
-  [writing your own rule](docs/tutorials/own-rule.md),
-  [a fair tuning study](docs/tutorials/tuning-study.md),
-  [reading the report](docs/tutorials/reading-the-report.md).
-- [User guide](docs/user_guide.md): concepts, scenarios, configuration keys, command line, Python
+- Tutorials: [your first run](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/first-run.md),
+  [writing your own rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/own-rule.md),
+  [a fair tuning study](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/tuning-study.md),
+  [reading the report](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/reading-the-report.md).
+- [User guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/user_guide.md): concepts, scenarios, configuration keys, command line, Python
   API, rule plug-ins and their contract checks, event logs and their levels, verification, metrics,
   studies (tuning, gates, storage, workers, status, reports), paired statistics, limitations.
-- How-to guides: [dashboard](docs/guides/dashboard.md), [add a scenario](docs/guides/add-scenario.md),
-  [run on many cores](docs/guides/many-cores.md), [export event logs](docs/guides/export-event-logs.md),
-  [reproduce and check results](docs/guides/reproduce.md), [DAPS and LTM](docs/guides/daps-ltm.md),
-  [a learning-based rule](docs/guides/learning-rule.md), [the upper mid-band](docs/guides/upper-mid-band.md),
-  [a highway](docs/guides/highway.md).
-- Reference: [command line](docs/reference/cli.md), [metric names](docs/reference/metrics.md) and the
-  API (generated from the docstrings, in the site); [stability policy](docs/stability.md).
-- [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
-- [Verification](docs/verification.md), [failure-model calibration](docs/calibration.md) and
-  [performance](docs/performance.md).
-- [Changelog](CHANGELOG.md), [contribution guide](CONTRIBUTING.md) and [releasing](docs/RELEASING.md).
+- How-to guides: [dashboard](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/dashboard.md), [add a scenario](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/add-scenario.md),
+  [run on many cores](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/many-cores.md), [export event logs](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/export-event-logs.md),
+  [reproduce and check results](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/reproduce.md), [DAPS and LTM](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/daps-ltm.md),
+  [a learning-based rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/learning-rule.md), [the upper mid-band](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/upper-mid-band.md),
+  [a highway](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/highway.md).
+- Reference: [command line](https://github.com/mjs19971997/handoverlab/blob/main/docs/reference/cli.md), [metric names](https://github.com/mjs19971997/handoverlab/blob/main/docs/reference/metrics.md) and the
+  API (generated from the docstrings, in the site); [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md).
+- [Scenario cards](https://github.com/mjs19971997/handoverlab/tree/main/docs/scenarios): the built-in scenarios with the source of every parameter.
+- [Verification](https://github.com/mjs19971997/handoverlab/blob/main/docs/verification.md), [failure-model calibration](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md) and
+  [performance](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md).
+- [Changelog](https://github.com/mjs19971997/handoverlab/blob/main/CHANGELOG.md), [contribution guide](https://github.com/mjs19971997/handoverlab/blob/main/CONTRIBUTING.md) and [releasing](https://github.com/mjs19971997/handoverlab/blob/main/docs/RELEASING.md).
 
 ## Roadmap
 
@@ -299,18 +305,21 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
    card, site lists from CSV files, all additive.
 8. Stage 8 (1.0.0rc4): the 3GPP citations and the documentation checked and
    corrected; no change of results.
-9. **1.0.0 (this release)**: the first stable release, published on PyPI.
-10. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901 calibration
-   scenario.
+9. 1.0.0: the first stable release, published on PyPI.
+10. **1.0.1 (this release)**: the README works on the PyPI project page; no change of results.
+11. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
+    calibration scenario.
 
 ## Citation
 
-If you use HandoverLab, please cite it as described in [CITATION.cff](CITATION.cff) (GitHub shows
-it under *Cite this repository*). Version 1.0.0 is archived on Zenodo: [doi:10.5281/zenodo.23409132](https://doi.org/10.5281/zenodo.23409132).
+If you use HandoverLab, please cite it as described in [CITATION.cff](https://github.com/mjs19971997/handoverlab/blob/main/CITATION.cff) (GitHub shows
+it under *Cite this repository*). The releases are archived on Zenodo:
+[doi:10.5281/zenodo.23409131](https://doi.org/10.5281/zenodo.23409131) cites all versions (it resolves to
+the latest), [doi:10.5281/zenodo.23409132](https://doi.org/10.5281/zenodo.23409132) is version 1.0.0.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/mjs19971997/handoverlab/blob/main/LICENSE).
 
 ## Authors
 

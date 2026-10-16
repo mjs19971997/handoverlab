@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "handoverlab"
 version = "1.0.1"
 description = "System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Mostafa Jalili Sanjarani" },
     { name = "Yasser Elmi Sola" },
@@ -23,7 +24,6 @@ keywords = ["handover", "conditional handover", "mobility", "system-level simula
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -49,7 +49,7 @@ handoverlab = "handoverlab.cli:main"
 [project.urls]
 Homepage = "https://github.com/mjs19971997/handoverlab"
 Issues = "https://github.com/mjs19971997/handoverlab/issues"
-Documentation = "https://github.com/mjs19971997/handoverlab/tree/main/docs"
+Documentation = "https://mjs19971997.github.io/handoverlab/"
 Changelog = "https://github.com/mjs19971997/handoverlab/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
