@@ -77,7 +77,8 @@ def pathloss_checks(rep) -> None:
         code = float(pl.path_loss(np.array([d]), np.array([los]), model, fc, hb, 1.5)[0])
         ref = hand[(model, los)](d, fc, hb)
         ok = abs(code - ref) < 1e-9 and (pub is None or abs(code - pub) < 5e-4)
-        rep.check(name, ok, "code %.4f dB, by hand %.4f dB%s" % (code, ref, "" if pub is None else ", table %.3f" % pub))
+        table = "" if pub is None else ", table %.3f" % pub
+        rep.check(name, ok, "code %.4f dB, by hand %.4f dB%s" % (code, ref, table))
     dbp = pl.breakpoint_distance(10.0, 10.0, 1.5)
     rep.check("breakpoint distance d'BP, 10 GHz, hBS 10 m, hUT 1.5 m", abs(dbp - 600.415) < 1e-3, "%.4f m" % dbp)
     dbp35 = pl.breakpoint_distance(3.5, 10.0, 1.5)

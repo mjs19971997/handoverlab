@@ -6,5 +6,5 @@ from .invariants import InvariantError
 from .metrics import CAUSES, METRICS, OUTCOMES
 from .procedures import BaselineProcedure, ConditionalProcedure, Procedure
 
-__all__ = ["Engine", "EVENT_FIELDS", "InvariantError", "CAUSES", "METRICS", "OUTCOMES", "Procedure", "BaselineProcedure",
-           "ConditionalProcedure"]
+__all__ = ["Engine", "EVENT_FIELDS", "InvariantError", "CAUSES", "METRICS", "OUTCOMES", "Procedure",
+           "BaselineProcedure", "ConditionalProcedure"]

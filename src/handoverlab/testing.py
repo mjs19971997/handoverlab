@@ -59,7 +59,8 @@ class ContractReport:
 
     def __str__(self) -> str:
         lines = ["contract of rule %s:" % self.rule]
-        lines += ["  %s  %s%s" % ("PASS" if ok else "FAIL", n, ("  [%s]" % d) if d else "") for n, ok, d in self.results]
+        lines += ["  %s  %s%s" % ("PASS" if ok else "FAIL", n, ("  [%s]" % d) if d else "")
+                  for n, ok, d in self.results]
         return "\n".join(lines)
 
 

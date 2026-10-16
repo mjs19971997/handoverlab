@@ -331,6 +331,7 @@ def summary_lines(gates: Sequence[GateResult]) -> List[str]:
     return lines
 
 
-__all__ = ["GATES", "DEFAULT_POLICY", "BOUNDS", "POLICIES", "extension_values", "setting_key", "grid_size", "first_round", "refine", "Selection",
+__all__ = ["GATES", "DEFAULT_POLICY", "BOUNDS", "POLICIES", "extension_values", "setting_key", "grid_size",
+           "first_round", "refine", "Selection",
            "select", "GateResult", "MethodTuning", "seed_overlap_gate", "evaluate_gates", "describe_setting",
            "summary_lines"]

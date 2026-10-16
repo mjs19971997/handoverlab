@@ -119,6 +119,7 @@ def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None) -> Dict:
     rep.check("unnecessary-handover rate: rank correlation >= %.1f" % L["rank_min"],
               s["uho_rank"] >= L["rank_min"], "%.2f" % s["uho_rank"])
     rep.note("failure rate (no limit: interfering load defined differently)",
-             "mean %.3f / %.3f per UE-min, rank correlation %.2f" % (s["fail_mean"], s["fail_mean_ns3"], s["fail_rank"]))
+             "mean %.3f / %.3f per UE-min, rank correlation %.2f"
+             % (s["fail_mean"], s["fail_mean_ns3"], s["fail_rank"]))
     rep.note("mean serving SINR (no limit)", "%.1f dB / %.1f dB" % (s["sinr_mean"], s["sinr_mean_ns3"]))
     return out

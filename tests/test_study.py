@@ -23,7 +23,8 @@ TINY = {
     "methods": {
         "A3": {"rule": "a3", "grid": {"off_db": [1.0, 2.0, 3.0, 4.0], "ttt_s": [0.04, 0.16]},
                "natural_bounds": {"ttt_s": "lower"}},
-        "CHO": {"rule": "cho", "fixed": {"n_max": 2}, "grid": {"o_exec_db": [1.0, 2.0, 3.0], "ttt_exec_s": [0.0, 0.08]}},
+        "CHO": {"rule": "cho", "fixed": {"n_max": 2},
+                "grid": {"o_exec_db": [1.0, 2.0, 3.0], "ttt_exec_s": [0.0, 0.08]}},
     },
     "compare": {"baseline": "ref", "metrics": ["unnecessary_pm", "failures_pm"], "bootstrap": 200},
 }

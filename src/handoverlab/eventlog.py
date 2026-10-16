@@ -105,7 +105,10 @@ TRACE_TABLE_FIELDS: Tuple[str, ...] = ("seed", "rule") + TRACE_FIELDS
 
 
 def event_level(value: Any) -> str:
-    """Normalise an event-log level: ``False``/``None`` -> ``"off"``, ``True`` -> ``"summary"``, or a name of :data:`LEVELS`."""
+    """Normalise an event-log level.
+
+    ``False``/``None`` -> ``"off"``, ``True`` -> ``"summary"``, or a name of :data:`LEVELS`.
+    """
     if value is None or value is False:
         return "off"
     if value is True:

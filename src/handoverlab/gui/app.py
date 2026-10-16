@@ -64,8 +64,9 @@ def main() -> None:
     if st.button("Run", type="primary", disabled=bool(problems)):
         bar = st.progress(0.0, text="starting")
         try:
-            st.session_state["outcome"] = logic.run(settings, rules,
-                                                    progress=lambda share, text: bar.progress(min(share, 1.0), text=text))
+            def progress(share, text):
+                bar.progress(min(share, 1.0), text=text)
+            st.session_state["outcome"] = logic.run(settings, rules, progress=progress)
             st.session_state["experiment"] = logic.experiment_yaml(settings, rules)
             bar.progress(1.0, text="done in %.1f s" % st.session_state["outcome"].seconds)
         except ValueError as e:
@@ -86,8 +87,8 @@ def main() -> None:
         c1, c2, c3 = st.columns([2, 5, 1])
         rule_i = c1.selectbox("Rule", range(len(out.rule_names)), format_func=lambda i: out.rule_names[i])
         step = float(out.times[1] - out.times[0])
-        frame = c2.slider("Time [s]", 0.0, float(out.times[-1]), min(float(out.settings.warmup_s), float(out.times[-1])),
-                          step)
+        t_end = float(out.times[-1])
+        frame = c2.slider("Time [s]", 0.0, t_end, min(float(out.settings.warmup_s), t_end), step)
         play = c3.button("Play")
         m1, m2 = st.columns([3, 1])
         holder = m1.empty()
