@@ -7,12 +7,18 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: release candidate 1.0.0rc4.** The public surface (configuration and result formats
+> **Status: 1.0.0, the first stable release** (`python -m pip install handoverlab`). The public surface (configuration and result formats
 > with a schema version, the rule interface, metric names, commands and the documented Python
 > names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+
+## What 1.0.0 brings
+
+1.0.0 is the first stable release: 1.0.0rc4 with the version and the release metadata set to
+1.0.0, and HandoverLab is now installed from PyPI. Results, fingerprints, job IDs and the public
+surface are as in 1.0.0rc4. The release candidates before it added the following.
 
 ## What 1.0.0rc4 changes
 
@@ -65,7 +71,7 @@ All of it is additive: existing defaults, results and fingerprints are unchanged
 - **Quality gates in CI**: a lint job (ruff), a minimum test coverage, and a nightly workflow that
   runs the long verification on Linux and Windows and compares the golden fingerprints of both
   systems.
-- **Release plumbing**: PyPI publishing with trusted publishing when a GitHub release is published,
+- **Release plumbing**: PyPI publishing with trusted publishing when a version tag is pushed,
   Zenodo metadata for an archived DOI, and the release steps in [RELEASING](docs/RELEASING.md).
 
 ## What stage 4 adds
@@ -168,12 +174,21 @@ See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/
 - **Reproducibility**: one world per seed shared by all compared rules (paired comparison); the
   engine draws no random numbers.
 
-## Install from source
+## Install
 
 HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed with it; matplotlib
 (reports, extra `report`), pyarrow (Parquet tables, extra `parquet`), Streamlit (the dashboard,
-extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional. HandoverLab is not on PyPI yet;
-from the 1.0.0 release on, `python -m pip install handoverlab` is planned to install it from PyPI.
+extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional.
+
+From PyPI:
+
+```bash
+python -m pip install handoverlab                  # the core package
+python -m pip install "handoverlab[report,gui]"    # with reports and the dashboard
+handoverlab verify --only pathloss fingerprints    # optional: a quick check of the installation
+```
+
+From source (for development, the tests and the examples):
 
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git
@@ -280,15 +295,16 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
    example rule and an upper mid-band scenario, all additive.
 7. Stage 7 (1.0.0rc3): a highway layout with lane-keeping vehicular mobility and its scenario
    card, site lists from CSV files, all additive.
-8. **Stage 8 (1.0.0rc4, this release)**: the 3GPP citations and the documentation checked and
-   corrected; no change of results. Next: 1.0.0 with an archived DOI.
-9. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901 calibration
+8. Stage 8 (1.0.0rc4): the 3GPP citations and the documentation checked and
+   corrected; no change of results.
+9. **1.0.0 (this release)**: the first stable release, published on PyPI.
+10. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901 calibration
    scenario.
 
 ## Citation
 
 If you use HandoverLab, please cite it as described in [CITATION.cff](CITATION.cff) (GitHub shows
-it under *Cite this repository*). A DOI is planned from 1.0.0 on, when releases are to be archived on Zenodo; there is none yet.
+it under *Cite this repository*). Releases are to be archived on Zenodo with a DOI; the DOI will be added here once it is issued.
 
 ## Licence
 

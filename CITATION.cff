@@ -9,8 +9,8 @@ abstract: >-
   measurement chain, a radio-link failure model, an outcome label for every handover attempt,
   a plug-in interface for handover rules, equal-budget tuning studies with paired statistics,
   and verification against hand-computed values, golden event-log fingerprints and ns-3 / 5G-LENA.
-version: "1.0.0rc4"
-date-released: 2026-10-15
+version: "1.0.0"
+date-released: 2026-10-16
 license: MIT
 repository-code: "https://github.com/mjs19971997/handoverlab"
 type: software

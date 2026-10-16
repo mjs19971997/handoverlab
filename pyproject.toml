@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handoverlab"
-version = "1.0.0rc4"
+version = "1.0.0"
 description = "System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks"
 readme = "README.md"
 license = { text = "MIT" }
@@ -21,7 +21,7 @@ dependencies = [
 ]
 keywords = ["handover", "conditional handover", "mobility", "system-level simulation", "5G", "3GPP"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",

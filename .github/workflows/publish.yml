@@ -1,10 +1,14 @@
 name: publish
 
 # Builds the source distribution and the wheel and uploads them to PyPI with trusted publishing.
-# It runs only when a GitHub release is published (see docs/RELEASING.md); a push or a tag alone
-# publishes nothing. PyPI trusts this workflow file (publish.yml) in the environment "pypi".
+# It runs when a version tag (v*) is pushed and when a GitHub release is published (see
+# docs/RELEASING.md); a push to a branch or a pull request publishes nothing. The tag must match
+# the package version. A release made later from an already uploaded tag skips the files that are
+# on PyPI already. PyPI trusts this workflow file (publish.yml) in the environment "pypi".
 
 on:
+  push:
+    tags: ['v*']
   release:
     types: [published]
 
@@ -22,7 +26,7 @@ jobs:
           python-version: "3.12"
       - name: Release metadata agree with the tag
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.ref_name }}
         run: python tools/release_check.py --tag "$TAG"
       - name: Build
         run: |
@@ -56,3 +60,5 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

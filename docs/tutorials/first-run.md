@@ -5,7 +5,8 @@ shows where the numbers come from. It takes about ten minutes.
 
 ## Install
 
-HandoverLab needs Python 3.9 or later.
+HandoverLab needs Python 3.9 or later. `python -m pip install "handoverlab[report]"` installs it
+from PyPI; this tutorial uses the example files of the repository, so install it from source:
 
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git

@@ -7,6 +7,9 @@ an open area or along a highway, with a TR 38.901 received-power radio model, an
 radio-link failure model and an outcome label for every handover attempt. Every rule compared on
 a seed runs on the same world and radio samples, so comparisons are paired.
 
+Install it from PyPI with `python -m pip install "handoverlab[report,gui]"`, or from source to
+get the examples and the tests:
+
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git && cd handoverlab
 python -m pip install -e ".[report,gui]"
@@ -44,5 +47,5 @@ handoverlab gui                              # the dashboard in your browser
   regression against the prototype the package was ported from, and a comparison with ns-3 /
   5G-LENA.
 
-This is the release candidate 1.0.0rc4. The public surface is frozen and follows the
+This is release 1.0.0. The public surface is frozen and follows the
 [stability policy](stability.md). HandoverLab is MIT licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).

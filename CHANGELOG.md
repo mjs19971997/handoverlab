@@ -7,86 +7,40 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-## [1.0.0rc4] - 2026-10-15
+## [1.0.0] - 2026-10-16
 
-Fourth release candidate (stage 8: an audit of the citations and the documentation). Only text
-changed: the results, the golden fingerprints, the job IDs and the public surface are as in
-1.0.0rc3, and the model version stays 1.
-
-### Fixed
-
-- Scenario cards: clause numbers checked against the specifications. The highway lanes, lane
-  width and road length are cited from TR 37.885 Table A-1 (not clause 6.1.2); the highway
-  inter-site distance of 500 m from TR 37.885 clause 6.1.3 (TR 38.913 gives it only as an
-  option); the highway speeds from clause 6.1.2 (140 km/h, optionally 70 km/h; the uniform
-  range between them is an assumption); the urban speed of 60 km/h from clause 6.1.2 (not
-  Annex A); the 50 m correlation distance of TR 38.901 Table 7.6.3.1-2 as that of the LOS/NLOS
-  state (UMi and UMa); the 4 dB LOS shadowing as that of UMi and UMa. The 35 m site offset of
-  `highway-10ghz` is an assumption, after the freeway set-up of TR 36.885 clause A.1.3.
-- Documentation: the list of built-in scenarios in the first tutorial, the highway in the home
-  page and the README guide list, the versions named in the user guide and the verification
-  page, the command synopsis (`verify --ns3-seeds`, `init --force`), a snippet of the user guide
-  that used an undefined name, the per-carrier tuning of the upper mid-band guide (it needs
-  `tuning.group_by`), and the release steps (all release-candidate sections are merged).
-- README: PyPI installation and the Zenodo DOI are stated as planned, not as available.
-- Metadata: the descriptions in `CITATION.cff` and `.zenodo.json` name all procedures and
-  layouts; links to the documentation site, which is not published, were removed or point to
-  the `docs/` folder.
-
-### Changed
-
-- Version 1.0.0rc4.
-
-## [1.0.0rc3] - 2026-10-15
-
-Third release candidate (stage 7: a highway scenario). Everything is added next to what was there:
-the defaults, the results of every existing scenario, the golden fingerprints, the bh6 regression
-and the job IDs of existing studies are unchanged, and the model version stays 1. The public
-surface only grew; the snapshot `tests/data/public_api.json` was extended deliberately (see below).
+First stable release (stages 5 to 8). This section merges the release candidates 1.0.0rc1 to
+1.0.0rc4, which were not uploaded to PyPI. From this release on the public surface follows the
+stability policy in [docs/stability.md](docs/stability.md). Everything since 0.4.0a1 was added next
+to what was there: the defaults, the results of the existing rules and scenarios, the golden
+fingerprints and the bh6 regression are unchanged, and the model version stays 1.
 
 ### Added
 
-- Layout kind `highway`: the straight multi-lane road of the TR 37.885 highway case along the
-  x axis, with the new keys `layout.lanes` (lanes per direction, default 3), `layout.lane_width_m`
-  (4 m) and `layout.road_length_m` (2000 m); roadside sites every `layout.site_spacing_m` metres,
-  `layout.site_offset_m` beyond the road edge, alternately on the two sides; no buildings, LOS
-  state and shadowing as in the open area. `handoverlab.layout.highway` builds it.
-- Lane-keeping highway mobility: every vehicle keeps its lane and speed and at the end of the road
-  turns into the same lane of the other direction; the lateral range of a speed group is the
-  displacement from the lane centre (at most half a lane). Mobility profiles `hwy` (70-140 km/h),
-  `hwy70` (63-77 km/h) and `hwy140` (126-140 km/h).
-- Built-in scenario `highway-10ghz` with its scenario card: 2000 m, 3 + 3 lanes of 4 m, four
-  roadside sites every 500 m, 35 m from the road edge, TR 38.901 UMa with 25 m masts, 40 vehicles
-  of the profile `hwy`.
-- `layout.sites_file`: a CSV file with the columns `x` and `y` that fills `layout.sites` when the
-  scenario is loaded (`handoverlab.config.read_sites`), for every layout kind.
-- `Scenario.to_dict(full=False)`: keys added after 1.0.0rc2 (`handoverlab.config.LATE_KEYS`) are
-  left out while they have their default value, so that result files and the job IDs and locks of
-  existing studies stay the same; `full=True` lists every key.
-- Documentation: the highway in the user guide, the how-to guide [a highway](docs/guides/highway.md)
-  and the scenario card page.
-- Tests of the highway geometry, lane keeping, speeds, the turn at the road end, a short run with
-  invariant checks, the omitted keys and site files.
-
-### Changed
-
-- Version 1.0.0rc3.
-- The public-surface snapshot now also lists the scenario keys `layout.lanes`,
-  `layout.lane_width_m`, `layout.road_length_m` and `layout.sites_file`. Nothing was removed or
-  renamed.
-- `Scenario.with_overrides` accepts the new keys (it works on the full key set).
-- Validation: `layout.kind` also accepts `highway`; `layout.lanes`, `layout.lane_width_m`,
-  `layout.road_length_m` and a non-empty `layout.sites` are checked.
-
-## [1.0.0rc2] - 2026-10-15
-
-Second release candidate (stage 6: additive features). Everything is added next to what was there:
-the defaults, the results of `a3` and `cho`, the golden fingerprints and the bh6 regression are
-unchanged, and the model version stays 1. The public surface only grew; the snapshot
-`tests/data/public_api.json` was extended deliberately (see below).
-
-### Added
-
+- Schema version of the file formats (`handoverlab.stability.SCHEMA_VERSION`, 1): experiment and
+  study files accept a top-level `schema` key, and result JSON files and `study.lock.json` carry
+  it. A file without the key is read as schema 1; a file with a newer schema is refused with a
+  message that names it. `handoverlab init`, the examples and the dashboard's experiment file
+  write `schema: 1`.
+- Stability policy (`docs/stability.md`): what the public surface is (configuration keys, result
+  columns, metric names, the rule interface, the documented Python names and commands), what a
+  major, minor or patch release may change, and how deprecations work.
+- `handoverlab.stability`: `RULE_API_VERSION` (1), `METRIC_ALIASES` with `metric_name` (an old
+  metric name keeps working with a warning; study files resolve metric names through it),
+  `deprecated` and `deprecated_alias` raising `HandoverLabDeprecationWarning` (a `FutureWarning`),
+  `check_schema`, and `public_surface`, a snapshot of the public names, rule hooks and record
+  fields, metrics, event and trace fields, and configuration keys. A test compares it with
+  `tests/data/public_api.json`, so that no part of the surface changes unnoticed.
+- How-to guides: add a scenario, run a study on many cores, export event logs and traces, and
+  check results against the stored fingerprints.
+- CI: a lint job (ruff, plus the release-metadata check) and a minimum total test coverage of
+  85 % (90 % at this release) in the Linux / Python 3.12 test job; a scheduled nightly
+  workflow that runs the long verification on Linux and Windows and compares the golden
+  fingerprints of both systems with each other and with the reference.
+- Release plumbing: a workflow that builds the sdist and the wheel, checks them and publishes
+  them to PyPI with trusted publishing when a version tag is pushed (or a GitHub release is
+  published); `.zenodo.json` for the archived DOI; `tools/release_check.py` (versions, changelog
+  and citation metadata agree, tag matches the version); `docs/RELEASING.md` with the steps.
 - DAPS handover (Rel-16): rule base class `DAPSRule` (family `daps`, hooks of `BaselineRule`;
   attributes `interruption_s`, `fallback`, `source_data`) and the built-in rule `daps` (`DAPS`).
   The source keeps serving during the execution (interruption `interruption_s`, default 0); an
@@ -113,58 +67,72 @@ unchanged, and the model version stays 1. The public surface only grew; the snap
   writing a learning-based rule, and for the upper mid-band.
 - Tests of the DAPS, LTM and bandit trigger and update logic on prescribed received powers, and
   their contract checks.
+- Layout kind `highway`: the straight multi-lane road of the TR 37.885 highway case along the
+  x axis, with the new keys `layout.lanes` (lanes per direction, default 3), `layout.lane_width_m`
+  (4 m) and `layout.road_length_m` (2000 m); roadside sites every `layout.site_spacing_m` metres,
+  `layout.site_offset_m` beyond the road edge, alternately on the two sides; no buildings, LOS
+  state and shadowing as in the open area. `handoverlab.layout.highway` builds it.
+- Lane-keeping highway mobility: every vehicle keeps its lane and speed and at the end of the road
+  turns into the same lane of the other direction; the lateral range of a speed group is the
+  displacement from the lane centre (at most half a lane). Mobility profiles `hwy` (70-140 km/h),
+  `hwy70` (63-77 km/h) and `hwy140` (126-140 km/h).
+- Built-in scenario `highway-10ghz` with its scenario card: 2000 m, 3 + 3 lanes of 4 m, four
+  roadside sites every 500 m, 35 m from the road edge, TR 38.901 UMa with 25 m masts, 40 vehicles
+  of the profile `hwy`.
+- `layout.sites_file`: a CSV file with the columns `x` and `y` that fills `layout.sites` when the
+  scenario is loaded (`handoverlab.config.read_sites`), for every layout kind.
+- `Scenario.to_dict(full=False)`: keys added after 1.0.0rc2 (`handoverlab.config.LATE_KEYS`) are
+  left out while they have their default value, so that result files and the job IDs and locks of
+  existing studies stay the same; `full=True` lists every key.
+- Documentation: the highway in the user guide, the how-to guide [a highway](docs/guides/highway.md)
+  and the scenario card page.
+- Tests of the highway geometry, lane keeping, speeds, the turn at the road end, a short run with
+  invariant checks, the omitted keys and site files.
 
 ### Changed
 
-- Version 1.0.0rc2.
-- The public-surface snapshot now also lists the hooks and attributes of `DAPSRule` and `LTMRule`,
-  the new exports (`DAPS`, `LTM`, `DAPSRule`, `LTMRule`, `BanditA3`, `RULE_BASES`), the
-  observation field `l1_dbm` and the trace events `switch` and `fallback`. Nothing was removed or
-  renamed.
-- Engine internals (not public): a procedure may set its execution time, its user-plane
-  interruption, a fallback to the source and data on the source during the execution; the
-  conditional procedure is split into execution and reporting steps that the LTM procedure reuses.
-  Results of the existing procedures are bit-identical.
-
-## [1.0.0rc1] - 2026-10-15
-
-Release candidate for 1.0.0 (stage 5: release readiness). Results are unchanged: the golden
-fingerprints and the bh6 regression pass, and the model version stays 1.
-
-### Added
-
-- Schema version of the file formats (`handoverlab.stability.SCHEMA_VERSION`, 1): experiment and
-  study files accept a top-level `schema` key, and result JSON files and `study.lock.json` carry
-  it. A file without the key is read as schema 1; a file with a newer schema is refused with a
-  message that names it. `handoverlab init`, the examples and the dashboard's experiment file
-  write `schema: 1`.
-- Stability policy (`docs/stability.md`): what the public surface is (configuration keys, result
-  columns, metric names, the rule interface, the documented Python names and commands), what a
-  major, minor or patch release may change, and how deprecations work.
-- `handoverlab.stability`: `RULE_API_VERSION` (1), `METRIC_ALIASES` with `metric_name` (an old
-  metric name keeps working with a warning; study files resolve metric names through it),
-  `deprecated` and `deprecated_alias` raising `HandoverLabDeprecationWarning` (a `FutureWarning`),
-  `check_schema`, and `public_surface`, a snapshot of the public names, rule hooks and record
-  fields, metrics, event and trace fields, and configuration keys. A test compares it with
-  `tests/data/public_api.json`, so that no part of the surface changes unnoticed.
-- How-to guides: add a scenario, run a study on many cores, export event logs and traces, and
-  check results against the stored fingerprints.
-- CI: a lint job (ruff, plus the release-metadata check) and a minimum total test coverage of
-  85 % (90 % at this release) in the Linux / Python 3.12 test job; a scheduled nightly
-  workflow that runs the long verification on Linux and Windows and compares the golden
-  fingerprints of both systems with each other and with the reference.
-- Release plumbing (no release is made by it): a workflow that builds the sdist and the wheel,
-  checks them and publishes them to PyPI with trusted publishing when a GitHub release is
-  published; `.zenodo.json` for the archived DOI; `tools/release_check.py` (versions, changelog
-  and citation metadata agree, tag matches the version); `docs/RELEASING.md` with the steps.
-
-### Changed
-
-- Version 1.0.0rc1; development status Beta.
+- Version 1.0.0; development status Production/Stable.
 - `CITATION.cff` gives the release version and date, and the preferred way to cite.
 - The changelog links of the alpha releases point to their commits, so they resolve without
   tags; later releases compare tags.
 - A few long lines were wrapped for the lint job (no change of behaviour).
+- The public-surface snapshot `tests/data/public_api.json` was extended deliberately: the hooks
+  and attributes of `DAPSRule` and `LTMRule`, the new exports (`DAPS`, `LTM`, `DAPSRule`,
+  `LTMRule`, `BanditA3`, `RULE_BASES`), the observation field `l1_dbm`, the trace events
+  `switch` and `fallback`, and the scenario keys `layout.lanes`, `layout.lane_width_m`,
+  `layout.road_length_m` and `layout.sites_file`. Nothing was removed or renamed.
+- Engine internals (not public): a procedure may set its execution time, its user-plane
+  interruption, a fallback to the source and data on the source during the execution; the
+  conditional procedure is split into execution and reporting steps that the LTM procedure reuses.
+  Results of the existing procedures are bit-identical.
+- `Scenario.with_overrides` accepts the new keys (it works on the full key set).
+- Validation: `layout.kind` also accepts `highway`; `layout.lanes`, `layout.lane_width_m`,
+  `layout.road_length_m` and a non-empty `layout.sites` are checked.
+- Publishing: the publish workflow also runs when a tag `v*` is pushed, checks that the tag
+  matches the version, and skips files that are already on PyPI, so that a GitHub release made
+  later from the same tag (for the Zenodo archive) does not fail. `docs/RELEASING.md` describes
+  the steps.
+- README and documentation: installation from PyPI (`python -m pip install handoverlab`) next to
+  the installation from source.
+
+### Fixed
+
+- Scenario cards: clause numbers checked against the specifications. The highway lanes, lane
+  width and road length are cited from TR 37.885 Table A-1 (not clause 6.1.2); the highway
+  inter-site distance of 500 m from TR 37.885 clause 6.1.3 (TR 38.913 gives it only as an
+  option); the highway speeds from clause 6.1.2 (140 km/h, optionally 70 km/h; the uniform
+  range between them is an assumption); the urban speed of 60 km/h from clause 6.1.2 (not
+  Annex A); the 50 m correlation distance of TR 38.901 Table 7.6.3.1-2 as that of the LOS/NLOS
+  state (UMi and UMa); the 4 dB LOS shadowing as that of UMi and UMa. The 35 m site offset of
+  `highway-10ghz` is an assumption, after the freeway set-up of TR 36.885 clause A.1.3.
+- Documentation: the list of built-in scenarios in the first tutorial, the highway in the home
+  page and the README guide list, the versions named in the user guide and the verification
+  page, the command synopsis (`verify --ns3-seeds`, `init --force`), a snippet of the user guide
+  that used an undefined name, the per-carrier tuning of the upper mid-band guide (it needs
+  `tuning.group_by`), and the release steps (all release-candidate sections are merged).
+- Metadata: the descriptions in `CITATION.cff` and `.zenodo.json` name all procedures and
+  layouts; links to the documentation site, which is not published, were removed or point to
+  the `docs/` folder.
 
 ## [0.4.0a1] - 2026-10-15
 
@@ -362,11 +330,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc4...HEAD
-[1.0.0rc4]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc3...v1.0.0rc4
-[1.0.0rc3]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc2...v1.0.0rc3
-[1.0.0rc2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc1...v1.0.0rc2
-[1.0.0rc1]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0rc1
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0
 [0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/b0802c5c18634506e47a19454ca9b51293e712d7...e93b9c59e5a42665a47be91922ddd5aede998367
 [0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/a5ce5dd706c225c89c13a49fea239a89a1f56cb7...b0802c5c18634506e47a19454ca9b51293e712d7
 [0.2.0a1]: https://github.com/mjs19971997/handoverlab/compare/803b849719342e96dabcf430e819d3dfcb96caf0...a5ce5dd706c225c89c13a49fea239a89a1f56cb7
