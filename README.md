@@ -7,13 +7,29 @@ conditional handover) for many users moving through a street grid or an open are
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: alpha, stage 4 (0.4.0a1).** On top of the core simulator (stage 1), its verification
-> (stage 2) and whole studies with tuning gates and paired statistics (stage 3), HandoverLab now has
-> a browser dashboard, tutorials and an API reference, event-log levels, a status view with the
-> time left, and a grid-edge gate that widens a grid by itself. Interfaces may still change until
-> 1.0.
+> **Status: release candidate 1.0.0rc1.** The public surface (configuration and result formats
+> with a schema version, the rule interface, metric names, commands and the documented Python
+> names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
+> and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+
+## What 1.0.0rc1 adds
+
+- **A frozen public surface**: configuration and result files carry `schema: 1`; a newer schema is
+  refused with a clear message instead of being misread. The rule interface has a version, metric
+  names are stable (renamed metrics keep their old name as a warning alias), and a deprecation
+  helper warns before anything goes. A test compares the surface with a stored snapshot. See
+  [stability](docs/stability.md) and the [metric reference](docs/reference/metrics.md).
+- **How-to guides**: [add a scenario](docs/guides/add-scenario.md),
+  [run on many cores](docs/guides/many-cores.md),
+  [export event logs](docs/guides/export-event-logs.md),
+  [reproduce and check results](docs/guides/reproduce.md).
+- **Quality gates in CI**: a lint job (ruff), a minimum test coverage, and a nightly workflow that
+  runs the long verification on Linux and Windows and compares the golden fingerprints of both
+  systems.
+- **Release plumbing**: PyPI publishing with trusted publishing when a GitHub release is published,
+  Zenodo metadata for an archived DOI, and the release steps in [RELEASING](docs/RELEASING.md).
 
 ## What stage 4 adds
 
@@ -119,7 +135,8 @@ See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/
 
 HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed with it; matplotlib
 (reports, extra `report`), pyarrow (Parquet tables, extra `parquet`), Streamlit (the dashboard,
-extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional.
+extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional. From the 1.0.0 release
+on, `python -m pip install handoverlab` installs it from PyPI.
 
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git
@@ -194,12 +211,15 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
 - [User guide](docs/user_guide.md): concepts, scenarios, configuration keys, command line, Python
   API, rule plug-ins and their contract checks, event logs and their levels, verification, metrics,
   studies (tuning, gates, storage, workers, status, reports), paired statistics, limitations.
-- [Dashboard](docs/guides/dashboard.md), [command-line reference](docs/reference/cli.md) and the
-  API reference (generated from the docstrings, in the site).
+- How-to guides: [dashboard](docs/guides/dashboard.md), [add a scenario](docs/guides/add-scenario.md),
+  [run on many cores](docs/guides/many-cores.md), [export event logs](docs/guides/export-event-logs.md),
+  [reproduce and check results](docs/guides/reproduce.md).
+- Reference: [command line](docs/reference/cli.md), [metric names](docs/reference/metrics.md) and the
+  API (generated from the docstrings, in the site); [stability policy](docs/stability.md).
 - [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
 - [Verification](docs/verification.md), [failure-model calibration](docs/calibration.md) and
   [performance](docs/performance.md).
-- [Changelog](CHANGELOG.md) and [contribution guide](CONTRIBUTING.md).
+- [Changelog](CHANGELOG.md), [contribution guide](CONTRIBUTING.md) and [releasing](docs/RELEASING.md).
 
 ## Roadmap
 
@@ -210,19 +230,21 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
 3. Stage 3 (0.3.0a1): studies: equal-budget tuning with automatic gates, the selection rule, paired
    statistics, job records and Parquet tables, resumable studies with reused runs, worker
    processes, `study` and `report` commands, batched engines.
-4. **Stage 4 (this release)**: browser dashboard (extra `gui`), tutorials, API and command-line
+4. Stage 4 (0.4.0a1): browser dashboard (extra `gui`), tutorials, API and command-line
    reference with a documentation site, event-log levels, `status` with the time left, the
    grid-edge policy `extend`, failure-model calibration against ns-3 / 5G-LENA.
-5. Before 1.0: freeze and document the public interfaces (configuration schema, rule interface,
-   metric names) with a schema version; how-to guides (add a scenario, run on many cores, export
-   event logs); a lint job and a coverage threshold in CI; a nightly job with the long checks and a
-   comparison of fingerprints between Linux and Windows; then release 1.0 with an archived DOI.
+5. **Stage 5 (1.0.0rc1, this release)**: the public interfaces frozen and documented with a
+   schema version (configuration, results, rule interface, metric names) and a stability policy;
+   how-to guides; a lint job and a coverage threshold in CI; a nightly comparison of fingerprints
+   between Linux and Windows; release plumbing for PyPI and Zenodo. Next: 1.0.0 with an archived
+   DOI.
 6. Later: optional compiled kernels for the step loop, L1/L2-triggered mobility, further scenarios
    (highway, TR 38.901 calibration).
 
 ## Citation
 
-If you use HandoverLab, please cite it as described in [CITATION.cff](CITATION.cff).
+If you use HandoverLab, please cite it as described in [CITATION.cff](CITATION.cff) (GitHub shows
+it under *Cite this repository*). From 1.0.0 on, every release is archived on Zenodo with a DOI.
 
 ## Licence
 

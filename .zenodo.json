@@ -1,0 +1,27 @@
+{
+  "title": "HandoverLab: system-level simulation of handover and mobility beyond 5G",
+  "description": "HandoverLab is an open-source, system-level simulator of 3GPP Release-16 mobility procedures (baseline handover with Event A3, and conditional handover) for many users in dense 5G and beyond-5G networks. It provides a TR 38.901 received-power radio model, an L3-filtered measurement chain, a radio-link failure model, an outcome label for every handover attempt, a plug-in interface for handover rules, equal-budget tuning studies with paired statistics, and verification against hand-computed values, golden event-log fingerprints and ns-3 / 5G-LENA.",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {"name": "Jalili Sanjarani, Mostafa"},
+    {"name": "Elmi Sola, Yasser"}
+  ],
+  "keywords": [
+    "handover",
+    "conditional handover",
+    "mobility",
+    "mobility robustness",
+    "radio-link failure",
+    "system-level simulation",
+    "5G",
+    "beyond 5G",
+    "3GPP",
+    "Python"
+  ],
+  "related_identifiers": [
+    {"identifier": "https://github.com/mjs19971997/handoverlab", "relation": "isSupplementTo", "scheme": "url"},
+    {"identifier": "https://mjs19971997.github.io/handoverlab/", "relation": "isDocumentedBy", "scheme": "url"}
+  ]
+}

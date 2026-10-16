@@ -2,9 +2,50 @@
 
 All notable changes to this project are documented in this file. The format follows
 [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and the project uses
-[Semantic Versioning](https://semver.org/). Until 1.0.0 any interface may change.
+[Semantic Versioning](https://semver.org/) for the public surface described in
+[docs/stability.md](docs/stability.md); before 1.0.0 any interface could change.
 
 ## [Unreleased]
+
+## [1.0.0rc1] - 2026-10-15
+
+Release candidate for 1.0.0 (stage 5: release readiness). Results are unchanged: the golden
+fingerprints and the bh6 regression pass, and the model version stays 1.
+
+### Added
+
+- Schema version of the file formats (`handoverlab.stability.SCHEMA_VERSION`, 1): experiment and
+  study files accept a top-level `schema` key, and result JSON files and `study.lock.json` carry
+  it. A file without the key is read as schema 1; a file with a newer schema is refused with a
+  message that names it. `handoverlab init`, the examples and the dashboard's experiment file
+  write `schema: 1`.
+- Stability policy (`docs/stability.md`): what the public surface is (configuration keys, result
+  columns, metric names, the rule interface, the documented Python names and commands), what a
+  major, minor or patch release may change, and how deprecations work.
+- `handoverlab.stability`: `RULE_API_VERSION` (1), `METRIC_ALIASES` with `metric_name` (an old
+  metric name keeps working with a warning; study files resolve metric names through it),
+  `deprecated` and `deprecated_alias` raising `HandoverLabDeprecationWarning` (a `FutureWarning`),
+  `check_schema`, and `public_surface`, a snapshot of the public names, rule hooks and record
+  fields, metrics, event and trace fields, and configuration keys. A test compares it with
+  `tests/data/public_api.json`, so that no part of the surface changes unnoticed.
+- How-to guides: add a scenario, run a study on many cores, export event logs and traces, and
+  check results against the stored fingerprints.
+- CI: a lint job (ruff, plus the release-metadata check) and a minimum total test coverage of
+  85 % (90 % at this release) in the Linux / Python 3.12 test job; a scheduled nightly
+  workflow that runs the long verification on Linux and Windows and compares the golden
+  fingerprints of both systems with each other and with the reference.
+- Release plumbing (no release is made by it): a workflow that builds the sdist and the wheel,
+  checks them and publishes them to PyPI with trusted publishing when a GitHub release is
+  published; `.zenodo.json` for the archived DOI; `tools/release_check.py` (versions, changelog
+  and citation metadata agree, tag matches the version); `docs/RELEASING.md` with the steps.
+
+### Changed
+
+- Version 1.0.0rc1; development status Beta.
+- `CITATION.cff` gives the release version and date, and the preferred way to cite.
+- The changelog links of the alpha releases point to their commits, so they resolve without
+  tags; later releases compare tags.
+- A few long lines were wrapped for the lint job (no change of behaviour).
 
 ## [0.4.0a1] - 2026-10-15
 
@@ -202,8 +243,9 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v0.4.0a1...HEAD
-[0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.3.0a1...v0.4.0a1
-[0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.2.0a1...v0.3.0a1
-[0.2.0a1]: https://github.com/mjs19971997/handoverlab/compare/v0.1.0a1...v0.2.0a1
-[0.1.0a1]: https://github.com/mjs19971997/handoverlab/releases/tag/v0.1.0a1
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc1...HEAD
+[1.0.0rc1]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0rc1
+[0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/b0802c5c18634506e47a19454ca9b51293e712d7...e93b9c59e5a42665a47be91922ddd5aede998367
+[0.3.0a1]: https://github.com/mjs19971997/handoverlab/compare/a5ce5dd706c225c89c13a49fea239a89a1f56cb7...b0802c5c18634506e47a19454ca9b51293e712d7
+[0.2.0a1]: https://github.com/mjs19971997/handoverlab/compare/803b849719342e96dabcf430e819d3dfcb96caf0...a5ce5dd706c225c89c13a49fea239a89a1f56cb7
+[0.1.0a1]: https://github.com/mjs19971997/handoverlab/tree/803b849719342e96dabcf430e819d3dfcb96caf0

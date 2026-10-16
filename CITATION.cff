@@ -1,10 +1,18 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "HandoverLab: system-level simulation of handover and mobility beyond 5G"
-version: 0.4.0a1
+abstract: >-
+  HandoverLab is an open-source, system-level simulator of 3GPP Release-16 mobility procedures
+  (baseline handover with Event A3, and conditional handover) for many users in dense 5G and
+  beyond-5G networks. It provides a TR 38.901 received-power radio model, an L3-filtered
+  measurement chain, a radio-link failure model, an outcome label for every handover attempt,
+  a plug-in interface for handover rules, equal-budget tuning studies with paired statistics,
+  and verification against hand-computed values, golden event-log fingerprints and ns-3 / 5G-LENA.
+version: "1.0.0rc1"
 date-released: 2026-10-15
 license: MIT
 repository-code: "https://github.com/mjs19971997/handoverlab"
+url: "https://mjs19971997.github.io/handoverlab/"
 type: software
 authors:
   - family-names: "Jalili Sanjarani"
@@ -15,6 +23,10 @@ keywords:
   - handover
   - conditional handover
   - mobility
+  - mobility robustness
+  - radio-link failure
   - system-level simulation
   - 5G
   - beyond 5G
+  - 3GPP
+  - Python

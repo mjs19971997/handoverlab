@@ -1,0 +1,58 @@
+name: publish
+
+# Builds the source distribution and the wheel and uploads them to PyPI with trusted publishing.
+# It runs only when a GitHub release is published (see docs/RELEASING.md); a push or a tag alone
+# publishes nothing. PyPI trusts this workflow file (publish.yml) in the environment "pypi".
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and check the distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Release metadata agree with the tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: python tools/release_check.py --tag "$TAG"
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Install the wheel and run the quick checks
+        run: |
+          python -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          handoverlab --version
+          handoverlab verify --only pathloss fingerprints -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  pypi:
+    name: Upload to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/handoverlab/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

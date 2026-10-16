@@ -24,6 +24,8 @@ handoverlab gui                              # the dashboard in your browser
 | compare rules fairly | [Tutorial 3: a fair tuning study](tutorials/tuning-study.md) |
 | understand a study report | [Tutorial 4: reading the report](tutorials/reading-the-report.md) |
 | look up a configuration key, metric or command | [user guide](user_guide.md), [command line](reference/cli.md), [API](reference/api/index.md) |
+| add a scenario, use many cores, export event logs, reproduce a result | the how-to guides: [scenario](guides/add-scenario.md), [many cores](guides/many-cores.md), [event logs](guides/export-event-logs.md), [reproduce](guides/reproduce.md) |
+| know what stays stable between versions | [stability policy](stability.md), [metric names](reference/metrics.md) |
 | know how far to trust the results | [verification](verification.md), [failure-model calibration](calibration.md) |
 
 ## What is in the box
@@ -40,5 +42,5 @@ handoverlab gui                              # the dashboard in your browser
   regression against the prototype the package was ported from, and a comparison with ns-3 /
   5G-LENA.
 
-HandoverLab is alpha software (version 0.4.0a1): interfaces may change until 1.0. It is MIT
-licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).
+This is the release candidate 1.0.0rc1. The public surface is frozen and follows the
+[stability policy](stability.md). HandoverLab is MIT licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).

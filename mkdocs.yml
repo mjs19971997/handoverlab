@@ -25,6 +25,10 @@ nav:
   - Guides:
       - User guide: user_guide.md
       - Dashboard: guides/dashboard.md
+      - Add a scenario: guides/add-scenario.md
+      - Run on many cores: guides/many-cores.md
+      - Export event logs: guides/export-event-logs.md
+      - Reproduce and check results: guides/reproduce.md
       - Scenario cards:
           - smoke: scenarios/smoke.md
           - urban-grid-10ghz: scenarios/urban-grid-10ghz.md
@@ -32,6 +36,7 @@ nav:
           - ns3-urban-3.5ghz: scenarios/ns3-urban-3.5ghz.md
   - Reference:
       - Command line: reference/cli.md
+      - Metric names: reference/metrics.md
       - API:
           - Top-level package: reference/api/index.md
           - Configuration: reference/api/config.md
@@ -45,10 +50,14 @@ nav:
           - Paired statistics: reference/api/stats.md
           - Verification: reference/api/verify.md
           - Dashboard logic: reference/api/gui.md
+          - Stability helpers: reference/api/stability.md
   - Explanation:
       - Verification: verification.md
       - Failure-model calibration: calibration.md
       - Performance: performance.md
+  - Project:
+      - Stability policy: stability.md
+      - Releasing: RELEASING.md
 
 markdown_extensions:
   - tables

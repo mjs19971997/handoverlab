@@ -18,8 +18,10 @@ git clone https://github.com/mjs19971997/handoverlab.git
 cd handoverlab
 python -m venv .venv
 . .venv/bin/activate            # Windows: .venv\Scripts\activate
-python -m pip install -e ".[test]"
+python -m pip install -e ".[test,lint,cov]"
 python -m pytest
+ruff check .                    # the lint job of CI
+python -m pytest --cov=handoverlab --cov-report=term   # the coverage job (minimum: fail_under in pyproject.toml)
 ```
 
 The test suite runs in a few minutes; `handoverlab verify` adds a verification report. Keep new tests
@@ -39,9 +41,15 @@ simulated time, a 2 x 2-block grid or a coarse radio map.
   speed-ups; a change that alters them on purpose regenerates them with
   `python -m handoverlab.verify.golden --write` and says why in `CHANGELOG.md`.
 - **Model elements cite their source** (3GPP clause or a stated assumption) in the docstring.
-- **Style.** Readable NumPy code, docstrings on public functions, lines up to 120 characters, an
-  `# SPDX-License-Identifier: MIT` line at the top of each source file. Python 3.9 must keep working
-  (no `match`, no `X | Y` type unions at run time).
+- **The public surface is stable** (see `docs/stability.md`). Do not remove or rename a
+  configuration key, metric, rule hook or exported name; deprecate it with
+  `handoverlab.stability.deprecated` and keep it working until the next major release. Additions
+  need a new snapshot (`python -m handoverlab.stability --write tests/data/public_api.json`).
+- **Coverage does not fall.** CI fails below the minimum total coverage in `pyproject.toml`
+  (`[tool.coverage.report] fail_under`); new code comes with tests.
+- **Style.** `ruff check .` passes (rules E, F and W). Readable NumPy code, docstrings on public
+  functions, lines up to 120 characters, an `# SPDX-License-Identifier: MIT` line at the top of
+  each source file. Python 3.9 must keep working (no `match`, no `X | Y` type unions at run time).
 
 ## Adding a handover rule
 
@@ -56,12 +64,17 @@ a synthetic world (see `tests/helpers.py`) and on a small scenario. Add a contra
 Built-in scenarios are YAML cards in `src/handoverlab/scenarios/cards`. Give the source of every
 value that differs from the defaults, the limitations and the reference results, then regenerate
 the documentation pages with `handoverlab scenarios --docs docs/scenarios` (a test checks that they
-are current).
+are current). The how-to guide `docs/guides/add-scenario.md` walks through it.
+
+## Releases
+
+Releases are made by the maintainers by publishing a GitHub release; see `docs/RELEASING.md`.
 
 ## Pull requests
 
 - One topic per pull request, with tests.
-- All CI jobs (Linux, Windows, macOS; Python 3.9-3.12) must pass.
+- All CI jobs (lint; tests on Linux, Windows, macOS with Python 3.9-3.12; coverage; docs) must
+  pass.
 - Add an entry under "Unreleased" in `CHANGELOG.md`.
 
 By contributing you agree that your contribution is licensed under the MIT licence of the project.

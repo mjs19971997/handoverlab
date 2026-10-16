@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handoverlab"
-version = "0.4.0a1"
+version = "1.0.0rc1"
 description = "System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks"
 readme = "README.md"
 license = { text = "MIT" }
@@ -21,7 +21,7 @@ dependencies = [
 ]
 keywords = ["handover", "conditional handover", "mobility", "system-level simulation", "5G", "3GPP"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -50,6 +50,7 @@ handoverlab = "handoverlab.cli:main"
 Homepage = "https://github.com/mjs19971997/handoverlab"
 Issues = "https://github.com/mjs19971997/handoverlab/issues"
 Documentation = "https://mjs19971997.github.io/handoverlab/"
+Changelog = "https://github.com/mjs19971997/handoverlab/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
