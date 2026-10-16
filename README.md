@@ -3,16 +3,26 @@
 A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
-conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid or an open area, with a
+conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid, an open area or along a highway, with a
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: release candidate 1.0.0rc2.** The public surface (configuration and result formats
+> **Status: release candidate 1.0.0rc3.** The public surface (configuration and result formats
 > with a schema version, the rule interface, metric names, commands and the documented Python
 > names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+
+## What 1.0.0rc3 adds
+
+- **A highway scenario** (`highway-10ghz`): a new layout kind `highway` (the straight multi-lane
+  road of the TR 37.885 highway case, roadside sites at a configurable spacing and offset) and
+  lane-keeping vehicles at 70-140 km/h (profiles `hwy`, `hwy70`, `hwy140`, or your own speed
+  groups). See the how-to [a highway](docs/guides/highway.md).
+- **Site lists from CSV files** (`layout.sites_file`), for every layout kind.
+
+All of it is additive: existing defaults, results, fingerprints and study job IDs are unchanged.
 
 ## What 1.0.0rc2 adds
 
@@ -253,10 +263,12 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
    schema version (configuration, results, rule interface, metric names) and a stability policy;
    how-to guides; a lint job and a coverage threshold in CI; a nightly comparison of fingerprints
    between Linux and Windows; release plumbing for PyPI and Zenodo.
-6. **Stage 6 (1.0.0rc2, this release)**: DAPS handover, L1/L2-triggered mobility, a learning-based
-   example rule and an upper mid-band scenario, all additive. Next: 1.0.0 with an archived DOI.
-7. Later: conditional LTM, optional compiled kernels for the step loop, further scenarios (highway,
-   TR 38.901 calibration).
+6. Stage 6 (1.0.0rc2): DAPS handover, L1/L2-triggered mobility, a learning-based
+   example rule and an upper mid-band scenario, all additive.
+7. **Stage 7 (1.0.0rc3, this release)**: a highway layout with lane-keeping vehicular mobility and
+   its scenario card, site lists from CSV files, all additive. Next: 1.0.0 with an archived DOI.
+8. Later: conditional LTM, optional compiled kernels for the step loop, a TR 38.901 calibration
+   scenario.
 
 ## Citation
 

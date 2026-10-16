@@ -7,6 +7,47 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.0.0rc3] - 2026-10-15
+
+Third release candidate (stage 7: a highway scenario). Everything is added next to what was there:
+the defaults, the results of every existing scenario, the golden fingerprints, the bh6 regression
+and the job IDs of existing studies are unchanged, and the model version stays 1. The public
+surface only grew; the snapshot `tests/data/public_api.json` was extended deliberately (see below).
+
+### Added
+
+- Layout kind `highway`: the straight multi-lane road of the TR 37.885 highway case along the
+  x axis, with the new keys `layout.lanes` (lanes per direction, default 3), `layout.lane_width_m`
+  (4 m) and `layout.road_length_m` (2000 m); roadside sites every `layout.site_spacing_m` metres,
+  `layout.site_offset_m` beyond the road edge, alternately on the two sides; no buildings, LOS
+  state and shadowing as in the open area. `handoverlab.layout.highway` builds it.
+- Lane-keeping highway mobility: every vehicle keeps its lane and speed and at the end of the road
+  turns into the same lane of the other direction; the lateral range of a speed group is the
+  displacement from the lane centre (at most half a lane). Mobility profiles `hwy` (70-140 km/h),
+  `hwy70` (63-77 km/h) and `hwy140` (126-140 km/h).
+- Built-in scenario `highway-10ghz` with its scenario card: 2000 m, 3 + 3 lanes of 4 m, four
+  roadside sites every 500 m, 35 m from the road edge, TR 38.901 UMa with 25 m masts, 40 vehicles
+  of the profile `hwy`.
+- `layout.sites_file`: a CSV file with the columns `x` and `y` that fills `layout.sites` when the
+  scenario is loaded (`handoverlab.config.read_sites`), for every layout kind.
+- `Scenario.to_dict(full=False)`: keys added after 1.0.0rc2 (`handoverlab.config.LATE_KEYS`) are
+  left out while they have their default value, so that result files and the job IDs and locks of
+  existing studies stay the same; `full=True` lists every key.
+- Documentation: the highway in the user guide, the how-to guide [a highway](docs/guides/highway.md)
+  and the scenario card page.
+- Tests of the highway geometry, lane keeping, speeds, the turn at the road end, a short run with
+  invariant checks, the omitted keys and site files.
+
+### Changed
+
+- Version 1.0.0rc3.
+- The public-surface snapshot now also lists the scenario keys `layout.lanes`,
+  `layout.lane_width_m`, `layout.road_length_m` and `layout.sites_file`. Nothing was removed or
+  renamed.
+- `Scenario.with_overrides` accepts the new keys (it works on the full key set).
+- Validation: `layout.kind` also accepts `highway`; `layout.lanes`, `layout.lane_width_m`,
+  `layout.road_length_m` and a non-empty `layout.sites` are checked.
+
 ## [1.0.0rc2] - 2026-10-15
 
 Second release candidate (stage 6: additive features). Everything is added next to what was there:
@@ -291,7 +332,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc2...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc3...HEAD
+[1.0.0rc3]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc2...v1.0.0rc3
 [1.0.0rc2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc1...v1.0.0rc2
 [1.0.0rc1]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0rc1
 [0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/b0802c5c18634506e47a19454ca9b51293e712d7...e93b9c59e5a42665a47be91922ddd5aede998367

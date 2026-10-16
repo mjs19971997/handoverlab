@@ -24,7 +24,7 @@ The PyPI side is already set up: a pending trusted publisher for the project `ha
 
 ## Release 1.0.0
 
-The repository is at 1.0.0rc2. For the final release:
+The repository is at 1.0.0rc3. For the final release:
 
 1. **Check that `main` is green**: the `tests`, `lint` and `docs` workflows of the last commit on
    *Actions*, and the latest `nightly` run.
