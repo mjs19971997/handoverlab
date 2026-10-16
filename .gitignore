@@ -9,3 +9,7 @@ dist/
 results/
 *.log
 *.prof
+.coverage
+.coverage.*
+coverage.xml
+.ruff_cache/

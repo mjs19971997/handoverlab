@@ -1,0 +1,76 @@
+name: nightly
+
+# Long checks every night: the full verification on Linux and Windows, and a comparison of the
+# golden event-log fingerprints computed on both systems with each other and with the reference
+# stored in the package. Start it by hand from the Actions tab with "Run workflow".
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test,report]"
+      - name: Golden fingerprints of this system
+        run: python -m handoverlab.verify.golden > golden-${{ runner.os }}.json
+      - name: Versions of this system
+        run: python -c "import json, handoverlab.verify.golden as g; print(json.dumps(g.versions()))" > versions-${{ runner.os }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golden-${{ runner.os }}
+          path: |
+            golden-${{ runner.os }}.json
+            versions-${{ runner.os }}.json
+      - name: Full verification (all check groups, longer runs, ns-3 comparison)
+        env:
+          MPLBACKEND: Agg
+        run: handoverlab verify --full --ns3 --json verify-${{ runner.os }}.json
+      - name: Upload the verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-${{ runner.os }}
+          path: verify-${{ runner.os }}.json
+          if-no-files-found: ignore
+
+  compare:
+    name: Compare Linux and Windows
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: golden-*
+          merge-multiple: true
+      - name: Compare the fingerprints
+        run: |
+          python tools/compare_fingerprints.py \
+            --reference src/handoverlab/verify/data/golden.json \
+            Linux=golden-Linux.json Windows=golden-Windows.json \
+            --versions Linux=versions-Linux.json Windows=versions-Windows.json \
+            --summary "$GITHUB_STEP_SUMMARY"

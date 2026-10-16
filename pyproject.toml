@@ -36,6 +36,8 @@ classifiers = [
 
 [project.optional-dependencies]
 test = ["pytest>=7"]
+cov = ["pytest>=7", "pytest-cov>=4"]
+lint = ["ruff>=0.6"]
 parquet = ["pyarrow>=8"]
 report = ["matplotlib>=3.3"]
 gui = ["streamlit>=1.37", "matplotlib>=3.3"]
@@ -58,3 +60,28 @@ handoverlab = ["py.typed", "scenarios/cards/*.yaml", "verify/data/*.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+src = ["src", "tests"]
+extend-exclude = ["docs/fa"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# the step loops keep paired updates of the same state on one line
+"src/handoverlab/engine/*.py" = ["E702"]
+"src/handoverlab/mobility.py" = ["E702"]
+
+[tool.coverage.run]
+source = ["handoverlab"]
+branch = false
+
+[tool.coverage.report]
+# minimum total coverage checked in CI (the Linux / Python 3.12 test job); 90 % at 1.0.0rc1
+fail_under = 85
+show_missing = false
+skip_covered = true
+exclude_also = ["if __name__ == .__main__.:"]
