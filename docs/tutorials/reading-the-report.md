@@ -25,7 +25,7 @@ The gate table lists every gate that did not pass, then counts the passed ones:
 
 | gate | status | group | method | budget | detail |
 |---|---|---|---|---|---|
-| budget_binding | warn | layout.site_spacing_m=150 | - | standard | the reference rule has only 1 failures on the tuning runs (minimum 3); ... |
+| budget_binding | warn | layout.site_spacing_m=150 | - | standard | the reference rule has only 1 failure on the tuning runs (minimum 3); ... |
 | budget_binding | warn | layout.site_spacing_m=150 | - | strict | ... |
 
 Read the gates before any result. A `BLOCK` means no test ran. A `warn` limits what a result can

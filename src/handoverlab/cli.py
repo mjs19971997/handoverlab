@@ -272,7 +272,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="check groups: pathloss radio invariants equivalences fingerprints (default: all)")
     v.add_argument("--full", action="store_true", help="longer checks (three seeds for the radio statistics)")
     v.add_argument("--ns3", action="store_true",
-                   help="also compare with the stored ns-3 / 5G-LENA results (several minutes)")
+                   help="compare with the stored ns-3 / 5G-LENA results (several minutes); "
+                        "only this check unless --only names groups")
     v.add_argument("--ns3-seeds", type=int, default=1, help="seeds per condition for --ns3 (default 1)")
     v.add_argument("--results", metavar="FILE", help="recompute a JSON result file of 'run' and compare fingerprints")
     v.add_argument("--sample", type=int, help="with --results: recompute only this many runs, chosen at random")

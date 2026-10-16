@@ -243,8 +243,8 @@ def evaluate_gates(group: str, methods: Sequence[MethodTuning], budgets: Dict[st
         msg = "reference failures %d (minimum %d); share of settings within the budget: %s" % (
             ref_failures, min_reference_failures, ", ".join("%s %.0f %%" % (n, 100 * s) for n, s in shares.items()))
         if few:
-            msg = "the reference rule has only %d failures on the tuning runs (minimum %d); " % (
-                ref_failures, min_reference_failures) + msg.split("; ", 1)[1]
+            msg = "the reference rule has only %d failure%s on the tuning runs (minimum %d); " % (
+                ref_failures, "" if ref_failures == 1 else "s", min_reference_failures) + msg.split("; ", 1)[1]
         elif loose:
             msg = "more than %.0f %% of the settings of every method meet the budget: " % (100 * binding_share) + \
                   msg.split("; ", 1)[1]

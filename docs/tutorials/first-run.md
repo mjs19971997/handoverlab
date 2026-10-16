@@ -73,7 +73,7 @@ then ran on that world with identical radio samples. A3 and CHO on seed 1 theref
 the same channel; their difference comes only from the rule. Compare rules seed by seed.
 
 **What the columns mean.** Rates are per UE-minute of the measured part of the run (after the
-warm-up of 10 s):
+warm-up of 5 s):
 
 - `handovers_pm`: completed handovers;
 - `unnecessary_pm`: completed handovers after which the user stayed shorter than the minimum time

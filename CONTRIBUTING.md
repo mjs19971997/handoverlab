@@ -68,7 +68,8 @@ are current). The how-to guide `docs/guides/add-scenario.md` walks through it.
 
 ## Releases
 
-Releases are made by the maintainers by publishing a GitHub release; see `docs/RELEASING.md`.
+Releases are made by the maintainers by pushing a version tag `vX.Y.Z`, which publishes to PyPI,
+and then creating a GitHub release from it, which Zenodo archives; see `docs/RELEASING.md`.
 
 ## Pull requests
 

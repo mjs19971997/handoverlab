@@ -8,8 +8,8 @@ Since 1.0.0rc2 HandoverLab has two procedures next to baseline and conditional h
 | `ltm` | L1/L2-triggered mobility (Rel-18) | TS 38.300 clause 9.2.3.5 | candidates configured in advance; the switch is decided on unfiltered L1 reports and sent as a MAC CE; short RACH-less execution |
 
 Both run on the same worlds and seeds as every other rule, so they can be compared pairwise with
-`a3` and `cho` in an experiment or a study. The [user guide](../user_guide.md#procedures) gives the
-exact model; this page shows how to use it.
+`a3` and `cho` in an experiment or a study. The [user guide](../user_guide.md#procedures) describes the
+model in detail; this page shows how to use it.
 
 ## 1. Compare the four procedures
 

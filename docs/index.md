@@ -47,5 +47,5 @@ handoverlab gui                              # the dashboard in your browser
   regression against the prototype the package was ported from, and a comparison with ns-3 /
   5G-LENA.
 
-This is release 1.0.1. The public surface is frozen and follows the
+This is release 1.0.2. The public surface is frozen and follows the
 [stability policy](stability.md). HandoverLab is MIT licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).

@@ -2,8 +2,9 @@
 
 Every run returns the metrics below in `RunResult.metrics` and in the result files (CSV columns,
 JSON `metrics`). The names are part of the stable public surface (see [stability](../stability.md)):
-within a major release a metric is never removed or renamed, and a name that changes in a major
-release keeps working as an alias, with a warning, for at least one minor release before it.
+within a major release a metric is never removed or renamed, and a name to be changed in a major
+release is deprecated at least one minor release before it; the old name then keeps working as an
+alias, with a warning.
 Rates are per UE-minute of the measured part of the run (after the warm-up) and end in `_pm`.
 
 | Metric | Unit | Definition |

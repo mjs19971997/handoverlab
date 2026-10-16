@@ -61,7 +61,8 @@ options:
                         check groups: pathloss radio invariants equivalences fingerprints
                         (default: all)
   --full                longer checks (three seeds for the radio statistics)
-  --ns3                 also compare with the stored ns-3 / 5G-LENA results (several minutes)
+  --ns3                 compare with the stored ns-3 / 5G-LENA results (several minutes); only
+                        this check unless --only names groups
   --ns3-seeds NS3_SEEDS
                         seeds per condition for --ns3 (default 1)
   --results FILE        recompute a JSON result file of 'run' and compare fingerprints

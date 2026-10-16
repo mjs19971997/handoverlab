@@ -9,18 +9,25 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.0.1, a patch release of the first stable release 1.0.0** (`python -m pip install handoverlab`). The public surface (configuration and result formats
+> **Status: 1.0.2, a patch release of the first stable release 1.0.0** (`python -m pip install handoverlab`). The public surface (configuration and result formats
 > with a schema version, the rule interface, metric names, commands and the documented Python
 > names) is frozen and follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard.png)
 
+## What 1.0.2 changes
+
+Every link in the README is absolute, so the links also work on the PyPI project page; the README
+links the documentation site and gives the Zenodo concept DOI; the package metadata state the
+licence as an SPDX expression; the `verify --ns3` help, a gate message and several documentation
+pages are corrected. Results, fingerprints, job IDs and the public surface are as in 1.0.0.
+
 ## What 1.0.1 changes
 
-The README's image and links are absolute, so they also work on the PyPI project page, and the
-README gives the Zenodo DOIs; the package metadata state the licence as an SPDX
-expression. Results, fingerprints, job IDs and the public surface are as in 1.0.0.
+The dashboard image in the README has an absolute URL, so it also shows on the PyPI project page,
+and the README gives the Zenodo DOI of 1.0.0. Results, fingerprints, job IDs and the public surface
+are as in 1.0.0.
 
 ## What 1.0.0 brings
 
@@ -306,8 +313,10 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 8. Stage 8 (1.0.0rc4): the 3GPP citations and the documentation checked and
    corrected; no change of results.
 9. 1.0.0: the first stable release, published on PyPI.
-10. **1.0.1 (this release)**: the README works on the PyPI project page; no change of results.
-11. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
+10. 1.0.1: the dashboard image shows on the PyPI project page; no change of results.
+11. **1.0.2 (this release)**: README links work on PyPI, the documentation site is linked, text
+    corrections; no change of results.
+12. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
     calibration scenario.
 
 ## Citation
@@ -315,7 +324,8 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 If you use HandoverLab, please cite it as described in [CITATION.cff](https://github.com/mjs19971997/handoverlab/blob/main/CITATION.cff) (GitHub shows
 it under *Cite this repository*). The releases are archived on Zenodo:
 [doi:10.5281/zenodo.23409131](https://doi.org/10.5281/zenodo.23409131) cites all versions (it resolves to
-the latest), [doi:10.5281/zenodo.23409132](https://doi.org/10.5281/zenodo.23409132) is version 1.0.0.
+the latest); version 1.0.0 is [doi:10.5281/zenodo.23409132](https://doi.org/10.5281/zenodo.23409132)
+and version 1.0.1 [doi:10.5281/zenodo.23409402](https://doi.org/10.5281/zenodo.23409402).
 
 ## Licence
 

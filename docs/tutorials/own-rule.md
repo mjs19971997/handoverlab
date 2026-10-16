@@ -44,7 +44,8 @@ Four things matter:
    `n_max`, `release_hys_db` and `immediate`.
 2. **The observation.** Every hook gets an `Observation` with what a network can see: filtered
    measurements `meas_dbm` and `gap_db` (neighbour minus serving) per user and cell, `serving`,
-   `connected`, reported position `x`, `y`, `speed`, `heading` and the time `t`. Outcome labels use
+   `connected`, reported position `x`, `y`, `speed`, `heading`, the time `t` and the unfiltered L1
+   samples `l1_dbm`. Outcome labels use
    the true powers, which a rule never sees. Do not write into the observation.
 3. **`params()`** returns every parameter, so that `cls(**rule.params())` recreates the rule. Stored
    results and studies rely on it.

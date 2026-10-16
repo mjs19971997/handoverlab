@@ -99,8 +99,8 @@ stage tune2: 8 jobs (48 rule runs), 0 done earlier
   extend A3.off_db at the upper end by 7.0, 8.0 (extension 1 of at most 2); tuning again
 stage tune1: 8 jobs (88 rule runs), 0 done earlier
 stage tune2: 8 jobs (48 rule runs), 0 done earlier
-  gate warn budget_binding (layout.site_spacing_m=150, budget standard): the reference rule has only 1 failures on the tuning runs (minimum 3); share of settings within the budget: A3 62 %, CHO 62 %
-  gate warn budget_binding (layout.site_spacing_m=150, budget strict): the reference rule has only 1 failures on the tuning runs (minimum 3); share of settings within the budget: A3 25 %, CHO 62 %
+  gate warn budget_binding (layout.site_spacing_m=150, budget standard): the reference rule has only 1 failure on the tuning runs (minimum 3); share of settings within the budget: A3 62 %, CHO 62 %
+  gate warn budget_binding (layout.site_spacing_m=150, budget strict): the reference rule has only 1 failure on the tuning runs (minimum 3); share of settings within the budget: A3 25 %, CHO 62 %
 stage test: 12 jobs (60 rule runs), 0 done earlier
 study study-smoke: complete
 ```

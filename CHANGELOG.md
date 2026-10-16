@@ -7,6 +7,41 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-16
+
+### Added
+
+- The documentation site, <https://mjs19971997.github.io/handoverlab/>, is linked from the
+  README, the package metadata (`Documentation`) and `CITATION.cff` (`url`).
+
+### Fixed
+
+- Every link in the README now uses an absolute URL, so the links also work on the PyPI project
+  page (in 1.0.1 only the dashboard image did; relative links to the documentation, the examples,
+  the changelog and the licence led nowhere there).
+- The README installs the dashboard from PyPI (`pip install "handoverlab[gui]"`) in the quick
+  start instead of from a source checkout.
+- The README badge and `CITATION.cff` use the Zenodo concept DOI 10.5281/zenodo.23409131 (all
+  versions, resolves to the latest); the DOIs of versions 1.0.0 and 1.0.1 are listed as well.
+- `handoverlab verify --ns3` help: it runs only the ns-3 comparison unless `--only` names groups
+  (it said "also").
+- The gate message of a reference rule with a single failure says "1 failure", not "1 failures".
+- Documentation: the warm-up of the first tutorial is 5 s (not 10 s); the user guide names the
+  optional `schema` key, the event kinds `daps` and `ltm`, the trace events `switch` and
+  `fallback`, and what `--ns3` runs; a link to the scenario cards that the site could not resolve;
+  the Observation fields in the own-rule tutorial include `l1_dbm`; the release steps in
+  `CONTRIBUTING.md` (a version tag publishes, a GitHub release archives on Zenodo) and the DOI step
+  in `docs/RELEASING.md`; wording in the metric reference, the DAPS/LTM guide and the verification
+  page.
+
+### Changed
+
+- The package metadata give the licence as an SPDX expression (`License-Expression: MIT`)
+  instead of the licence table and classifier that setuptools deprecates; building from source
+  needs setuptools 77 or later (pip fetches it automatically).
+
+Results, fingerprints, job IDs and the public surface are as in 1.0.0.
+
 ## [1.0.1] - 2026-10-16
 
 ### Fixed
@@ -338,7 +373,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0
 [0.4.0a1]: https://github.com/mjs19971997/handoverlab/compare/b0802c5c18634506e47a19454ca9b51293e712d7...e93b9c59e5a42665a47be91922ddd5aede998367

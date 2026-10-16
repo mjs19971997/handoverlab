@@ -74,9 +74,10 @@ The PyPI side is set up: a trusted publisher for the project `handoverlab`, owne
    - <https://pypi.org/project/handoverlab/> shows the version, and
      `pip install handoverlab==X.Y.Z` in a fresh environment followed by
      `handoverlab verify --only pathloss fingerprints` passes;
-   - Zenodo shows the new version with a DOI (*Account > GitHub*, or the Zenodo record). After the
-     first archived release, add the DOI badge and the concept DOI to `README.md` and as `doi:` to
-     `CITATION.cff` in a follow-up commit.
+   - Zenodo shows the new version with a DOI (*Account > GitHub*, or the Zenodo record). The README badge
+     and `doi:` in `CITATION.cff` hold the concept DOI (10.5281/zenodo.23409131), which always
+     resolves to the latest version; add the new version DOI to the citation section of the README
+     and to `identifiers` in `CITATION.cff` if wanted.
 
 A pre-release (for example `1.1.0rc1`, tag `v1.1.0rc1`) is published the same way; PyPI treats it
 as a pre-release and `pip` installs it only on request. Tick *Set as a pre-release* when creating

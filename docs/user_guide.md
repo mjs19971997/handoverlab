@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 1.0.1. It explains the ideas behind a run, the built-in
+This guide covers version 1.0.2. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -74,7 +74,7 @@ resolved scenario, of result files and of study job IDs. It works with every lay
 
 Six named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
 parameter with its source, known limitations and the reference results it was checked against
-([docs/scenarios](scenarios)).
+([scenario cards](scenarios/smoke.md)).
 
 | Name | Content |
 |---|---|
@@ -91,7 +91,8 @@ Use one by name (`scenario: smoke`) or as the base of your own values
 
 ## 3. Configuration
 
-An experiment file has four top-level keys: `scenario`, `seeds`, `rules` and `output`. Every key is
+An experiment file has four top-level keys, `scenario`, `seeds`, `rules` and `output`, plus the
+optional `schema` (see [stability](stability.md)). Every key is
 checked; an unknown key or a value of the wrong type stops the run with a message that names the
 key (for example `unknown key 'scenario.layout.blokcs'`). YAML (`.yaml`, `.yml`), TOML (`.toml`) and
 JSON (`.json`) files are accepted, and `hl.load_config()` also takes a dictionary.
@@ -389,7 +390,7 @@ result or a fingerprint. The event-log columns and units are in
 |---|---|
 | `seed`, `rule` | the run (in tables) |
 | `t_attempt`, `t_exec`, `t_end` | start of the attempt, start of the execution (-1 if none), time of the outcome [s] |
-| `ue`, `kind` | user; `ho` baseline handover, `cho` conditional handover, `rlf` failure without handover |
+| `ue`, `kind` | user; `ho` baseline handover, `cho` conditional handover, `daps` DAPS handover, `ltm` L1/L2-triggered mobility, `rlf` failure without handover |
 | `src`, `tgt` | source cell; target cell (for `rlf`: cell of the re-establishment) |
 | `outcome`, `cause` | outcome label (section 7) and failure cause |
 | `dwell`, `gain_db` | time of stay in the target [s]; mean SINR gain over the evaluation window [dB] |
@@ -411,6 +412,8 @@ The **trace** (level `full`, `RunResult.trace`) has one row per procedure event 
 | `config`, `config_lost` | the conditional configuration of `cell` reached the UE, or was lost |
 | `exec` | execution starts: the UE leaves `src` for `cell` |
 | `attach`, `reestablish` | the UE is connected to `cell` after a handover or a re-establishment (`value`: SINR in dB) |
+| `switch` | LTM: cell switch command towards `cell` sent (`value`: switch offset) |
+| `fallback` | DAPS: the target could not be joined; the UE stays in `src` (`value`: source SINR) |
 | `failure` | mobility failure; `cell` is the cell chosen for re-establishment, `note` the cause |
 
 `hl.eventlog.serving_cells(trace, n_users, times)` turns a trace into the serving cell of every
@@ -435,8 +438,8 @@ five stored runs and compares fingerprints and metrics.
 | `equivalences` | CHO with immediate execution = A3; a plug-in that reduces to A3 = A3 |
 | `fingerprints` | golden event-log fingerprints of eight short reference runs |
 
-`--only GROUP ...` selects groups, `--full` uses more seeds and longer runs, `--ns3` adds the
-comparison with stored ns-3 / 5G-LENA results (a few minutes), `--results FILE` recomputes a stored
+`--only GROUP ...` selects groups, `--full` uses more seeds and longer runs, `--ns3` runs the
+comparison with stored ns-3 / 5G-LENA results (a few minutes; alone, unless `--only` names groups), `--results FILE` recomputes a stored
 study, `--json OUT` writes the report. The exit status is 0 if no check failed. On another NumPy or
 SciPy build than the reference, golden fingerprints may differ in single events; the report says so
 and then requires only the counts to agree. Details and the results of this version:
@@ -499,7 +502,7 @@ compare:
 output: results/study-smoke
 ```
 
-The complete example is [examples/study_smoke.yaml](https://github.com/mjs19971997/handoverlab/blob/main/examples/study_smoke.yaml). Every key is
+A complete example, with four tuning seeds and the grid-edge policy `extend`, is [examples/study_smoke.yaml](https://github.com/mjs19971997/handoverlab/blob/main/examples/study_smoke.yaml). Every key is
 checked; an unknown key or a parameter that the rule does not have stops the study with a message
 that names it.
 
