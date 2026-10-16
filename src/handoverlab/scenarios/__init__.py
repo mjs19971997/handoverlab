@@ -36,6 +36,10 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "layout.site_spacing_m": "assumption (dense small cells along the streets)",
     "layout.site_offset_m": "assumption (sites on the pavement)",
     "layout.sites": "regular placement along the streets",
+    "layout.lanes": "TR 37.885 clause 6.1.2 (highway: 3 lanes per direction)",
+    "layout.lane_width_m": "TR 37.885 clause 6.1.2 (highway: 4 m lanes)",
+    "layout.road_length_m": "TR 37.885 clause 6.1.2 (highway: at least 2000 m)",
+    "layout.sites_file": "none (sites from the layout)",
     "radio.carrier_ghz": "assumption (upper mid-band, 7-24 GHz)",
     "radio.bandwidth_mhz": "assumption",
     "radio.tx_power_dbm": "assumption (small cell)",
@@ -176,7 +180,7 @@ def card_markdown(name: str, figure: str = None) -> str:
     """The scenario card ``name`` as a Markdown page (``figure``: file name of the layout figure)."""
     card = _read(name)
     sc = builtin_scenario(name)
-    default = _flat(Scenario().to_dict())
+    default = _flat(Scenario().to_dict(full=True))
     sources = dict(DEFAULT_SOURCES)
     sources.update(card.get("sources") or {})
     L = ["# Scenario card: `%s`" % name, "", "*%s*  " % card["title"],
@@ -188,7 +192,7 @@ def card_markdown(name: str, figure: str = None) -> str:
     L += ["## Parameters", "",
           "Values in **bold** differ from the HandoverLab defaults.", "",
           "| Key | Value | Source |", "|---|---|---|"]
-    flat = _flat(sc.to_dict())
+    flat = _flat(sc.to_dict(full=sc.layout.kind == "highway"))
     for key, value in flat.items():
         if key == "name":
             continue
@@ -224,10 +228,17 @@ def layout_svg(scenario: Scenario, width_px: int = 640) -> str:
     for x0, y0, x1, y1 in lay.buildings:
         out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#b9b9b0"/>'
                    % (X(x0), Y(y1), (x1 - x0) * s, (y1 - y0) * s))
+    if lay.kind == "highway":
+        half = len(lay.ys) / 2.0 * lay.street_width
+        out.append('<rect x="0" y="%.1f" width="%d" height="%.1f" fill="#b9b9b0"/>'
+                   % (Y(half), width_px, 2.0 * half * s))
+        out.append('<line x1="0" y1="%.1f" x2="%d" y2="%.1f" stroke="#f4f4f0" stroke-width="1"/>'
+                   % (Y(0.0), width_px, Y(0.0)))
     for x, y in lay.sites:
         out.append('<circle cx="%.1f" cy="%.1f" r="3" fill="#c0392b"/>' % (X(x), Y(y)))
     out.append('<text x="4" y="%d" font-family="sans-serif" font-size="12" fill="#333">%s: %d sites, %.0f m x %.0f m'
-               ' (grey: buildings, red: sites)</text>' % (round(H) + 17, scenario.name, lay.n_sites, w, h))
+               ' (grey: %s, red: sites)</text>' % (round(H) + 17, scenario.name, lay.n_sites, w, h,
+                                                   "road" if lay.kind == "highway" else "buildings"))
     out.append("</svg>")
     return "\n".join(out) + "\n"
 

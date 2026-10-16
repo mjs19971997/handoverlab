@@ -159,7 +159,7 @@ def public_surface() -> Dict[str, Any]:
         event_fields=list(EVENT_FIELDS),
         trace_fields=list(eventlog.TRACE_FIELDS),
         trace_events=list(eventlog.TRACE_EVENTS),
-        scenario_keys=sorted(_keys(Scenario().to_dict())),
+        scenario_keys=sorted(_keys(Scenario().to_dict(full=True))),
         experiment_keys=["schema", "scenario", "seeds", "rules", "output"],
         study_keys=dict(top=sorted(_TOP), tuning=sorted(_TUNING), method=sorted(_METHOD), compare=sorted(_COMPARE)),
     )

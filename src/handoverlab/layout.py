@@ -12,6 +12,14 @@ Street grid
 
 Open area
     The same rectangle without buildings, sites on a hexagonal grid.
+
+Highway
+    The straight road of the TR 37.885 highway case along the x axis, centred
+    on the origin: ``lanes`` lanes of ``lane_width`` metres per direction
+    (eastbound south of the centre line, westbound north of it), no buildings.
+    Roadside sites stand every ``site_spacing`` metres, ``site_offset`` metres
+    beyond the road edge, alternately on the two sides.  ``ys`` holds the lane
+    centre lines and ``street_width`` the lane width.
 """
 from __future__ import annotations
 
@@ -23,7 +31,7 @@ import numpy as np
 
 @dataclass
 class Layout:
-    kind: str                # "street_grid" or "open_area"
+    kind: str                # "street_grid", "open_area" or "highway"
     sites: np.ndarray        # (M, 2) site positions [m]
     buildings: np.ndarray    # (B, 4) rectangles x0, y0, x1, y1 [m]
     xs: np.ndarray           # x of the north-south street centre lines
@@ -117,6 +125,25 @@ def open_area(size: Tuple[float, float] = (1319.0, 770.0), site_spacing: float =
                   -w / 2.0, w / 2.0, -h / 2.0, h / 2.0)
 
 
+def highway(length: float = 2000.0, lanes: int = 3, lane_width: float = 4.0, site_spacing: float = 500.0,
+            site_offset: float = 35.0, sites: Optional[Sequence[Sequence[float]]] = None,
+            margin: float = 10.0) -> Layout:
+    """Straight road with ``lanes`` lanes per direction, centred on the origin, and roadside sites."""
+    n = int(lanes)
+    half = n * lane_width                                       # half width of the road
+    lane_y = (np.arange(n) + 0.5) * lane_width
+    ys = np.concatenate([-lane_y[::-1], lane_y])                # lane centre lines, south to north
+    if sites is None:
+        xs_ = _along(length, site_spacing)
+        side = np.where(np.arange(len(xs_)) % 2 == 0, -1.0, 1.0)
+        site_arr = np.c_[xs_, side * (half + site_offset)]
+    else:
+        site_arr = np.asarray(sites, dtype=float).reshape(-1, 2)
+    ext = max(half, float(np.abs(site_arr[:, 1]).max())) + margin
+    return Layout("highway", site_arr, np.zeros((0, 4)), np.array([]), ys, float(lane_width),
+                  -length / 2.0, length / 2.0, -ext, ext)
+
+
 def make_layout(cfg) -> Layout:
     """Layout from a :class:`handoverlab.config.LayoutConfig`."""
     if cfg.kind == "street_grid":
@@ -124,6 +151,9 @@ def make_layout(cfg) -> Layout:
                            cfg.site_offset_m, cfg.sites)
     if cfg.kind == "open_area":
         return open_area(cfg.size_m, cfg.site_spacing_m, cfg.sites)
+    if cfg.kind == "highway":
+        return highway(cfg.road_length_m, cfg.lanes, cfg.lane_width_m, cfg.site_spacing_m, cfg.site_offset_m,
+                       cfg.sites)
     raise ValueError("unknown layout kind %r" % cfg.kind)
 
 

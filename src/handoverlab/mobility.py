@@ -5,6 +5,9 @@ Street grid: users follow the street centre lines and choose a direction at
 every intersection (straight 0.5, left 0.25, right 0.25, as in the urban case
 of TR 37.885); each user keeps a constant lateral displacement from the centre
 line and a constant speed.  Open area: straight legs between random waypoints.
+Highway (since 1.0.0rc3): lane-keeping vehicles at a constant speed in one
+lane; at the end of the road a vehicle turns into the same lane of the other
+direction, so that it stays on the road without jumping.
 """
 from __future__ import annotations
 
@@ -25,6 +28,10 @@ PROFILES: Dict[str, List[SpeedGroup]] = {
     "c8": [SpeedGroup(1.0, 8.0, 8.0, (0.0, 0.0))],         # constant speeds on the centre line
     "c16": [SpeedGroup(1.0, 16.0, 16.0, (0.0, 0.0))],
     "c30": [SpeedGroup(1.0, 30.0, 30.0, (0.0, 0.0))],
+    # highway (since 1.0.0rc3); lateral range: displacement from the lane centre
+    "hwy": [SpeedGroup(1.0, 70.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],    # 70-140 km/h
+    "hwy70": [SpeedGroup(1.0, 63.0 / 3.6, 77.0 / 3.6, (0.0, 0.5))],   # about 70 km/h
+    "hwy140": [SpeedGroup(1.0, 126.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],  # up to 140 km/h
 }
 
 _DX = np.array([1.0, 0.0, -1.0, 0.0])      # heading index 0: east, 1: north, 2: west, 3: south
@@ -99,6 +106,35 @@ def open_waypoints(layout, v: float, t_end: float, rng, margin: float = 10.0):
     return np.array(T), np.array(Xb), np.array(Yb), None
 
 
+def highway_waypoints(layout, v: float, t_end: float, rng):
+    """Break points (t, x, y, heading index) of one vehicle on the highway.
+
+    The vehicle starts at a random point of a random lane and direction and
+    keeps its lane; at the end of the road it crosses to the same lane of the
+    other direction (a short leg at its own speed) and drives back.
+    """
+    ys = layout.ys                                            # lane centre lines, south to north
+    n = len(ys) // 2
+    lane = int(rng.integers(n))
+    h = int(rng.choice([0, 2]))                               # 0: east (southern lanes), 2: west
+    x = rng.uniform(layout.xmin, layout.xmax)
+    y_e, y_w = ys[n - 1 - lane], ys[n + lane]
+    y = y_e if h == 0 else y_w
+    T, Xb, Yb, Hb = [0.0], [x], [y], [h]
+    t = 0.0
+    while t < t_end:
+        end = layout.xmax if h == 0 else layout.xmin
+        t += abs(end - x) / v
+        x = end
+        ny_ = y_w if h == 0 else y_e
+        T.append(t); Xb.append(x); Yb.append(y); Hb.append(1 if h == 0 else 3)
+        t += abs(ny_ - y) / v
+        y = ny_
+        h = 2 if h == 0 else 0
+        T.append(t); Xb.append(x); Yb.append(y); Hb.append(h)
+    return np.array(T), np.array(Xb), np.array(Yb), np.array(Hb)
+
+
 def trajectories(layout, mobility, duration_s: float, step_s: float, rng):
     """Trajectories of all users.
 
@@ -109,13 +145,18 @@ def trajectories(layout, mobility, duration_s: float, step_s: float, rng):
     U = mobility.users
     groups = mobility.groups if mobility.groups is not None else PROFILES[mobility.profile]
     v, off = draw_users(groups, U, rng)
-    if not layout.is_grid:
+    if layout.kind == "highway":                              # lane keeping: lateral offset within the lane
+        off[:, 0] = 0.0
+        off[:, 1] = np.clip(off[:, 1], -layout.street_width / 2.0, layout.street_width / 2.0)
+    elif not layout.is_grid:
         off[:] = 0.0
     t = np.arange(S) * step_s
     X = np.empty((S, U)); Y = np.empty((S, U)); TH = np.empty((S, U), dtype=np.float32)
     for u in range(U):
         if layout.is_grid:
             T, Xb, Yb, Hb = grid_waypoints(layout, v[u], duration_s + step_s, rng)
+        elif layout.kind == "highway":
+            T, Xb, Yb, Hb = highway_waypoints(layout, v[u], duration_s + step_s, rng)
         else:
             T, Xb, Yb, Hb = open_waypoints(layout, v[u], duration_s + step_s, rng)
         X[:, u] = np.interp(t, T, Xb) + off[u, 0]

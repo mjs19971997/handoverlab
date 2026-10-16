@@ -51,6 +51,15 @@ class LayoutConfig:
 
     ``open_area`` is the same rectangle without buildings, with sites on a
     hexagonal grid of spacing ``site_spacing_m``.
+
+    ``highway`` (since 1.0.0rc3) is the straight multi-lane road of the
+    TR 37.885 highway case: ``lanes`` lanes of ``lane_width_m`` per direction
+    over ``road_length_m``, without buildings; roadside sites every
+    ``site_spacing_m`` metres, ``site_offset_m`` beyond the road edge,
+    alternately on the two sides.
+
+    ``sites_file`` (since 1.0.0rc3) names a CSV file with the columns ``x`` and
+    ``y`` [m]; it is read when the scenario is loaded and fills ``sites``.
     """
     kind: str = "street_grid"
     blocks: Tuple[int, int] = (3, 3)
@@ -59,6 +68,10 @@ class LayoutConfig:
     site_spacing_m: float = 100.0
     site_offset_m: float = 9.0
     sites: Optional[Tuple[Tuple[float, float], ...]] = None
+    lanes: int = 3
+    lane_width_m: float = 4.0
+    road_length_m: float = 2000.0
+    sites_file: Optional[str] = None
 
     @property
     def size_m(self) -> Tuple[float, float]:
@@ -194,8 +207,22 @@ class Scenario:
     mobility: MobilityConfig = field(default_factory=MobilityConfig)
     run: RunConfig = field(default_factory=RunConfig)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return _plain(dataclasses.asdict(self))
+    def to_dict(self, full: bool = False) -> Dict[str, Any]:
+        """The scenario as a plain dictionary.
+
+        Keys added after 1.0.0rc2 (:data:`LATE_KEYS`) are left out while they
+        have their default value, so that the job IDs and study locks of
+        scenarios that do not use them stay as they were; ``full=True`` keeps
+        every key.
+        """
+        d = _plain(dataclasses.asdict(self))
+        if not full:
+            for section, keys in LATE_KEYS.items():
+                default = _plain(dataclasses.asdict(_SECTIONS[section]()))
+                for k in keys:
+                    if d[section].get(k) == default[k]:
+                        del d[section][k]
+        return d
 
     @classmethod
     def from_dict(cls, data: Union[Dict[str, Any], str]) -> "Scenario":
@@ -209,12 +236,14 @@ class Scenario:
             from .scenarios import resolve
             data = resolve(data)
         sc = _build(cls, data or {}, "scenario.")
+        if sc.layout.sites_file and sc.layout.sites is None:
+            sc.layout.sites = read_sites(sc.layout.sites_file)
         sc.validate()
         return sc
 
     def with_overrides(self, overrides: Dict[str, Any]) -> "Scenario":
         """Copy with changed values; keys are dotted paths such as ``"layout.site_spacing_m"``."""
-        d = self.to_dict()
+        d = self.to_dict(full=True)
         for key, value in overrides.items():
             node = d
             parts = key.split(".")
@@ -230,7 +259,12 @@ class Scenario:
     def validate(self) -> None:
         """Range checks that name the offending key."""
         L, R, P, M, T = self.layout, self.radio, self.protocol, self.mobility, self.run
-        _check(L.kind in ("street_grid", "open_area"), "layout.kind", "must be 'street_grid' or 'open_area'")
+        _check(L.kind in ("street_grid", "open_area", "highway"), "layout.kind",
+               "must be 'street_grid', 'open_area' or 'highway'")
+        _check(L.lanes >= 1, "layout.lanes", "must be >= 1")
+        _check(L.lane_width_m > 0, "layout.lane_width_m", "must be positive")
+        _check(L.road_length_m > 0, "layout.road_length_m", "must be positive")
+        _check(L.sites is None or len(L.sites) >= 1, "layout.sites", "needs at least one site")
         _check(L.blocks[0] >= 1 and L.blocks[1] >= 1, "layout.blocks", "needs at least 1 x 1 blocks")
         _check(L.site_spacing_m > 0, "layout.site_spacing_m", "must be positive")
         _check(L.street_width_m > 0, "layout.street_width_m", "must be positive")
@@ -253,6 +287,32 @@ class Scenario:
         _check(T.duration_s > T.warmup_s >= 0, "run.duration_s", "must exceed run.warmup_s (>= 0)")
         shares = sum(s.share for s in self.traffic.services)
         _check(len(self.traffic.services) > 0 and shares > 0, "traffic.services", "needs a positive total share")
+
+
+#: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`
+LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file")}
+_SECTIONS = {"layout": LayoutConfig}
+
+
+def read_sites(path: Union[str, os.PathLike]) -> Tuple[Tuple[float, float], ...]:
+    """Site positions from a CSV file with a header row and the columns ``x`` and ``y`` [m].
+
+    Other columns are ignored.  A relative path is taken from the current directory.
+    """
+    import csv
+    try:
+        with open(os.fspath(path), "r", encoding="utf-8-sig", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except OSError as e:
+        raise ConfigError("scenario.layout.sites_file: cannot read %r (%s)" % (os.fspath(path), e.strerror))
+    try:
+        sites = tuple((float(r["x"]), float(r["y"])) for r in rows)
+    except (KeyError, TypeError, ValueError):
+        raise ConfigError("scenario.layout.sites_file: %r needs the columns x and y with numbers"
+                          % os.fspath(path))
+    if not sites:
+        raise ConfigError("scenario.layout.sites_file: %r holds no sites" % os.fspath(path))
+    return sites
 
 
 def _check(ok: bool, key: str, msg: str) -> None:
