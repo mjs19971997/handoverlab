@@ -1,5 +1,7 @@
 # HandoverLab
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23409132.svg)](https://doi.org/10.5281/zenodo.23409132) [![PyPI](https://img.shields.io/pypi/v/handoverlab.svg)](https://pypi.org/project/handoverlab/)
+
 A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
@@ -304,7 +306,7 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
 ## Citation
 
 If you use HandoverLab, please cite it as described in [CITATION.cff](CITATION.cff) (GitHub shows
-it under *Cite this repository*). Releases are to be archived on Zenodo with a DOI; the DOI will be added here once it is issued.
+it under *Cite this repository*). Version 1.0.0 is archived on Zenodo: [doi:10.5281/zenodo.23409132](https://doi.org/10.5281/zenodo.23409132).
 
 ## Licence
 
