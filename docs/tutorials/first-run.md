@@ -21,6 +21,8 @@ handoverlab scenarios
 ```
 
 ```text
+fr3-urban-15ghz    The TR 37.885 urban grid in the upper mid-band (FR3) at 15 GHz
+highway-10ghz      The TR 37.885 highway with roadside sites at 10 GHz
 ns3-urban-3.5ghz   Reference scenario of the comparison with ns-3 / 5G-LENA
 open-area-10ghz    Open area with hexagonal sites, nothing tied to place
 smoke              Small street grid that runs in seconds

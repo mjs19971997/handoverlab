@@ -1,7 +1,7 @@
 # Verification of HandoverLab
 
 This page describes how HandoverLab is checked, how to run the checks yourself and what they
-showed for version 0.2.0a1. Versions 0.3.0a1 to 1.0.0rc1 give bit-identical results (the golden
+showed for version 0.2.0a1. Versions 0.3.0a1 to 1.0.0rc4 give bit-identical results (the golden
 fingerprints and the bh6 regression are unchanged), so every number below still holds. Run everything with
 
 ```bash

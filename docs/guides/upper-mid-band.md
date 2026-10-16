@@ -26,7 +26,7 @@ handoverlab run fr3.yaml
 
 Then set `scenario: urban-grid-10ghz` and run it again with `--output results/fr3-10ghz.csv`: the
 same seeds give the same users, services and site plan at both carriers. Or, in one study, as a
-condition (paired by seed, one tuning per carrier):
+condition (paired by seed; add `radio.carrier_ghz` to `tuning.group_by` for one tuning per carrier):
 
 ```yaml
 scenario: {base: urban-grid-10ghz}

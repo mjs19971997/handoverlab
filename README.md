@@ -7,12 +7,24 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: release candidate 1.0.0rc3.** The public surface (configuration and result formats
+> **Status: release candidate 1.0.0rc4.** The public surface (configuration and result formats
 > with a schema version, the rule interface, metric names, commands and the documented Python
 > names) is frozen and follows the [stability policy](docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first.
 
 ![The dashboard: users coloured by their serving cell](docs/images/dashboard.png)
+
+## What 1.0.0rc4 changes
+
+- **Checked 3GPP citations**: every clause, table and value cited in the scenario cards and the
+  documentation was checked against the specifications; wrong clause numbers were corrected (for
+  example, the highway lanes, lane width and road length are in TR 37.885 Table A-1, the
+  inter-site distance of 500 m in clause 6.1.3), and the 35 m site offset is marked as an
+  assumption.
+- **Documentation audit**: stale statements, versions and option lists corrected; every example
+  and code snippet checked.
+
+Only text changed: results, fingerprints, job IDs and the public surface are as in 1.0.0rc3.
 
 ## What 1.0.0rc3 adds
 
@@ -160,8 +172,8 @@ See [docs/verification.md](docs/verification.md) and [docs/performance.md](docs/
 
 HandoverLab needs Python 3.9 or later. NumPy, SciPy and PyYAML are installed with it; matplotlib
 (reports, extra `report`), pyarrow (Parquet tables, extra `parquet`), Streamlit (the dashboard,
-extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional. From the 1.0.0 release
-on, `python -m pip install handoverlab` installs it from PyPI.
+extra `gui`) and MkDocs (the documentation site, extra `docs`) are optional. HandoverLab is not on PyPI yet;
+from the 1.0.0 release on, `python -m pip install handoverlab` is planned to install it from PyPI.
 
 ```bash
 git clone https://github.com/mjs19971997/handoverlab.git
@@ -239,7 +251,8 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
 - How-to guides: [dashboard](docs/guides/dashboard.md), [add a scenario](docs/guides/add-scenario.md),
   [run on many cores](docs/guides/many-cores.md), [export event logs](docs/guides/export-event-logs.md),
   [reproduce and check results](docs/guides/reproduce.md), [DAPS and LTM](docs/guides/daps-ltm.md),
-  [a learning-based rule](docs/guides/learning-rule.md), [the upper mid-band](docs/guides/upper-mid-band.md).
+  [a learning-based rule](docs/guides/learning-rule.md), [the upper mid-band](docs/guides/upper-mid-band.md),
+  [a highway](docs/guides/highway.md).
 - Reference: [command line](docs/reference/cli.md), [metric names](docs/reference/metrics.md) and the
   API (generated from the docstrings, in the site); [stability policy](docs/stability.md).
 - [Scenario cards](docs/scenarios): the built-in scenarios with the source of every parameter.
@@ -265,15 +278,17 @@ the pages are plain Markdown in [docs/](docs) and readable on GitHub as well.
    between Linux and Windows; release plumbing for PyPI and Zenodo.
 6. Stage 6 (1.0.0rc2): DAPS handover, L1/L2-triggered mobility, a learning-based
    example rule and an upper mid-band scenario, all additive.
-7. **Stage 7 (1.0.0rc3, this release)**: a highway layout with lane-keeping vehicular mobility and
-   its scenario card, site lists from CSV files, all additive. Next: 1.0.0 with an archived DOI.
-8. Later: conditional LTM, optional compiled kernels for the step loop, a TR 38.901 calibration
+7. Stage 7 (1.0.0rc3): a highway layout with lane-keeping vehicular mobility and its scenario
+   card, site lists from CSV files, all additive.
+8. **Stage 8 (1.0.0rc4, this release)**: the 3GPP citations and the documentation checked and
+   corrected; no change of results. Next: 1.0.0 with an archived DOI.
+9. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901 calibration
    scenario.
 
 ## Citation
 
 If you use HandoverLab, please cite it as described in [CITATION.cff](CITATION.cff) (GitHub shows
-it under *Cite this repository*). From 1.0.0 on, every release is archived on Zenodo with a DOI.
+it under *Cite this repository*). A DOI is planned from 1.0.0 on, when releases are to be archived on Zenodo; there is none yet.
 
 ## Licence
 

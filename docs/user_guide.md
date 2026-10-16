@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 1.0.0rc1. It explains the ideas behind a run, the built-in
+This guide covers version 1.0.0rc4. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -211,14 +211,14 @@ learning rule, [a learning-based rule](guides/learning-rule.md).
 
 ```text
 handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--event-level summary|full] [--debug] [-q]
-handoverlab verify [--only GROUP ...] [--full] [--ns3] [--results FILE [--sample N]] [--json OUT] [-q]
+handoverlab verify [--only GROUP ...] [--full] [--ns3 [--ns3-seeds N]] [--results FILE [--sample N]] [--json OUT] [-q]
 handoverlab scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
 handoverlab study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report] [-q]
 handoverlab report DIR [-o OUT] [--format md html] [--no-figures]
 handoverlab status STUDY|DIR [-o DIR] [--workers N]
 handoverlab gui [--port N] [--address A] [--headless]
 handoverlab rules
-handoverlab init [PATH]
+handoverlab init [PATH] [--force]
 handoverlab --version
 ```
 
@@ -254,7 +254,7 @@ hl.simulate(sc, [{"rule": "a3"}], seeds=[1], debug=True)   # with invariant chec
 hl.write_events(results, "events.parquet")              # event table (CSV without pyarrow)
 full = hl.run_world(world, [{"rule": "a3"}], log_events="full")[0]
 full.trace[:3]                                          # procedure trace (section 8)
-hl.run_world(world, rules, batch=False)                 # engines one by one (same results, slower)
+hl.run_world(world, [{"rule": "a3"}, {"rule": "cho"}], batch=False)   # engines one by one (same results, slower)
 ```
 
 `run_world` advances the engines of all rules of a world in one step loop (`EngineBatch`); the

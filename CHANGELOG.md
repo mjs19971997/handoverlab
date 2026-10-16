@@ -7,6 +7,36 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.0.0rc4] - 2026-10-15
+
+Fourth release candidate (stage 8: an audit of the citations and the documentation). Only text
+changed: the results, the golden fingerprints, the job IDs and the public surface are as in
+1.0.0rc3, and the model version stays 1.
+
+### Fixed
+
+- Scenario cards: clause numbers checked against the specifications. The highway lanes, lane
+  width and road length are cited from TR 37.885 Table A-1 (not clause 6.1.2); the highway
+  inter-site distance of 500 m from TR 37.885 clause 6.1.3 (TR 38.913 gives it only as an
+  option); the highway speeds from clause 6.1.2 (140 km/h, optionally 70 km/h; the uniform
+  range between them is an assumption); the urban speed of 60 km/h from clause 6.1.2 (not
+  Annex A); the 50 m correlation distance of TR 38.901 Table 7.6.3.1-2 as that of the LOS/NLOS
+  state (UMi and UMa); the 4 dB LOS shadowing as that of UMi and UMa. The 35 m site offset of
+  `highway-10ghz` is an assumption, after the freeway set-up of TR 36.885 clause A.1.3.
+- Documentation: the list of built-in scenarios in the first tutorial, the highway in the home
+  page and the README guide list, the versions named in the user guide and the verification
+  page, the command synopsis (`verify --ns3-seeds`, `init --force`), a snippet of the user guide
+  that used an undefined name, the per-carrier tuning of the upper mid-band guide (it needs
+  `tuning.group_by`), and the release steps (all release-candidate sections are merged).
+- README: PyPI installation and the Zenodo DOI are stated as planned, not as available.
+- Metadata: the descriptions in `CITATION.cff` and `.zenodo.json` name all procedures and
+  layouts; links to the documentation site, which is not published, were removed or point to
+  the `docs/` folder.
+
+### Changed
+
+- Version 1.0.0rc4.
+
 ## [1.0.0rc3] - 2026-10-15
 
 Third release candidate (stage 7: a highway scenario). Everything is added next to what was there:
@@ -332,7 +362,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc3...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc4...HEAD
+[1.0.0rc4]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc3...v1.0.0rc4
 [1.0.0rc3]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc2...v1.0.0rc3
 [1.0.0rc2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0rc1...v1.0.0rc2
 [1.0.0rc1]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0rc1

@@ -5,7 +5,7 @@ Available since version 1.0.0rc3. Use it as `scenario: highway-10ghz` in a confi
 
 ## Purpose
 
-A vehicular counterpart of the urban grid: a straight road of 2000 m with three lanes of 4 m per direction (the highway case of TR 37.885), roadside sites every 500 m (the inter-site distance of the TR 37.885 / TR 38.913 highway set-ups above 6 GHz), 35 m beyond the road edge and alternately on the two sides, and lane-keeping vehicles at 70 to 140 km/h.  The sites follow a line, so every handover is between two neighbours along the road and happens at high speed: short times of stay, few candidate cells and a large share of late handovers.  Use it to see how a rule copes with speed rather than with dense, irregular coverage.
+A vehicular counterpart of the urban grid: a straight road of 2000 m with three lanes of 4 m per direction (the highway case of TR 37.885), roadside sites every 500 m (the inter-site distance of the TR 37.885 highway set-up above 6 GHz), 35 m beyond the road edge and alternately on the two sides, and lane-keeping vehicles at 70 to 140 km/h.  The sites follow a line, so every handover is between two neighbours along the road and happens at high speed: short times of stay, few candidate cells and a large share of late handovers.  Use it to see how a rule copes with speed rather than with dense, irregular coverage.
 
 ## Layout
 
@@ -19,16 +19,16 @@ Values in **bold** differ from the HandoverLab defaults.
 
 | Key | Value | Source |
 |---|---|---|
-| `layout.kind` | **highway** | TR 37.885 clause 6.1.2 (highway) |
+| `layout.kind` | **highway** | TR 37.885 Annex A, Table A-1 (highway) |
 | `layout.blocks` | [3, 3] | TR 37.885 Table A-1 (minimum 3 x 3 blocks) |
 | `layout.pitch_m` | [433, 250] | TR 37.885 Annex A (433 m x 250 m) |
 | `layout.street_width_m` | 20 | TR 37.885 Annex A (20 m) |
-| `layout.site_spacing_m` | **500** | TR 37.885 / TR 38.913 highway (inter-site distance 500 m above 6 GHz) |
-| `layout.site_offset_m` | **35** | assumption (roadside sites 35 m from the road edge) |
+| `layout.site_spacing_m` | **500** | TR 37.885 clause 6.1.3 (highway above 6 GHz: inter-site distance 500 m) |
+| `layout.site_offset_m` | **35** | assumption (35 m from the road edge, after the 35 m freeway offset of TR 36.885 clause A.1.3) |
 | `layout.sites` | none | regular placement along the streets |
-| `layout.lanes` | 3 | TR 37.885 clause 6.1.2 (highway: 3 lanes per direction) |
-| `layout.lane_width_m` | 4 | TR 37.885 clause 6.1.2 (highway: 4 m lanes) |
-| `layout.road_length_m` | 2000 | TR 37.885 clause 6.1.2 (highway: at least 2000 m) |
+| `layout.lanes` | 3 | TR 37.885 Table A-1 (highway: 3 lanes per direction) |
+| `layout.lane_width_m` | 4 | TR 37.885 Table A-1 (highway: 4 m lanes) |
+| `layout.road_length_m` | 2000 | TR 37.885 Table A-1 (highway: at least 2000 m) |
 | `layout.sites_file` | none | none (sites from the layout) |
 | `radio.carrier_ghz` | 10 | assumption (upper mid-band, 7-24 GHz) |
 | `radio.bandwidth_mhz` | 200 | assumption |
@@ -40,13 +40,13 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.bs_height_m` | **25** | TR 38.901 Table 7.4.1-1 (UMa: 25 m) |
 | `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
 | `radio.pathloss` | **uma** | TR 38.901 Table 7.4.1-1 (UMa) |
-| `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi LOS: 4 dB) |
+| `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | **6** | TR 38.901 Table 7.4.1-1 (UMa NLOS: 6 dB) |
 | `radio.shadow_decorr_m` | **37** | TR 38.901 Table 7.5-6 (UMa LOS: 37 m) |
 | `radio.shadow_site_corr` | 0.5 | assumption (correlation between sites) |
 | `radio.place_share` | 1 | assumption (blockage tied to place) |
 | `radio.clutter_los` | true | TR 38.901 clause 7.6.3.3 (spatially consistent LOS state) |
-| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (UMi LOS: 50 m) |
+| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m) |
 | `radio.time_var_db` | 1.5 | assumption (moving blockers) |
 | `radio.time_var_tau_s` | 1 | assumption |
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
@@ -78,7 +78,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.rate_scale` | 1 | assumption |
 | `traffic.label_load` | 1 | assumption (all cells transmit for the label) |
 | `mobility.users` | 40 | assumption |
-| `mobility.profile` | **hwy** | TR 37.885 clause 6.1.2 (highway speeds 70 and 140 km/h; uniform between them) |
+| `mobility.profile` | **hwy** | TR 37.885 clause 6.1.2 (highway: 140 km/h, optionally 70 km/h); uniform between them is an assumption |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | 120 | numerical setting |
 | `run.warmup_s` | 20 | numerical setting |

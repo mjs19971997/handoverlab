@@ -5,7 +5,7 @@ since: 1.0.0rc3
 purpose: >
   A vehicular counterpart of the urban grid: a straight road of 2000 m with three lanes of 4 m per
   direction (the highway case of TR 37.885), roadside sites every 500 m (the inter-site distance
-  of the TR 37.885 / TR 38.913 highway set-ups above 6 GHz), 35 m beyond the road edge and
+  of the TR 37.885 highway set-up above 6 GHz), 35 m beyond the road edge and
   alternately on the two sides, and lane-keeping vehicles at 70 to 140 km/h.  The sites follow a
   line, so every handover is between two neighbours along the road and happens at high speed:
   short times of stay, few candidate cells and a large share of late handovers.  Use it to see how
@@ -22,14 +22,14 @@ scenario:
   mobility: {users: 40, profile: hwy}
   run: {duration_s: 120.0, warmup_s: 20.0}
 sources:
-  layout.kind: "TR 37.885 clause 6.1.2 (highway)"
-  layout.site_spacing_m: "TR 37.885 / TR 38.913 highway (inter-site distance 500 m above 6 GHz)"
-  layout.site_offset_m: "assumption (roadside sites 35 m from the road edge)"
+  layout.kind: "TR 37.885 Annex A, Table A-1 (highway)"
+  layout.site_spacing_m: "TR 37.885 clause 6.1.3 (highway above 6 GHz: inter-site distance 500 m)"
+  layout.site_offset_m: "assumption (35 m from the road edge, after the 35 m freeway offset of TR 36.885 clause A.1.3)"
   radio.pathloss: "TR 38.901 Table 7.4.1-1 (UMa)"
   radio.bs_height_m: "TR 38.901 Table 7.4.1-1 (UMa: 25 m)"
   radio.shadow_nlos_db: "TR 38.901 Table 7.4.1-1 (UMa NLOS: 6 dB)"
   radio.shadow_decorr_m: "TR 38.901 Table 7.5-6 (UMa LOS: 37 m)"
-  mobility.profile: "TR 37.885 clause 6.1.2 (highway speeds 70 and 140 km/h; uniform between them)"
+  mobility.profile: "TR 37.885 clause 6.1.2 (highway: 140 km/h, optionally 70 km/h); uniform between them is an assumption"
 limitations:
   - "The road has no wrap-around: at its end a vehicle turns into the same lane of the other direction, so the ends of the road are crossed twice as often as the middle is passed, and the outermost sites see turning vehicles."
   - "The LOS state follows the TR 38.901 UMa LOS probability as a process along each vehicle's path; on an open road it stands for blocking by other vehicles and roadside obstacles and is more pessimistic than a free highway."

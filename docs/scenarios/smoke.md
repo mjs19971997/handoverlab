@@ -36,13 +36,13 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.bs_height_m` | 10 | TR 38.901 Table 7.4.1-1 (UMi: 10 m) |
 | `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
 | `radio.pathloss` | umi_street_canyon | TR 38.901 Table 7.4.1-1 |
-| `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi LOS: 4 dB) |
+| `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
 | `radio.shadow_decorr_m` | 10 | TR 38.901 Table 7.5-6 (UMi: 10 m LOS, 13 m NLOS) |
 | `radio.shadow_site_corr` | 0.5 | assumption (correlation between sites) |
 | `radio.place_share` | 1 | assumption (blockage tied to place) |
 | `radio.clutter_los` | true | TR 38.901 clause 7.6.3.3 (spatially consistent LOS state) |
-| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (UMi LOS: 50 m) |
+| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m) |
 | `radio.time_var_db` | 1.5 | assumption (moving blockers) |
 | `radio.time_var_tau_s` | 1 | assumption |
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
@@ -74,7 +74,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.rate_scale` | 1 | assumption |
 | `traffic.label_load` | 1 | assumption (all cells transmit for the label) |
 | `mobility.users` | **20** | assumption |
-| `mobility.profile` | veh16 | TR 37.885 Annex A (urban speeds); see the user guide |
+| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban: 60 km/h); see the user guide |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | **30** | numerical setting (short run) |
 | `run.warmup_s` | **5** | numerical setting |

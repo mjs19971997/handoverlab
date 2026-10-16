@@ -24,7 +24,7 @@ The PyPI side is already set up: a pending trusted publisher for the project `ha
 
 ## Release 1.0.0
 
-The repository is at 1.0.0rc3. For the final release:
+The repository is at 1.0.0rc4. For the final release:
 
 1. **Check that `main` is green**: the `tests`, `lint` and `docs` workflows of the last commit on
    *Actions*, and the latest `nightly` run.
@@ -33,7 +33,7 @@ The repository is at 1.0.0rc3. For the final release:
      `Development Status :: 5 - Production/Stable`;
    - `src/handoverlab/__init__.py`: `__version__ = "1.0.0"`;
    - `CITATION.cff`: `version: "1.0.0"` and `date-released:` the release date;
-   - `CHANGELOG.md`: merge the sections `## [1.0.0rc2]` and `## [1.0.0rc1]` into
+   - `CHANGELOG.md`: merge the sections `## [1.0.0rc4]` to `## [1.0.0rc1]` into
      `## [1.0.0] - <release date>` (add any later entries from *Unreleased*), and change the links
      at the end to
 
