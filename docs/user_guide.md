@@ -52,7 +52,7 @@ random waypoints. With `radio.place_share = 0` all shadowing also moves with the
 
 ### Built-in scenarios
 
-Four named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
+Five named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
 parameter with its source, known limitations and the reference results it was checked against
 ([docs/scenarios](scenarios)).
 
@@ -62,6 +62,7 @@ parameter with its source, known limitations and the reference results it was ch
 | [`urban-grid-10ghz`](scenarios/urban-grid-10ghz.md) | the defaults: 3 x 3-block grid, 100 m sites, 10 GHz, 40 users, 120 s |
 | [`open-area-10ghz`](scenarios/open-area-10ghz.md) | same rectangle without buildings, hexagonal sites, nothing tied to place |
 | [`ns3-urban-3.5ghz`](scenarios/ns3-urban-3.5ghz.md) | the set-up of the comparison with ns-3 / 5G-LENA: seven sites, 3.5 GHz, light load |
+| [`fr3-urban-15ghz`](scenarios/fr3-urban-15ghz.md) | the default grid in the upper mid-band (FR3): 15 GHz, 400 MHz, 3.5 dB more beam gain (since 1.0.0rc2) |
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
@@ -144,6 +145,40 @@ In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a ch
 |---|---|---|
 | `a3` | baseline | `off_db` (3.0), `ttt_s` (0.16), `name` |
 | `cho` | conditional | `o_prep_db` (-2.0), `o_exec_db` (3.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `immediate` (false), `name` |
+| `daps` | daps | `off_db` (3.0), `ttt_s` (0.16), `interruption_s` (0.0), `fallback` (true), `source_data` (true), `name` |
+| `ltm` | ltm | `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `cmd_delay_s` (0.01), `exec_s` (0.02), `recovery` (true), `name` |
+| `a3_bandit` | baseline | `arms_db` ([1, 2, 3, 4, 5]), `ttt_s` (0.16), `epsilon` (0.1), `epoch` (10), `w_unnecessary` (1.0), `w_failure` (2.0), `name` |
+
+`daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`
+unchanged.
+
+### Procedures
+
+The family of a rule selects the procedure the engine runs around its decisions:
+
+- **baseline** (`kind` `ho` in the event log): Event A3 held for the time-to-trigger, measurement
+  report, preparation (`prep_s`), handover command, execution (`exec_s`, an interruption), join of
+  the target if its SINR is at least Qout.
+- **conditional** (`cho`, TS 38.300 clause 9.2.3.4): prepared cells with execution conditions that
+  the UE evaluates itself; faster recovery into a prepared cell after a failure.
+- **daps** (`daps`, Rel-16 DAPS handover, TS 38.300 clause 9.2.3.2): triggered like a baseline
+  handover, but the source keeps carrying data during the execution, so the execution counts
+  `interruption_s` (default 0) instead of `exec_s` in `interruption_exec_s_pm`, and the user keeps
+  its rate. If the target cannot be joined while the source SINR is still at least Qout, the UE falls
+  back to the source (TS 38.331 clause 5.3.5.8.3): the attempt ends as `too_early` with the cause
+  `daps_fallback`, without a failure or a re-establishment. `too_early_pm` therefore includes
+  fallbacks for DAPS, `failures_pm` does not. With `fallback: false, source_data: false` the rule
+  gives exactly the results of `a3`.
+- **ltm** (`ltm`, Rel-18 L1/L2-triggered mobility, TS 38.300 clause 9.2.3.5): candidate cells are
+  configured like the prepared cells of a conditional handover (L3 reports with `o_prep_db`, at most
+  `n_max`); the network then switches the UE to a candidate whose *unfiltered L1* measurement beats
+  the serving cell by `o_switch_db` for `ttt_switch_s`. The cell switch command (MAC CE) reaches
+  the UE after `cmd_delay_s` and is lost if T310 runs; the execution (RACH-less, with early timing
+  advance) takes `exec_s`. Preparation counts (`preparations_pm`, `unused_preparations_pm`, ...)
+  count candidate configurations; `recoveries_pm` counts failures recovered into a candidate.
+
+See the how-to [DAPS handover and L1/L2-triggered mobility](guides/daps-ltm.md) and, for the
+learning rule, [a learning-based rule](guides/learning-rule.md).
 
 ## 4. Command line
 
@@ -201,10 +236,12 @@ mode always run one by one.
 
 ## 6. Writing a handover rule
 
-A rule subclasses `BaselineRule` (A3-based handover) or `ConditionalRule` (CHO) and implements a few
-hooks. The engine calls the hooks; the rule never calls the engine. Each hook receives an
-`Observation` with arrays over users (U) and cells (M): `meas_dbm`, `gap_db` (neighbour minus
-serving), `serving`, `connected`, `x`, `y`, `speed`, `heading`, `t`.
+A rule subclasses `BaselineRule` (A3-based handover), `ConditionalRule` (CHO), `DAPSRule` (DAPS
+handover) or `LTMRule` (L1/L2-triggered mobility) and implements a few hooks. The engine calls the
+hooks; the rule never calls the engine. Each hook receives an `Observation` with arrays over users
+(U) and cells (M): `meas_dbm`, `gap_db` (neighbour minus serving), `serving`, `connected`, `x`,
+`y`, `speed`, `heading`, `t`, and (since 1.0.0rc2) `l1_dbm`, the unfiltered L1 samples of the
+same instant.
 
 ```python
 import numpy as np
@@ -236,6 +273,12 @@ A `ConditionalRule` sets `report_offset_db`, `ttt_prep_s`, `ttt_exec_s`, `n_max`
 receives `on_outcome(OutcomeRecord)` and `on_link_failure(FailureRecord)`; `memory_key(obs)` lets it
 attach its own key to each preparation. Randomness must come from `ctx.rng` (given to `reset(ctx)`),
 never from NumPy's global state.
+
+A `DAPSRule` has the hooks of `BaselineRule` and sets `interruption_s`, `fallback` and
+`source_data`. An `LTMRule` sets `report_offset_db`, `ttt_prep_s`, `n_max`, `release_hys_db`,
+`ttt_switch_s`, `cmd_delay_s`, `exec_s` and `recovery` and implements `prep_offsets(obs)`
+(candidate configuration, on L3 measurements) and `switch_offsets(obs)` (cell switch, on
+`obs.l1_dbm`), each a scalar or (U, M).
 
 Rules in an installed package are found through the entry-point group `handoverlab.rules`:
 
@@ -282,7 +325,8 @@ full catalogue with units is `handoverlab.engine.METRICS`, listed in the
 - `too_late`: the command or configuration was lost, or the link failed while the handover was in
   preparation;
 - `too_early`: the execution failed, or the link failed in the target before the evaluation window
-  closed, and the UE re-established in the source or the target;
+  closed, and the UE re-established in the source or the target; for DAPS handover also an
+  execution that fell back to the source (cause `daps_fallback`, not counted as a failure);
 - `wrong_cell`: the same, but the UE re-established in a third cell;
 - `unnecessary`: completed, the source link would not have failed during the window, and the stay
   was shorter than `t_min_s` of the user's service or the mean SINR gain over the window was below

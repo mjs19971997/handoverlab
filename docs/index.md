@@ -1,8 +1,8 @@
 # HandoverLab
 
 HandoverLab is a system-level simulator for studying handover in dense 5G and beyond-5G
-networks, written in Python. It simulates the 3GPP Release-16 mobility procedures (baseline
-handover with Event A3, and conditional handover) for many users moving through a street grid or
+networks, written in Python. It simulates 3GPP mobility procedures (baseline handover with Event
+A3, Release-16 conditional and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid or
 an open area, with a TR 38.901 received-power radio model, an L3-filtered measurement chain, a
 radio-link failure model and an outcome label for every handover attempt. Every rule compared on
 a seed runs on the same world and radio samples, so comparisons are paired.
@@ -25,15 +25,16 @@ handoverlab gui                              # the dashboard in your browser
 | understand a study report | [Tutorial 4: reading the report](tutorials/reading-the-report.md) |
 | look up a configuration key, metric or command | [user guide](user_guide.md), [command line](reference/cli.md), [API](reference/api/index.md) |
 | add a scenario, use many cores, export event logs, reproduce a result | the how-to guides: [scenario](guides/add-scenario.md), [many cores](guides/many-cores.md), [event logs](guides/export-event-logs.md), [reproduce](guides/reproduce.md) |
+| study DAPS handover, LTM, a learning rule or the upper mid-band | [DAPS and LTM](guides/daps-ltm.md), [learning rule](guides/learning-rule.md), [upper mid-band](guides/upper-mid-band.md) |
 | know what stays stable between versions | [stability policy](stability.md), [metric names](reference/metrics.md) |
 | know how far to trust the results | [verification](verification.md), [failure-model calibration](calibration.md) |
 
 ## What is in the box
 
 - **Scenarios**: the TR 37.885 urban grid with buildings and an open area with hexagonal sites;
-  four built-in [scenario cards](scenarios/smoke.md) with the source of every parameter.
-- **Rules**: Event A3 and conditional handover, and a small interface for your own rules with a
-  contract test kit.
+  five built-in [scenario cards](scenarios/smoke.md) with the source of every parameter.
+- **Rules**: Event A3, conditional handover, DAPS handover, L1/L2-triggered mobility and a
+  learning-based example, and a small interface for your own rules with a contract test kit.
 - **Studies**: equal-budget tuning with automatic gates (including widening a grid whose winner
   sits on its edge), paired statistics, stored and resumable results in worker processes, a status
   view with the time still needed, and Markdown/HTML reports.
@@ -42,5 +43,5 @@ handoverlab gui                              # the dashboard in your browser
   regression against the prototype the package was ported from, and a comparison with ns-3 /
   5G-LENA.
 
-This is the release candidate 1.0.0rc1. The public surface is frozen and follows the
+This is the release candidate 1.0.0rc2. The public surface is frozen and follows the
 [stability policy](stability.md). HandoverLab is MIT licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).

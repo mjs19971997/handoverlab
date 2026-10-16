@@ -51,6 +51,10 @@ Next to the rates, a run returns the event counts of the measured part of the ru
 
 `n_attempts`, `n_executions`, `n_handovers`, `n_failures`, `n_pingpong`, `n_reports`, `n_preparations`, `n_configurations`, `n_lost_configurations`, `n_cancelled_preparations`, `n_used_preparations`, `n_unused_preparations`, `n_releases`, `n_recoveries`, `n_useful`, `n_unnecessary`, `n_too_early`, `n_wrong_cell`, `n_too_late`, `n_censored`, `n_fail_command_lost`, `n_fail_rlf_in_preparation`, `n_fail_rlf_without_handover`, `n_fail_coverage_rlf`, `n_fail_execution_failure`, `n_fail_rlf_after_handover`.
 
+For DAPS handover, `too_early_pm` and `n_too_early` also count executions that fell back to the
+source (event-log cause `daps_fallback`); these are not failures. For L1/L2-triggered mobility the
+preparation counts refer to candidate cells.
+
 The outcome counts `n_useful` ... `n_censored` add up to the attempts; the failure counts
 `n_fail_<cause>` add up to `n_failures`. The definitions of the outcomes and causes are in the
 [user guide](../user_guide.md#7-metrics).
