@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="60" viewBox="0 0 640 60">
+<rect x="0" y="0" width="640" height="36" fill="#f4f4f0" stroke="#999"/>
+<rect x="0" y="14.4" width="640" height="7.7" fill="#b9b9b0"/>
+<line x1="0" y1="18.2" x2="640" y2="18.2" stroke="#f4f4f0" stroke-width="1"/>
+<circle cx="80.0" cy="33.3" r="3" fill="#c0392b"/>
+<circle cx="240.0" cy="3.2" r="3" fill="#c0392b"/>
+<circle cx="400.0" cy="33.3" r="3" fill="#c0392b"/>
+<circle cx="560.0" cy="3.2" r="3" fill="#c0392b"/>
+<text x="4" y="53" font-family="sans-serif" font-size="12" fill="#333">highway-10ghz: 4 sites, 2000 m x 114 m (grey: road, red: sites)</text>
+</svg>
