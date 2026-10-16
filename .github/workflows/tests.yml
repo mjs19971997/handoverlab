@@ -38,7 +38,13 @@ jobs:
       - name: Dashboard starts (headless)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         run: |
-          handoverlab gui --headless --port 8599 &
-          for i in $(seq 1 30); do curl -sf http://localhost:8599/_stcore/health && break; sleep 2; done
-          curl -sf http://localhost:8599/_stcore/health
-          kill %1
+          handoverlab gui --headless --port 8599 --address 127.0.0.1 > gui.log 2>&1 &
+          pid=$!
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8599/_stcore/health; then ok=1; break; fi
+            sleep 2
+          done
+          cat gui.log
+          kill $pid || true
+          if [ "$ok" != 1 ]; then echo "::error title=dashboard did not start::$(tail -c 2500 gui.log | tr '\n' ' ')"; exit 1; fi
