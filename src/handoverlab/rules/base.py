@@ -25,6 +25,14 @@ Two families exist:
 Rules that learn from outcomes set ``learns = True`` and implement
 :meth:`Rule.on_outcome` and :meth:`Rule.on_link_failure`.  A rule that needs
 randomness must use ``ctx.rng``, never NumPy's global state.
+
+Stability: this interface has the version
+:data:`handoverlab.stability.RULE_API_VERSION` (1).  Within a major release,
+the hooks keep their names and arguments, and the fields of
+:class:`RuleContext`, :class:`Observation`, :class:`OutcomeRecord` and
+:class:`FailureRecord` are only added to, never removed or renamed; a rule
+written for 1.0 runs unchanged on every 1.x release (see
+``docs/stability.md``).
 """
 from __future__ import annotations
 

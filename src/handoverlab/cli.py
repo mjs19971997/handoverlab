@@ -37,6 +37,7 @@ from .config import ConfigError, load_config
 
 EXAMPLE_CONFIG = """\
 # HandoverLab experiment: A3 versus conditional handover in the TR 37.885 street grid.
+schema: 1                    # file format version (see docs/stability.md)
 scenario:
   name: street-grid-10GHz
   layout:

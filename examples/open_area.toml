@@ -1,6 +1,7 @@
 # The same comparison in an open area: no buildings, LOS state and shadowing
 # drawn along each user's path, so nothing is repeatable by place.
 # Run with:  handoverlab run examples/open_area.toml
+schema = 1                     # file format version (docs/stability.md)
 seeds = [1]
 output = "results/open_area.json"
 

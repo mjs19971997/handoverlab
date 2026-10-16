@@ -153,7 +153,8 @@ def seeds_of(s: Settings) -> List[int]:
 
 def experiment_dict(s: Settings, rules: Sequence[RuleSettings]) -> Dict[str, Any]:
     """An experiment configuration that ``handoverlab run`` repeats exactly."""
-    return {"scenario": scenario_dict(s), "seeds": seeds_of(s), "rules": rule_specs(rules),
+    from ..stability import SCHEMA_VERSION
+    return {"schema": SCHEMA_VERSION, "scenario": scenario_dict(s), "seeds": seeds_of(s), "rules": rule_specs(rules),
             "output": "results/dashboard.csv"}
 
 

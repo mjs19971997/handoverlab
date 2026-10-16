@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from .. import __version__
+from ..stability import SCHEMA_VERSION
 from .config import Study, label
 from .runner import MODEL_VERSION, Job, default_workers, run_jobs
 from .store import StudyStore, atomic_write_json, read_json, write_table
@@ -408,7 +409,7 @@ def _start_manifest(study: Study, store: StudyStore, workers: int) -> Dict[str, 
         if old != h:
             man.setdefault("changes", []).append(dict(time=_now(), old=old, new=h,
                                                       note="study file changed; unchanged jobs are reused"))
-    atomic_write_json(lock_p, dict(sha256=h, study=study.resolved()))
+    atomic_write_json(lock_p, dict(schema=SCHEMA_VERSION, sha256=h, study=study.resolved()))
     man["versions"] = _versions()
     man["lock_sha256"] = h
     man.setdefault("sessions", []).append(dict(start=_now(), workers=workers, versions=_versions()))

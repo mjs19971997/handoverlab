@@ -1,5 +1,6 @@
 # A3 versus conditional handover in the TR 37.885 urban street grid.
 # Run with:  handoverlab run examples/street_grid.yaml
+schema: 1                    # file format version (docs/stability.md)
 scenario:
   name: street-grid-10GHz
   layout:

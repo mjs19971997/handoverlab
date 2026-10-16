@@ -32,6 +32,8 @@ def _rel(a, b) -> float:
 def stored_checks(rep, path: str, sample: Optional[int] = None, pick_seed: int = 0, progress=None) -> dict:
     with open(path, encoding="utf-8") as f:
         doc = json.load(f)
+    from ..stability import check_schema
+    check_schema(doc.get("schema"), path)
     rep.section("stored", "stored results in %s" % path)
     recs = doc.get("results") or []
     if not recs or "fingerprint" not in recs[0] or "key" not in recs[0]:

@@ -6,6 +6,7 @@
 # The selected A3 offset first lands on the largest value of its grid; the gate policy 'extend'
 # widens the grid (6 dB -> 8 dB) and tunes again, recorded in results/study-smoke/AMENDMENTS.md.
 # A walk through this study: docs/tutorials/tuning-study.md.
+schema: 1                    # file format version (docs/stability.md)
 name: study-smoke
 description: A3 and CHO tuned with equal budgets on two site spacings of the smoke scenario.
 scenario:

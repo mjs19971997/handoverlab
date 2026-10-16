@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional, Sequence, Union
 
+from ..stability import check_schema
 from .config import Study, load_study, study_from_dict
 from .runner import Job, default_workers
 from .store import StudyStore, read_json
@@ -33,7 +34,9 @@ def load_study_dir(root: str) -> Study:
     p = os.path.join(root, "study.lock.json")
     if not os.path.exists(p):
         raise FileNotFoundError("%s is not a study directory (no study.lock.json)" % root)
-    st = study_from_dict(read_json(p)["study"])
+    lock = read_json(p)
+    check_schema(lock.get("schema"), p)
+    st = study_from_dict(lock["study"])
     st.output = root
     return st
 

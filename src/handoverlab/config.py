@@ -9,6 +9,7 @@ value of the wrong type raises :class:`ConfigError` with the full key name.
 An *experiment* adds the seeds, the handover rules to compare and the output
 file to a scenario; it is what the command line runs::
 
+    schema: 1                  # file format version (optional; see docs/stability.md)
     scenario:
       layout: {kind: street_grid, blocks: [3, 3], site_spacing_m: 100}
       mobility: {users: 40, profile: veh16}
@@ -271,10 +272,13 @@ class Experiment:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Experiment":
+        from .stability import check_schema
         data = dict(data or {})
-        unknown = set(data) - {"scenario", "seeds", "rules", "output"}
+        unknown = set(data) - {"schema", "scenario", "seeds", "rules", "output"}
         if unknown:
-            raise ConfigError("unknown key '%s'; allowed: scenario, seeds, rules, output" % sorted(unknown)[0])
+            raise ConfigError("unknown key '%s'; allowed: schema, scenario, seeds, rules, output"
+                              % sorted(unknown)[0])
+        check_schema(data.get("schema"), "experiment")
         sc = Scenario.from_dict(data.get("scenario") or {})
         seeds = data.get("seeds", [1])
         if isinstance(seeds, int):

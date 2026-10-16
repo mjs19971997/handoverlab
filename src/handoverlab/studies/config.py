@@ -47,7 +47,7 @@ from ..config import ConfigError, Scenario, read_file
 from ..rules import get_rule_class
 from .tuning import BOUNDS, DEFAULT_POLICY, GATES, POLICIES
 
-_TOP = ("name", "description", "scenario", "conditions", "seeds", "tuning", "methods", "compare", "events",
+_TOP = ("schema", "name", "description", "scenario", "conditions", "seeds", "tuning", "methods", "compare", "events",
         "output", "workers")
 _TUNING = ("settings", "random", "reference", "budgets", "tolerance", "group_by", "gates", "binding_share",
            "min_reference_failures", "flat_share", "objective", "constraint", "tie_breaks", "extend_steps",
@@ -302,11 +302,22 @@ def _method(name: str, d: Any, where: str) -> Method:
     return Method(name, str(d["rule"]), clean, dict(fixed), dict(nb), settings)
 
 
+def _metric(name: Any, where: str) -> str:
+    """Current name of a metric (an old name warns); an unknown name raises ConfigError."""
+    from ..stability import metric_name
+    try:
+        return metric_name(name)
+    except (KeyError, TypeError):
+        raise ConfigError("%s: unknown metric %r" % (where, name)) from None
+
+
 def study_from_dict(data: Dict[str, Any], base_dir: str = ".") -> Study:
     """Study from a dictionary (see the module text)."""
     if not isinstance(data, dict):
         raise ConfigError("a study file must be a mapping")
     _check_keys(data, _TOP, "")
+    from ..stability import check_schema
+    check_schema(data.get("schema"), "study")
     name = str(data.get("name") or "study")
     sc = Scenario.from_dict(data.get("scenario") or {})
     conds = data.get("conditions") or {}
@@ -390,17 +401,14 @@ def study_from_dict(data: Dict[str, Any], base_dir: str = ".") -> Study:
         t.min_reference_failures = _int(td["min_reference_failures"], "tuning.min_reference_failures")
     if "flat_share" in td:
         t.flat_share = _number(td["flat_share"], "tuning.flat_share", 0.0, 1.0)
-    from ..engine.metrics import METRICS
     for key in ("objective", "constraint"):
         if key in td:
-            if td[key] not in METRICS:
-                raise ConfigError("tuning.%s: unknown metric %r" % (key, td[key]))
-            setattr(t, key, td[key])
+            setattr(t, key, _metric(td[key], "tuning." + key))
     if "tie_breaks" in td:
         tb = td["tie_breaks"]
-        if not isinstance(tb, (list, tuple)) or any(m not in METRICS for m in tb):
+        if not isinstance(tb, (list, tuple)):
             raise ConfigError("tuning.tie_breaks: expected a list of metric names")
-        t.tie_breaks = tuple(tb)
+        t.tie_breaks = tuple(_metric(m, "tuning.tie_breaks") for m in tb)
     tuned = [m for m in methods if m.tuned]
     if tuned and not tun_seeds:
         raise ConfigError("seeds.tuning: methods with a grid need tuning seeds")
@@ -411,10 +419,9 @@ def study_from_dict(data: Dict[str, Any], base_dir: str = ".") -> Study:
     c = Compare()
     if cd.get("metrics") is not None:
         ms = cd["metrics"]
-        if not isinstance(ms, (list, tuple)) or not ms or any(m not in METRICS for m in ms):
-            bad = [m for m in (ms if isinstance(ms, (list, tuple)) else []) if m not in METRICS]
-            raise ConfigError("compare.metrics: unknown metric %r" % (bad[0] if bad else ms))
-        c.metrics = tuple(ms)
+        if not isinstance(ms, (list, tuple)) or not ms:
+            raise ConfigError("compare.metrics: expected a non-empty list of metric names, got %r" % (ms,))
+        c.metrics = tuple(_metric(m, "compare.metrics") for m in ms)
     if "level" in cd:
         c.level = _number(cd["level"], "compare.level", 0.5, 0.999)
     if "bootstrap" in cd:

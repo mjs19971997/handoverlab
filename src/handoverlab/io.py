@@ -9,6 +9,7 @@ import platform
 from typing import Any, Dict, List, Optional, Sequence
 
 from . import __version__
+from .stability import SCHEMA_VERSION
 
 
 def _ensure_dir(path: str) -> None:
@@ -56,13 +57,13 @@ def provenance() -> Dict[str, str]:
 
 
 def write_json(results: Sequence, path: str, scenario: Optional[Dict[str, Any]] = None) -> None:
-    """JSON with the resolved scenario, versions and one record per (seed, rule).
+    """JSON with the schema version, the resolved scenario, versions and one record per (seed, rule).
 
     Every record holds the rule key and parameters, the metrics and the
     fingerprint of the event log, so that ``handoverlab verify --results``
     can repeat the run and compare.
     """
-    doc = dict(provenance=provenance(), scenario=scenario,
+    doc = dict(schema=SCHEMA_VERSION, provenance=provenance(), scenario=scenario,
                results=[dict(seed=r.seed, rule=r.rule, key=r.key, family=r.family, params=r.params,
                              fingerprint=r.fingerprint, n_events=r.n_events, metrics=r.metrics, timing=r.timing)
                         for r in results])

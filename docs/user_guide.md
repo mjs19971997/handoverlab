@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 0.4.0a1 (stage 4). It explains the ideas behind a run, the built-in
+This guide covers version 1.0.0rc1. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -274,7 +274,8 @@ def test_contract():
 ## 7. Metrics
 
 Rates are per UE-minute of the measured part of the run (suffix `_pm`); counts start with `n_`. The
-full catalogue with units is `handoverlab.engine.METRICS`.
+full catalogue with units is `handoverlab.engine.METRICS`, listed in the
+[metric reference](reference/metrics.md); the names are stable (see [stability](stability.md)).
 
 **Outcome of an attempt** (exactly one per attempt; `n_attempts` equals their sum):
 
