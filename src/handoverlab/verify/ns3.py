@@ -35,6 +35,8 @@ from ..simulate import simulate
 
 PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ns3_urban_a3.json")
 LIMITS = dict(ratio_lo=0.8, ratio_hi=1.25, rank_min=0.9)
+# acceptance limits of a calibrated failure model (docs/calibration.md), fixed before any tuning
+FAIL_LIMITS = dict(a_ratio=(0.8, 1.25), a_rank=0.9, ttt_trend=20.0, holdout_ratio=(0.67, 1.5), holdout_rank=0.8)
 
 
 def load_reference() -> dict:
@@ -49,9 +51,11 @@ def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrid
     further, for calibration experiments.
     """
     ref = ref or load_reference()
-    sc = builtin_scenario("ns3-urban-3.5ghz").with_overrides({
+    mob = ({"mobility.profile": "c%d" % speed_mps} if speed_mps in (8, 16, 30) else
+           {"mobility.groups": [{"share": 1.0, "v_min": speed_mps, "v_max": speed_mps, "lateral_m": [0.0, 0.0]}]})
+    sc = builtin_scenario("ns3-urban-3.5ghz").with_overrides(dict(mob, **{
         "name": "ns3-urban-3.5ghz-%dm-%dmps" % (isd_m, speed_mps),
-        "layout.sites": ref["sites"][str(isd_m)], "mobility.profile": "c%d" % speed_mps})
+        "layout.sites": ref["sites"][str(isd_m)]}))
     return sc.with_overrides(overrides) if overrides else sc
 
 
@@ -95,8 +99,58 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
         fail_mean_ns3=float(R[:, 2].mean()), fail_mean=float(S[:, 2].mean()),
         sinr_mean_ns3=float(R[:, 3].mean()), sinr_mean=float(S[:, 3].mean()),
         ho_mean_ns3=float(R[:, 0].mean()), ho_mean=float(S[:, 0].mean()),
+        ttt_trend_ns3=_trend(table, "ns3"), ttt_trend=_trend(table, "handoverlab"),
         uho_mean_ns3=float(R[:, 1].mean()), uho_mean=float(S[:, 1].mean()),
         seeds=list(seeds), conditions=[list(c) for c in conds])
+    return dict(table=table, summary=summ)
+
+
+def _trend(table, who: str) -> float:
+    """Failure rate at the longest over the shortest time-to-trigger (mean over the offsets)."""
+    t = sorted({x["ttt_ms"] for x in table})
+    lo = np.mean([x[who][2] for x in table if x["ttt_ms"] == t[0]])
+    hi = np.mean([x[who][2] for x in table if x["ttt_ms"] == t[-1]])
+    return float(hi / lo) if lo > 0 else float("inf")
+
+
+def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
+            overrides: Optional[Dict] = None) -> Dict:
+    """Run the held-back parts B and C of the reference (see the module text) and compare them cell by cell.
+
+    Part B: two A3 settings on six conditions; part C: one setting with one parameter changed per cell
+    (users, preparation delay, T310, site distance, run length, speed).  ``overrides`` change every
+    scenario, as in :func:`compare`; tune only on part A.
+    """
+    ref = load_reference()
+    cells = [r for r in ref["rows"] if r["part"] in ("B", "C")]
+    jobs: Dict[tuple, list] = {}
+    for r in cells:
+        ov = dict(r.get("overrides", {}))
+        ov["run.duration_s"] = r.get("duration_s", 180.0)
+        key = (r["isd_m"], r["speed_mps"], json.dumps(ov, sort_keys=True))
+        jobs.setdefault(key, []).append(r)
+    table = []
+    for (isd, v, ovs), rows in jobs.items():
+        sc = scenario_for(isd, v, ref, overrides).with_overrides(json.loads(ovs))
+        rules = [{"rule": "a3", "name": "A3_%g_%d" % (r["a3_offset_db"], r["ttt_ms"]), "off_db": r["a3_offset_db"],
+                  "ttt_s": r["ttt_ms"] / 1000.0} for r in rows]
+        res = simulate(sc, rules, seeds=seeds)
+        for r, rule in zip(rows, rules):
+            m = np.mean([[x.metrics[k] for k in ("attempts_pm", "unnecessary_pm", "failures_pm", "sinr_db")]
+                         for x in res if x.rule == rule["name"]], axis=0)
+            table.append(dict(part=r["part"], variant=r.get("variant", ""), isd_m=isd, speed_mps=v,
+                              a3_offset_db=r["a3_offset_db"], ttt_ms=r["ttt_ms"],
+                              ns3=[r["handovers_pm"], r["unnecessary_pm"], r["failures_pm"], r["sinr_db"]],
+                              handoverlab=m.tolist()))
+        if progress:
+            progress("ns-3 hold-out: %d m, %d m/s %s done" % (isd, v, rows[0].get("variant", "")))
+    summ = dict(seeds=list(seeds))
+    for part in ("B", "C"):
+        R = np.array([x["ns3"] for x in table if x["part"] == part])
+        S = np.array([x["handoverlab"] for x in table if x["part"] == part])
+        summ[part] = dict(cells=len(R), fail_mean_ns3=float(R[:, 2].mean()), fail_mean=float(S[:, 2].mean()),
+                          fail_ratio=float(S[:, 2].mean() / R[:, 2].mean()), fail_rank=spearman(R[:, 2], S[:, 2]),
+                          ho_ratio_median=float(np.median(S[:, 0] / R[:, 0])))
     return dict(table=table, summary=summ)
 
 

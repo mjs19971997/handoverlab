@@ -153,6 +153,8 @@ output: results/metrics.csv
 | | `reest_s`, `cho_recovery_s` | `1`, `0.4` | outage of a re-establishment; of a recovery into a prepared cell |
 | | `pingpong_s` | `1` | ping-pong window |
 | | `cfg_loss_as_failure` | `false` | check mode: a lost conditional configuration fails like a lost handover command |
+| | `lm_load`, `lm_load_per_ue` | `null`, `0` | optional (1.1.0): interferer load at link monitoring, plus a part per user served by the interfering cell; `null` and `0` keep the load of the data channel ([calibration](calibration.md)) |
+| | `exec_can_fail` | `true` | `false`: the execution always joins the target (ideal random access) |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |

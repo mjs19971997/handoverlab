@@ -7,6 +7,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-18
+
+### Added
+
+- Optional link-monitoring model: `protocol.lm_load` and `protocol.lm_load_per_ue` give the
+  Qout / Qin filters their own interferer load (a part per user served by the interfering cell, so
+  it follows the traffic), and `protocol.exec_can_fail: false` makes the execution always join the
+  target. With the defaults, results and fingerprints are those of 1.0.
+- The held-back ns-3 / 5G-LENA results are stored with the reference data: part C (the setting
+  6 dB / 100 ms with one parameter changed per cell: users, preparation delay, T310, site
+  distance, run length, speed), compared together with part B by the new
+  `handoverlab.verify.ns3.holdout`. `compare` also reports the time-to-trigger trend of the failure
+  rate, and the acceptance limits of a calibrated failure model are fixed in `FAIL_LIMITS`.
+- `docs/calibration.md`: the calibration of the new model. It does not meet the limits on the
+  hold-out sets, so no calibrated preset is offered and failure rates remain relative quantities.
+
 ## [1.0.2] - 2026-10-16
 
 ### Added
@@ -373,7 +389,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/mjs19971997/handoverlab/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mjs19971997/handoverlab/compare/e93b9c59e5a42665a47be91922ddd5aede998367...v1.0.0

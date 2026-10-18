@@ -137,6 +137,10 @@ class ProtocolConfig:
     cho_recovery_s: float = 0.4
     pingpong_s: float = 1.0
     cfg_loss_as_failure: bool = False   # check mode: a lost conditional configuration fails like a lost command
+    # optional link-monitoring model (since 1.1.0; the defaults keep the model of 1.0):
+    lm_load: Optional[float] = None     # interferer load at link monitoring; None: the load of the data channel
+    lm_load_per_ue: float = 0.0         # added to lm_load per user served by the interfering cell
+    exec_can_fail: bool = True          # False: the execution always joins the target (ideal random access)
 
 
 @dataclass
@@ -280,6 +284,8 @@ class Scenario:
                "must be a whole multiple of protocol.step_s")
         _check(P.l3_k >= 0, "protocol.l3_k", "must be >= 0")
         _check(P.n310 >= 1 and P.n311 >= 1, "protocol.n310", "N310 and N311 must be >= 1")
+        _check(P.lm_load is None or P.lm_load >= 0, "protocol.lm_load", "must be >= 0 or null")
+        _check(P.lm_load_per_ue >= 0, "protocol.lm_load_per_ue", "must be >= 0")
         _check(M.users >= 1, "mobility.users", "must be >= 1")
         if M.groups is None:
             from .mobility import PROFILES

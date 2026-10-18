@@ -1,5 +1,5 @@
 {
- "description": "Results of the packet-level simulator ns-3 with the 5G-LENA module for stock Event-A3 handover in the TR 37.885 urban grid (2 x 2 blocks, seven sites at 200 m or 400 m), 3.5 GHz, 10 MHz, 20 vehicles at a constant speed on the street centre lines.  Rates per UE-minute of the measured part.  Part A: 24 A3 settings on four conditions (site distance 200/400 m x 16/30 m/s), one 150 s run each with the first 60 s discarded.  Part B: two settings on six conditions, several runs of 180 s each.  'handovers_pm' counts handover attempts as in HandoverLab's attempts_pm.",
+ "description": "Results of the packet-level simulator ns-3 with the 5G-LENA module for stock Event-A3 handover in the TR 37.885 urban grid (2 x 2 blocks, seven sites at 200 m or 400 m), 3.5 GHz, 10 MHz, 20 vehicles at a constant speed on the street centre lines.  Rates per UE-minute of the measured part.  Part A: 24 A3 settings on four conditions (site distance 200/400 m x 16/30 m/s), one 150 s run each with the first 60 s discarded.  Part B: two settings on six conditions, several runs of 180 s each.  'handovers_pm' counts handover attempts as in HandoverLab's attempts_pm.  Part C: the setting 6 dB / 100 ms with one parameter changed (users, preparation delay, T310, site distance, run length, speed), 10 runs each without the first 60 s; 'overrides' gives the matching HandoverLab keys.",
  "sites": {
   "400": [
    [
@@ -58,6 +58,36 @@
    ],
    [
     -100,
+    -250
+   ]
+  ],
+  "300": [
+   [
+    0,
+    0
+   ],
+   [
+    300,
+    0
+   ],
+   [
+    -300,
+    0
+   ],
+   [
+    150,
+    250
+   ],
+   [
+    -150,
+    250
+   ],
+   [
+    150,
+    -250
+   ],
+   [
+    -150,
     -250
    ]
   ]
@@ -1466,6 +1496,332 @@
    "failures_pm": 1.2333333,
    "sinr_db": 13.584685,
    "handovers_pm_sd": null
+  },
+  {
+   "part": "C",
+   "variant": "site distance 300 m",
+   "isd_m": 300,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 5.5075,
+   "unnecessary_pm": 2.17,
+   "failures_pm": 0.025,
+   "sinr_db": 12.709711,
+   "overrides": {}
+  },
+  {
+   "part": "C",
+   "variant": "600 s runs",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 600.0,
+   "handovers_pm": 8.327778,
+   "unnecessary_pm": 3.412778,
+   "failures_pm": 0.085556,
+   "sinr_db": 8.861288,
+   "overrides": {}
+  },
+  {
+   "part": "C",
+   "variant": "600 s runs",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 600.0,
+   "handovers_pm": 4.34,
+   "unnecessary_pm": 1.516667,
+   "failures_pm": 0.009444,
+   "sinr_db": 16.13891,
+   "overrides": {}
+  },
+  {
+   "part": "C",
+   "variant": "preparation 100 ms",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 8.1825,
+   "unnecessary_pm": 3.4825,
+   "failures_pm": 0.1075,
+   "sinr_db": 8.452643,
+   "overrides": {
+    "protocol.prep_s": 0.1
+   }
+  },
+  {
+   "part": "C",
+   "variant": "preparation 100 ms",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.2275,
+   "unnecessary_pm": 1.47,
+   "failures_pm": 0.01,
+   "sinr_db": 15.939458,
+   "overrides": {
+    "protocol.prep_s": 0.1
+   }
+  },
+  {
+   "part": "C",
+   "variant": "preparation 20 ms",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 8.265,
+   "unnecessary_pm": 3.365,
+   "failures_pm": 0.0725,
+   "sinr_db": 8.963208,
+   "overrides": {
+    "protocol.prep_s": 0.02
+   }
+  },
+  {
+   "part": "C",
+   "variant": "preparation 20 ms",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.425,
+   "unnecessary_pm": 1.455,
+   "failures_pm": 0.01,
+   "sinr_db": 16.118861,
+   "overrides": {
+    "protocol.prep_s": 0.02
+   }
+  },
+  {
+   "part": "C",
+   "variant": "T310 2 s",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 7.8675,
+   "unnecessary_pm": 4.2025,
+   "failures_pm": 0.0875,
+   "sinr_db": 9.069394,
+   "overrides": {
+    "protocol.t310_s": 2.0
+   }
+  },
+  {
+   "part": "C",
+   "variant": "T310 2 s",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.49,
+   "unnecessary_pm": 1.9425,
+   "failures_pm": 0.0025,
+   "sinr_db": 16.082768,
+   "overrides": {
+    "protocol.t310_s": 2.0
+   }
+  },
+  {
+   "part": "C",
+   "variant": "T310 0.5 s",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 7.9225,
+   "unnecessary_pm": 2.1675,
+   "failures_pm": 0.0925,
+   "sinr_db": 9.080495,
+   "overrides": {
+    "protocol.t310_s": 0.5
+   }
+  },
+  {
+   "part": "C",
+   "variant": "T310 0.5 s",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.4025,
+   "unnecessary_pm": 1.1875,
+   "failures_pm": 0.0025,
+   "sinr_db": 16.108875,
+   "overrides": {
+    "protocol.t310_s": 0.5
+   }
+  },
+  {
+   "part": "C",
+   "variant": "users 10",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 8.42,
+   "unnecessary_pm": 3.65,
+   "failures_pm": 0.045,
+   "sinr_db": 8.844949,
+   "overrides": {
+    "mobility.users": 10
+   }
+  },
+  {
+   "part": "C",
+   "variant": "users 10",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.35,
+   "unnecessary_pm": 1.58,
+   "failures_pm": 0.0,
+   "sinr_db": 16.355084,
+   "overrides": {
+    "mobility.users": 10
+   }
+  },
+  {
+   "part": "C",
+   "variant": "users 40",
+   "isd_m": 200,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 8.3975,
+   "unnecessary_pm": 3.3725,
+   "failures_pm": 0.15875,
+   "sinr_db": 8.772336,
+   "overrides": {
+    "mobility.users": 40
+   }
+  },
+  {
+   "part": "C",
+   "variant": "users 40",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.385,
+   "unnecessary_pm": 1.53875,
+   "failures_pm": 0.0125,
+   "sinr_db": 16.059134,
+   "overrides": {
+    "mobility.users": 40
+   }
+  },
+  {
+   "part": "C",
+   "variant": "users 60",
+   "isd_m": 400,
+   "speed_mps": 16,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 4.259167,
+   "unnecessary_pm": 1.454167,
+   "failures_pm": 0.020833,
+   "sinr_db": 16.128851,
+   "overrides": {
+    "mobility.users": 60
+   }
+  },
+  {
+   "part": "C",
+   "variant": "3 m/s",
+   "isd_m": 200,
+   "speed_mps": 3,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 3.6525,
+   "unnecessary_pm": 0.745,
+   "failures_pm": 0.0,
+   "sinr_db": 9.632323,
+   "overrides": {}
+  },
+  {
+   "part": "C",
+   "variant": "3 m/s",
+   "isd_m": 400,
+   "speed_mps": 3,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 1.65,
+   "unnecessary_pm": 0.3175,
+   "failures_pm": 0.0,
+   "sinr_db": 16.876538,
+   "overrides": {}
+  },
+  {
+   "part": "C",
+   "variant": "42 m/s",
+   "isd_m": 200,
+   "speed_mps": 42,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 10.0525,
+   "unnecessary_pm": 3.535,
+   "failures_pm": 0.0025,
+   "sinr_db": 8.30797,
+   "overrides": {}
+  },
+  {
+   "part": "C",
+   "variant": "42 m/s",
+   "isd_m": 400,
+   "speed_mps": 42,
+   "a3_offset_db": 6.0,
+   "ttt_ms": 100,
+   "runs": 10,
+   "duration_s": 180.0,
+   "handovers_pm": 6.8575,
+   "unnecessary_pm": 1.165,
+   "failures_pm": 0.0,
+   "sinr_db": 15.748625,
+   "overrides": {}
   }
  ]
 }

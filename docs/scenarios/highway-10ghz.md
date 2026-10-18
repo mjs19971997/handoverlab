@@ -69,6 +69,9 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.cho_recovery_s` | 0.4 | TS 38.300 clause 9.2.3.4 (recovery into a prepared cell; assumption 0.4 s) |
 | `protocol.pingpong_s` | 1 | TR 36.839 (minimum time of stay, 1 s) |
 | `protocol.cfg_loss_as_failure` | false | check mode only |
+| `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
+| `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
+| `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |

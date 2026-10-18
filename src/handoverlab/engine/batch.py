@@ -40,7 +40,7 @@ class EngineBatch:
 
     _STACKED = (("state", np.int8), ("t_done", float), ("re_cell", int), ("serv", np.intp), ("qo", float),
                 ("qi", float), ("n_o", int), ("n_i", int), ("run", bool), ("t310", float), ("k310", int),
-                ("rc", float), ("rho", float))
+                ("rc", float), ("rho", float), ("rc_lm", float))
 
     def __init__(self, engines: Sequence[Engine]):
         self.engines: List[Engine] = list(engines)
@@ -95,12 +95,17 @@ class EngineBatch:
         ar = e0.ar
         cnz = np.count_nonzero
         rcs = self.rcs
+        lm, rc_lm = e0.lm, self.rc_lm
+        tl = np.empty_like(tot) if lm else None
         for i in range(ch.n):
             k = ch.k0 + i
             t = k * dt
             ln = ch.lin[i]
             for j in range(self.K):
                 np.matmul(ln, rc[j], out=tot[j])
+            if lm:
+                for e in E:
+                    e.lm_ln = ln
             # --- end of an execution or of a re-establishment
             if cnz(state):
                 due = np.nonzero((state != CONNECTED) & (t >= t_done - EPS))
@@ -120,8 +125,14 @@ class EngineBatch:
             sinr = ls / (tot - rcs * ls + noise)
             con = state == CONNECTED
             # --- radio-link monitoring
-            qo += ao * (sinr - qo)
-            qi += ai * (sinr - qi)
+            if lm:
+                for j in range(self.K):
+                    np.matmul(ln, rc_lm[j], out=tl[j])
+                sl = ls / (tl - np.take_along_axis(rc_lm, serv, axis=1) * ls + noise)
+            else:
+                sl = sinr
+            qo += ao * (sl - qo)
+            qi += ai * (sl - qi)
             if simple:
                 start = (qo < qout) & con & ~run
             else:
@@ -183,6 +194,9 @@ class EngineBatch:
         rho_new = np.minimum(1.0, bg + G * gs + B * bs)
         rho += e0.a_rho * (rho_new - rho)
         np.multiply(e0.chi, rho, out=rc)
+        if e0.lm:
+            for j, e in enumerate(E):
+                e._update_lm(con[j])
         if counted:
             mp = e0.mp
             n_out = np.count_nonzero(con & (sinr < e0.qout), axis=1)

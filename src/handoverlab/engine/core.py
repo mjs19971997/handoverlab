@@ -95,6 +95,11 @@ class Engine:
         self.bg = np.asarray(world.bg_load, dtype=float)
         self.rho = self.bg.copy()
         self.rc = self.chi * self.rho                                 # interference weight of every cell
+        # own interferer load at link monitoring (protocol.lm_load*); otherwise it sees rc
+        self.lm = P.lm_load is not None or P.lm_load_per_ue > 0.0
+        self.lm0 = 0.0 if P.lm_load is None else float(P.lm_load)
+        self.rc_lm = self.rc.copy()
+        self.lm_ln = None                                             # radio sample of the current step
         self.a_rho = 1.0 - np.exp(-self.mdt / T.load_tau_s)
         svc = world.services
         self.tmin, self.thq, self.rate, self.gbr = svc.t_min, svc.theta_q, svc.rate, svc.gbr
@@ -244,6 +249,8 @@ class Engine:
                              10.0 * np.log10(max(float(s), 1e-30)))
         self.serv[u] = cell
         self.state[u] = CONNECTED
+        if self.lm and self.lm_ln is not None:
+            s = self._sinr_lm(u, cell, self.lm_ln)
         self.qo[u] = self.qi[u] = s
         self.n_o[u] = self.n_i[u] = 0
         self.run[u] = False
@@ -253,7 +260,7 @@ class Engine:
         tgt = int(self.f_tgt[u])
         lt = ln[u, tgt]
         s = lt / (tot[u] - self.rc[tgt] * lt + self.noise)
-        if s < self.qout:
+        if s < self.qout and self.P.exec_can_fail:
             if not (self.proc.fallback and self._fallback(u, t, ln, tot)):
                 self.fail(u, t, "exec")
             return
@@ -274,6 +281,16 @@ class Engine:
         self.w_n[u] = 0; self.w_g[u] = 0; self.w_m[u] = 0; self.w_cf[u] = 0; self.w_cff[u] = False
         self.w_mcf[u] = 0; self.w_mcff[u] = False; self.w_pp[u] = pp
         self.f_on[u] = False
+
+    def _sinr_lm(self, u, cell, ln) -> float:
+        """SINR of user ``u`` on ``cell`` as link monitoring sees it (interferer weights ``rc_lm``)."""
+        lc = ln[u, cell]
+        return lc / (ln[u] @ self.rc_lm - self.rc_lm[cell] * lc + self.noise)
+
+    def _update_lm(self, con) -> None:
+        """Interferer load at link monitoring: lm_load plus lm_load_per_ue per served user, at most 1."""
+        n = np.bincount(self.serv[con], minlength=self.M)
+        np.multiply(self.chi, np.minimum(1.0, self.lm0 + self.P.lm_load_per_ue * n), out=self.rc_lm)
 
     def _fallback(self, u, t, ln, tot) -> bool:
         """DAPS: the target could not be joined; return to the source if its SINR is at least Qout."""
@@ -357,6 +374,8 @@ class Engine:
         self.l3.reset(ch.l1[0])
         self.serv[:] = np.argmax(self.meas, axis=1)
         self.started = True
+        if self.lm:
+            self._update_lm(self.state == CONNECTED)
         if self.trace_log is not None:
             t0 = ch.k0 * self.dt
             for u in range(self.U):
@@ -364,6 +383,8 @@ class Engine:
         ln = ch.lin[0]
         ls = ln[self.ar, self.serv]
         s = ls / (ln @ self.rc - self.rc[self.serv] * ls + self.noise)
+        if self.lm:
+            s = ls / (ln @ self.rc_lm - self.rc_lm[self.serv] * ls + self.noise)
         self.qo[:] = s
         self.qi[:] = s
 
@@ -383,6 +404,8 @@ class Engine:
             t = k * dt
             ln = ch.lin[i]
             tot = ln @ self.rc
+            if self.lm:
+                self.lm_ln = ln
             # --- end of an execution or of a re-establishment
             if cnz(state):
                 for u in np.nonzero((state != CONNECTED) & (t >= self.t_done - EPS))[0]:
@@ -397,8 +420,13 @@ class Engine:
             sinr = ls / (tot - self.rc[serv] * ls + noise)
             con = state == CONNECTED
             # --- radio-link monitoring
-            qo += ao * (sinr - qo)
-            qi += ai * (sinr - qi)
+            if self.lm:
+                rl = self.rc_lm
+                sl = ls / (ln @ rl - rl[serv] * ls + noise)
+            else:
+                sl = sinr
+            qo += ao * (sl - qo)
+            qi += ai * (sl - qi)
             if simple:
                 start = (qo < qout) & con & ~run
             else:
@@ -498,6 +526,8 @@ class Engine:
         rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
         self.rho += self.a_rho * (rho_new - self.rho)
         np.multiply(self.chi, self.rho, out=self.rc)
+        if self.lm:
+            self._update_lm(con)
         if counted:
             acc["steps"] += self.mp
             acc["out_steps"] += self.mp * int(np.count_nonzero(con & (sinr < self.qout)))

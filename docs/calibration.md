@@ -109,3 +109,76 @@ print(out["summary"]["fail_mean"], out["summary"]["fail_rank"], out["summary"]["
 
 Part B is stored with the reference data (`handoverlab/verify/data/ns3_urban_a3.json`, means over
 20 runs per cell); the further A3 runs are not stored in the package, their means are given above.
+
+## Version 1.1.0: a link-monitoring model
+
+Version 1.1.0 adds the two pieces named above as options; with their defaults the model of 1.0 is
+unchanged:
+
+- `protocol.lm_load` and `protocol.lm_load_per_ue`: link monitoring (the Qout / Qin filters)
+  counts each interfering cell with its own load, `lm_load + lm_load_per_ue x` (users served by
+  that cell), at most 1, instead of the load of the data channel. This follows the traffic: a cell
+  sends control information for each user it serves.
+- `protocol.exec_can_fail: false`: the execution always joins the target, like the ideal random
+  access of the ns-3 runs.
+
+The held-back ns-3 results are now stored with the reference data and compared by
+`handoverlab.verify.ns3.holdout`: part B (two settings on six conditions, 20 runs each) and part C
+(the setting 6 dB / 100 ms with one parameter changed per cell: 10, 40 or 60 users, a preparation
+delay of 20 or 100 ms, T310 of 0.5 or 2 s, a site distance of 300 m, 600 s runs, 3 or 42 m/s;
+20 cells of 10 runs each).
+
+**Acceptance limits, fixed before any tuning** (`FAIL_LIMITS` in `verify/ns3.py`):
+
+| | Limit |
+|---|---|
+| Part A: mean failure rate, HandoverLab / ns-3 | 0.8 to 1.25 |
+| Part A: rank correlation over the 24 settings | at least 0.9 |
+| Part A: failure rate at TTT 1000 ms over TTT 100 ms | at least 20 (ns-3: 36) |
+| Part B and part C, each: mean failure rate, HandoverLab / ns-3 | 0.67 to 1.5 |
+| Part B and part C, each: rank correlation over the cells | at least 0.8 |
+| Handover and unnecessary-handover rates of part A | the limits of `verify --ns3` still hold |
+
+Tuning uses part A only; parts B and C are run once with the chosen values. A scenario card with
+the calibrated values is published only if every limit holds.
+
+### Result of version 1.1.0: no calibrated preset
+
+Tuning on part A (two seeds per condition, `exec_can_fail: false`, `lm_load: 0`):
+
+| `qout_window_s` | `lm_load_per_ue` | Failures (ns-3: 0.432) | Rank | TTT trend (ns-3: 36) |
+|---|---|---|---|---|
+| 0.2 | 0.01 / 0.02 / 0.03 / 0.05 / 0.08 | 0.09 / 0.19 / 0.30 / 0.51 / 0.81 | 0.68 / 0.85 / 0.93 / 0.90 / 0.94 | 8.5 / 8.0 / 6.9 / 4.9 / 3.7 |
+| 0.12 | 0.005 / 0.009 / 0.011 / 0.015 / 0.025 | 0.16 / 0.26 / 0.31 / 0.40 / 0.62 | 0.96 / 0.96 / 0.96 / 0.96 / 0.96 | 30.9 / 18.9 / 19.2 / 12.6 / 7.8 |
+| 0.1 | 0.005 / 0.007 / 0.009 / 0.015 / 0.025 | 0.22 / 0.29 / 0.35 / 0.53 / 0.80 | 0.97 / 0.96 / 0.96 / 0.94 / 0.90 | 31.0 / 21.1 / 17.1 / 9.4 / 4.8 |
+| 0.08 | 0.004 / 0.006 | 0.23 / 0.32 | 0.96 / 0.97 | 25.7 / 17.4 |
+
+With the model, almost all failures are handover commands that arrive while T310 runs, as in
+ns-3 (with the default model a large share were execution failures). The ranking over the 24
+settings is good (0.96), and the handover and unnecessary-handover rates stay within their limits
+(median ratios 0.92 and 0.95). But no setting meets the level and the time-to-trigger trend
+together: where the mean reaches 0.8 of ns-3, the trend is about 17-fold. The longest
+time-to-trigger saturates near one failure per UE-minute, while the shortest one keeps a floor.
+
+The closest point (`qout_window_s` 0.1 s, `lm_load_per_ue` 0.009) was run once on the hold-out
+sets (four seeds per cell), next to the default model:
+
+| | Calibration candidate | Default model | ns-3 |
+|---|---|---|---|
+| Part B failures per UE-minute (ratio) | 0.076 (2.29) | 0.068 (2.07) | 0.033 |
+| Part B rank over 12 cells | 0.62 | 0.70 | |
+| Part C failures per UE-minute (ratio) | 0.036 (0.98) | 0.027 (0.72) | 0.037 |
+| Part C rank over 20 cells | 0.39 | 0.47 | |
+
+It fails the limits on both sets. Some parts of it do work. The failure rate now rises with the
+traffic, as in ns-3: 10 / 40 users at 200 m give 0.000 / 0.209 against ns-3's 0.045 / 0.159, where
+the default model gives 0.013 / 0.034. A longer preparation delay raises it, and T310 has no effect
+in either simulator. What fails: at 42 m/s HandoverLab gives 0.14 against 0.003, and part B stays
+twice too high. So the per-user load explains the traffic dependence but not the speed dependence.
+The ns-3 failures depend on more than this model has, probably the slot-level timing of control
+information and of the handover command. The options stay in the package for experiments, the
+defaults are unchanged, and failure rates remain relative quantities. A third attempt should start
+from the speed dependence of parts B and C, not from part A.
+
+Reproduce with `compare(seeds=[500, 501], overrides=...)` and
+`holdout(seeds=[500, 501, 502, 503], overrides=...)` from `handoverlab.verify.ns3`.
