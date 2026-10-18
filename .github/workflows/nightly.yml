@@ -36,7 +36,7 @@ jobs:
         run: python -m handoverlab.verify.golden > golden-${{ runner.os }}.json
       - name: Versions of this system
         run: python -c "import json, handoverlab.verify.golden as g; print(json.dumps(g.versions()))" > versions-${{ runner.os }}.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: golden-${{ runner.os }}
           path: |
@@ -48,7 +48,7 @@ jobs:
         run: handoverlab verify --full --ns3 --json verify-${{ runner.os }}.json
       - name: Upload the verification report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verify-${{ runner.os }}
           path: verify-${{ runner.os }}.json
