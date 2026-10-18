@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/mjs19971997/handoverlab/discussions
+    about: Ask how to model something or how to read a result.
+  - name: Documentation
+    url: https://mjs19971997.github.io/handoverlab/
+    about: User guide, tutorials and the API reference.

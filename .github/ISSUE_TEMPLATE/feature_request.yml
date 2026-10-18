@@ -1,0 +1,29 @@
+name: Feature request
+description: A new capability, metric, scenario or option.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you would like
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: The study or question it would make possible.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: 3GPP clause, paper or reference implementation the feature should follow, if any.
+  - type: dropdown
+    id: results
+    attributes:
+      label: Would it change the results of existing configurations?
+      options: ["No, it is optional", "Yes", "Not sure"]
+    validations:
+      required: true

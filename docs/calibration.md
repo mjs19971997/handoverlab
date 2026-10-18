@@ -180,5 +180,18 @@ information and of the handover command. The options stay in the package for exp
 defaults are unchanged, and failure rates remain relative quantities. A third attempt should start
 from the speed dependence of parts B and C, not from part A.
 
+**The speed dependence (checked after 1.1.0).** At 200 m and 6 dB / 100 ms, ns-3 gives 0.000 /
+0.075 / 0.080 / 0.003 failures per UE-minute at 8 / 16 / 30 / 42 m/s: a peak at medium speed,
+falling to almost none at 42 m/s. HandoverLab's failures rise with the speed (calibration candidate:
+0.000 / 0.013 / 0.119 / 0.138), as expected when the signals change faster against a fixed
+time-to-trigger and fixed delays. One explanation was tested: ns-3 starts T310 only after 200 ms
+of control SINR continuously below Qout (20 blocks of 10 slots, any good block resets the count),
+which a fast user may cross in less time. HandoverLab can count in the same way (`qout_window_s`
+and `qin_window_s` 0.001 s, `n310` 20 and `n311` 10 steps of 10 ms). It does not help: the
+failures rise even more steeply with the speed (0.075 / 0.20 / 0.40 / 0.50 with `lm_load_per_ue`
+0.01), and on part A the time-to-trigger trend falls to about 3. The cause of the ns-3 drop at
+42 m/s is therefore in what ns-3 models differently at high speed, which needs new ns-3 runs with
+link-monitoring traces.
+
 Reproduce with `compare(seeds=[500, 501], overrides=...)` and
 `holdout(seeds=[500, 501, 502, 503], overrides=...)` from `handoverlab.verify.ns3`.

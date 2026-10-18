@@ -1,0 +1,29 @@
+name: New handover rule
+description: Propose a handover rule for the built-in set.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: rule
+    attributes:
+      label: The rule
+      description: What it decides, which measurements it uses and its parameters.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: 3GPP clause or publication that defines it.
+    validations:
+      required: true
+  - type: textarea
+    id: reduces
+    attributes:
+      label: Reduction to a built-in rule
+      description: Parameters for which it should behave exactly like A3, CHO or another built-in rule (used by the contract test), if any.
+  - type: checkboxes
+    id: plan
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement it myself (see CONTRIBUTING.md, "Adding a handover rule").

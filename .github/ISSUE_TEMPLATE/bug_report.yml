@@ -1,0 +1,34 @@
+name: Bug report
+description: Something fails, crashes or gives a result that looks wrong.
+labels: [bug]
+body:
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: The configuration file or a short script (paste it or attach it).
+      render: yaml
+    validations:
+      required: true
+  - type: input
+    id: seed
+    attributes:
+      label: Seed(s)
+      placeholder: "500"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected and what happened
+      description: The error message with its traceback, or the metric that looks wrong and why.
+    validations:
+      required: true
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Provenance
+      description: 'Output of `python -c "import handoverlab.io as i; print(i.provenance())"`'
+      render: text
+    validations:
+      required: true

@@ -76,6 +76,34 @@ def test_ns3_reference_data():
     assert ns3.spearman([1, 2, 3, 4], [10, 20, 30, 25]) == pytest.approx(0.8)
 
 
+
+def _fake_simulate(sc, rules, seeds):
+    """Stand-in for ``simulate`` in the ns-3 comparison: rates follow the time-to-trigger, no simulation."""
+    from types import SimpleNamespace
+    users = sc.mobility.users
+    return [SimpleNamespace(rule=r["name"], metrics=dict(
+        attempts_pm=10.0 - 5.0 * r["ttt_s"] + 0.1 * r["off_db"], unnecessary_pm=3.0 - r["ttt_s"] + 0.05 * r["off_db"],
+        failures_pm=r["ttt_s"] * users / 20.0, sinr_db=10.0)) for _ in seeds for r in rules]
+
+
+def test_ns3_compare_and_holdout_logic(monkeypatch):
+    from handoverlab.verify.report import Report
+    monkeypatch.setattr(ns3, "simulate", _fake_simulate)
+    msgs = []
+    rep = Report()
+    out = ns3.ns3_checks(rep, seeds=[1, 2], progress=msgs.append)
+    s = out["summary"]
+    assert len(out["table"]) == 24 and len(msgs) == 4 and s["seeds"] == [1, 2]
+    assert s["ttt_trend"] == pytest.approx(10.0) and s["ttt_trend_ns3"] > 1
+    assert any(c.name.startswith("handover rate: rank") for c in rep.checks)
+    h = ns3.holdout(seeds=[1], progress=msgs.append, overrides={"protocol.lm_load_per_ue": 0.01})
+    assert h["summary"]["B"]["cells"] == 12 and h["summary"]["C"]["cells"] == 20
+    users = {x["variant"]: x["handoverlab"][2] for x in h["table"] if x["isd_m"] == 200 and x["part"] == "C"}
+    assert users["users 40"] == pytest.approx(4 * users["users 10"])
+    assert ns3.scenario_for(200, 42).mobility.groups[0].v_min == 42.0       # speeds without a profile
+    assert ns3._trend([dict(ttt_ms=100, x=[0, 0, 0.0]), dict(ttt_ms=200, x=[0, 0, 1.0])], "x") == float("inf")
+
+
 def test_groups_listed():
     assert GROUPS == ("pathloss", "radio", "invariants", "equivalences", "fingerprints")
 

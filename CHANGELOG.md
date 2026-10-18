@@ -7,6 +7,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-18
+
+No change to the package code or to any result.
+
+### Added
+
+- Optional extra `dev` (tests, coverage, ruff, pyarrow and the dashboard) for a complete
+  development install: `python -m pip install -e ".[dev]"`.
+- A test of the ns-3 comparison and hold-out logic that runs without simulating.
+
+### Changed
+
+- The minimum total test coverage checked in CI is 90 % (was 85 %).
+- CI also runs the Parquet and dashboard tests on Windows (Python 3.12), so no test is skipped
+  there.
+- `docs/calibration.md`: the speed dependence of the failure rate, the main open difference to
+  ns-3, and a test of the ns-3 out-of-sync counting in HandoverLab (it does not explain it).
+
+### Repository
+
+- Issue forms (bug report, feature request, new handover rule), a pull-request template with the
+  checklist, `CODE_OF_CONDUCT.md`, `SECURITY.md` and Dependabot updates of the GitHub Actions.
+
 ## [1.1.0] - 2026-10-18
 
 ### Added
@@ -389,7 +412,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/mjs19971997/handoverlab/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mjs19971997/handoverlab/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/mjs19971997/handoverlab/compare/v1.0.0...v1.0.1

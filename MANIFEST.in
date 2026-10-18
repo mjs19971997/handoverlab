@@ -1,5 +1,5 @@
 # Source distribution: the package, its tests and the files the tests and the documentation need.
-include CHANGELOG.md CITATION.cff CONTRIBUTING.md LICENSE README.md .zenodo.json mkdocs.yml
+include CHANGELOG.md CITATION.cff CODE_OF_CONDUCT.md CONTRIBUTING.md LICENSE SECURITY.md README.md .zenodo.json mkdocs.yml
 recursive-include tests *.py *.json
 recursive-include examples *.py *.yaml *.toml
 recursive-include tools *.py

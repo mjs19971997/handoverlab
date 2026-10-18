@@ -5,7 +5,10 @@ documentation improvements are all welcome.
 
 ## Reporting a problem
 
-Open an issue with:
+Open an issue with the bug-report form (it asks for the items below); questions go to
+[Discussions](https://github.com/mjs19971997/handoverlab/discussions). Security problems are
+reported privately (see `SECURITY.md`); everyone follows the `CODE_OF_CONDUCT.md`. An issue
+needs:
 
 - what you ran (the configuration file or a short script) and the seed;
 - what you expected and what happened (error message, or the metric that looks wrong);
@@ -18,8 +21,8 @@ git clone https://github.com/mjs19971997/handoverlab.git
 cd handoverlab
 python -m venv .venv
 . .venv/bin/activate            # Windows: .venv\Scripts\activate
-python -m pip install -e ".[test,lint,cov]"
-python -m pytest
+python -m pip install -e ".[dev]"     # tests, coverage, ruff, and the optional pyarrow and dashboard
+python -m pytest -rs                  # -rs prints the reason of every skipped test; aim for none
 ruff check .                    # the lint job of CI
 python -m pytest --cov=handoverlab --cov-report=term   # the coverage job (minimum: fail_under in pyproject.toml)
 ```
@@ -73,7 +76,7 @@ and then creating a GitHub release from it, which Zenodo archives; see `docs/REL
 
 ## Pull requests
 
-- One topic per pull request, with tests.
+- One topic per pull request, with tests; the pull-request template has the checklist.
 - All CI jobs (lint; tests on Linux, Windows, macOS with Python 3.9-3.12; coverage; docs) must
   pass.
 - Add an entry under "Unreleased" in `CHANGELOG.md`.
