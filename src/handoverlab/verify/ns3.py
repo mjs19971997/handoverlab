@@ -35,6 +35,14 @@ from ..simulate import simulate
 
 PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ns3_urban_a3.json")
 LIMITS = dict(ratio_lo=0.8, ratio_hi=1.25, rank_min=0.9)
+# ns-3 (ThreeGppPropagationLossModel) adds the in-car penetration loss of TR 38.901 to every link of
+# a user that moves at 30-120 km/h, and none outside that range (see docs/calibration.md)
+CAR_LOSS = {"radio.penetration_db": 9.0, "radio.penetration_sd_db": 5.0}
+
+
+def car_loss(speed_mps: float) -> Dict:
+    """Overrides that reproduce the in-car loss ns-3 applies at ``speed_mps``."""
+    return dict(CAR_LOSS) if 30.0 <= speed_mps * 3.6 <= 120.0 else {}
 # acceptance limits of a calibrated failure model (docs/calibration.md), fixed before any tuning
 FAIL_LIMITS = dict(a_ratio=(0.8, 1.25), a_rank=0.9, ttt_trend=20.0, holdout_ratio=(0.67, 1.5), holdout_rank=0.8)
 
@@ -44,11 +52,13 @@ def load_reference() -> dict:
         return json.load(f)
 
 
-def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrides: Optional[Dict] = None):
+def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrides: Optional[Dict] = None,
+                 car: bool = False):
     """``ns3-urban-3.5ghz`` with the sites of ``isd_m`` and constant speed ``speed_mps`` (8, 16 or 30).
 
     ``overrides`` (dotted keys, such as ``{"protocol.qout_window_s": 0.12}``) change the scenario
-    further, for calibration experiments.
+    further, for calibration experiments.  ``car`` adds the in-car loss that ns-3 applies at this
+    speed (:func:`car_loss`).
     """
     ref = ref or load_reference()
     mob = ({"mobility.profile": "c%d" % speed_mps} if speed_mps in (8, 16, 30) else
@@ -56,6 +66,8 @@ def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrid
     sc = builtin_scenario("ns3-urban-3.5ghz").with_overrides(dict(mob, **{
         "name": "ns3-urban-3.5ghz-%dm-%dmps" % (isd_m, speed_mps),
         "layout.sites": ref["sites"][str(isd_m)]}))
+    if car and car_loss(speed_mps):
+        sc = sc.with_overrides(car_loss(speed_mps))
     return sc.with_overrides(overrides) if overrides else sc
 
 
@@ -65,10 +77,11 @@ def spearman(a: Sequence[float], b: Sequence[float]) -> float:
 
 
 def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
-            overrides: Optional[Dict] = None) -> Dict:
+            overrides: Optional[Dict] = None, car: bool = False) -> Dict:
     """Run part A of the reference in HandoverLab and return the per-setting table and the summary.
 
-    ``overrides`` change the scenario of every condition (see :func:`scenario_for`).
+    ``overrides`` change the scenario of every condition and ``car`` adds the in-car loss of ns-3
+    (see :func:`scenario_for`).
     """
     ref = load_reference()
     rows = [r for r in ref["rows"] if r["part"] == "A"]
@@ -78,7 +91,7 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
     keys = ("attempts_pm", "unnecessary_pm", "failures_pm", "sinr_db")
     sim = {}
     for isd, v in conds:
-        sc = scenario_for(isd, v, ref, overrides)
+        sc = scenario_for(isd, v, ref, overrides, car)
         for res in simulate(sc, rules, seeds=seeds):
             sim.setdefault((isd, v, res.rule), []).append([res.metrics[k] for k in keys])
         if progress:
@@ -114,12 +127,12 @@ def _trend(table, who: str) -> float:
 
 
 def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
-            overrides: Optional[Dict] = None) -> Dict:
+            overrides: Optional[Dict] = None, car: bool = False) -> Dict:
     """Run the held-back parts B and C of the reference (see the module text) and compare them cell by cell.
 
     Part B: two A3 settings on six conditions; part C: one setting with one parameter changed per cell
     (users, preparation delay, T310, site distance, run length, speed).  ``overrides`` change every
-    scenario, as in :func:`compare`; tune only on part A.
+    scenario and ``car`` adds the in-car loss of ns-3, as in :func:`compare`; tune only on part A.
     """
     ref = load_reference()
     cells = [r for r in ref["rows"] if r["part"] in ("B", "C")]
@@ -131,7 +144,7 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
         jobs.setdefault(key, []).append(r)
     table = []
     for (isd, v, ovs), rows in jobs.items():
-        sc = scenario_for(isd, v, ref, overrides).with_overrides(json.loads(ovs))
+        sc = scenario_for(isd, v, ref, overrides, car).with_overrides(json.loads(ovs))
         rules = [{"rule": "a3", "name": "A3_%g_%d" % (r["a3_offset_db"], r["ttt_ms"]), "off_db": r["a3_offset_db"],
                   "ttt_s": r["ttt_ms"] / 1000.0} for r in rows]
         res = simulate(sc, rules, seeds=seeds)

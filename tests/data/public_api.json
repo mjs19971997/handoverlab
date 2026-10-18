@@ -438,6 +438,8 @@
   "radio.map_res_m",
   "radio.noise_figure_db",
   "radio.pathloss",
+  "radio.penetration_db",
+  "radio.penetration_sd_db",
   "radio.place_share",
   "radio.shadow_decorr_m",
   "radio.shadow_los_db",

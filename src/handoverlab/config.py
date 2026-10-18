@@ -103,6 +103,10 @@ class RadioConfig:
     time_var_db: float = 1.5            # time-varying component (moving blockers)
     time_var_tau_s: float = 1.0
     l1_error_db: float = 1.0            # error of one L1 RSRP sample
+    # optional per-user penetration loss on all links, drawn once per user (since 1.2.0; TR 38.901
+    # clause 7.4.3.2: a user in a standard car has 9 dB mean and 5 dB standard deviation)
+    penetration_db: float = 0.0
+    penetration_sd_db: float = 0.0
     map_res_m: float = 1.0
 
     @property
@@ -278,6 +282,7 @@ class Scenario:
         _check(0.0 <= R.place_share <= 1.0, "radio.place_share", "must be in [0, 1]")
         _check(0.0 <= R.shadow_site_corr <= 1.0, "radio.shadow_site_corr", "must be in [0, 1]")
         _check(R.map_res_m > 0, "radio.map_res_m", "must be positive")
+        _check(R.penetration_sd_db >= 0, "radio.penetration_sd_db", "must be >= 0")
         _check(P.step_s > 0, "protocol.step_s", "must be positive")
         mp = P.l1_period_s / P.step_s
         _check(abs(mp - round(mp)) < 1e-9 and mp >= 1, "protocol.l1_period_s",

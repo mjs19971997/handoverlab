@@ -46,6 +46,8 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.time_var_db` | **0** | not modelled in the ns-3 study |
 | `radio.time_var_tau_s` | 1 | assumption |
 | `radio.l1_error_db` | **0** | not modelled in the ns-3 study |
+| `radio.penetration_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car |
+| `radio.penetration_sd_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car |
 | `radio.map_res_m` | 1 | numerical setting |
 | `protocol.step_s` | 0.01 | numerical setting |
 | `protocol.l1_period_s` | **0.2** | the ns-3 study (one sample every 200 ms) |

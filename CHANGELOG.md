@@ -7,6 +7,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-18
+
+### Added
+
+- Optional per-user penetration loss on all links, drawn once per user from its own random stream:
+  `radio.penetration_db` and `radio.penetration_sd_db` (TR 38.901 clause 7.4.3.2: 9 dB and 5 dB
+  for a user in a standard car). Off by default; with the defaults, results and fingerprints are
+  those of 1.1.
+- `handoverlab.verify.ns3`: `car_loss` and the argument `car` of `scenario_for`, `compare` and
+  `holdout`, which apply the in-car loss the way ns-3 does (only at 30-120 km/h).
+- `docs/calibration.md`: the cause of the speed dependence of the ns-3 failure rate (ns-3 adds
+  the in-car loss only between 30 and 120 km/h), and the comparison with the loss. Without any
+  fitted parameter it brings the part-A failure rate to the level of ns-3 (0.38 against 0.43).
+  The time-to-trigger trend and the hold-out level still differ, so failure rates remain relative
+  quantities.
+
 ## [1.1.1] - 2026-10-18
 
 No change to the package code or to any result.
@@ -412,7 +428,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/mjs19971997/handoverlab/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/mjs19971997/handoverlab/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mjs19971997/handoverlab/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/mjs19971997/handoverlab/compare/v1.0.1...v1.0.2

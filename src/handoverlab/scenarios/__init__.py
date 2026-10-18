@@ -82,6 +82,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.lm_load": "off by default: link monitoring sees the load of the data channel (calibration option)",
     "protocol.lm_load_per_ue": "off by default (calibration option)",
     "protocol.exec_can_fail": "TR 36.839: the execution fails when the target is below Qout",
+    "radio.penetration_db": "off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car",
+    "radio.penetration_sd_db": "off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car",
     "traffic.services": "TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions",
     "traffic.se_max": "assumption (spectral-efficiency cap)",
     "traffic.hotspot_share": "assumption",

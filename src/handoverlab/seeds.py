@@ -22,7 +22,7 @@ from typing import List
 
 import numpy as np
 
-_PURPOSE = {"world": 3, "map": 11, "radio": 29, "rule": 71}
+_PURPOSE = {"world": 3, "map": 11, "radio": 29, "rule": 71, "penetration": 97}
 _STRIDE = 1000003
 
 

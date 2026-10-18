@@ -84,6 +84,9 @@ class RadioSource:
             self.r_l = np.exp(-self.V * dt / R.los_corr_m)
             self.zl = self.rng_l.standard_normal((self.U, self.M))
         self.p0 = R.tx_power_dbm + R.bs_gain_db + R.ue_gain_db
+        if R.penetration_db or R.penetration_sd_db:     # per-user loss on all links (own stream)
+            rng = streams(world.seed, "penetration", 1)[0]
+            self.p0 = self.p0 - (R.penetration_db + R.penetration_sd_db * rng.standard_normal(self.U))[:, None]
 
     def _ar1_users(self, rng, r_u, z, n):
         """AR(1) along time with one coefficient per user -> (n, U, M)."""

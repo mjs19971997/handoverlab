@@ -38,3 +38,20 @@ def test_defaults_unchanged():
 def test_validation(key, val):
     with pytest.raises(ConfigError, match=key):
         hl.builtin_scenario("smoke").with_overrides({"protocol." + key: val}).validate()
+
+
+def test_penetration_loss_per_user():
+    from handoverlab.channel.source import RadioSource
+    from handoverlab.verify.ns3 import car_loss
+    sc = hl.builtin_scenario("smoke").with_overrides({"mobility.users": 6, "run.duration_s": 2.0, "run.warmup_s": 0.0})
+    base = next(RadioSource(hl.build_world(sc, 4)).chunks()).rsrp
+    pen = sc.with_overrides({"radio.penetration_db": 9.0, "radio.penetration_sd_db": 5.0})
+    loss = base - next(RadioSource(hl.build_world(pen, 4)).chunks()).rsrp
+    per_user = loss[0, :, 0]
+    assert abs(loss - per_user[None, :, None]).max() < 1e-9     # one loss per user, on every link and step
+    assert per_user.std() > 0.5 and 0.0 < per_user.mean() < 20.0
+    flat = sc.with_overrides({"radio.penetration_db": 9.0})
+    assert base - next(RadioSource(hl.build_world(flat, 4)).chunks()).rsrp == pytest.approx(9.0)
+    assert car_loss(16) and car_loss(30) and not car_loss(8) and not car_loss(36)      # 30-120 km/h, as in ns-3
+    with pytest.raises(ConfigError, match="penetration_sd_db"):
+        sc.with_overrides({"radio.penetration_sd_db": -1.0}).validate()

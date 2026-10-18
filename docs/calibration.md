@@ -193,5 +193,50 @@ failures rise even more steeply with the speed (0.075 / 0.20 / 0.40 / 0.50 with 
 42 m/s is therefore in what ns-3 models differently at high speed, which needs new ns-3 runs with
 link-monitoring traces.
 
+### Version 1.2.0: the cause of the speed dependence is an in-car loss in ns-3
+
+ns-3 (`ThreeGppPropagationLossModel`, function `GetO2iVehicularLoss`) adds the in-car penetration
+loss of TR 38.901 clause 7.4.3.2 to every link of a user that moves at 30 to 120 km/h: a normal
+draw with 9 dB mean and 5 dB standard deviation, once per user, kept for the whole run. Below
+30 km/h and above 120 km/h it adds nothing. So 16, 24 and 30 m/s (58-108 km/h) have the loss, while
+8 m/s (28.8 km/h) and 36 and 42 m/s (130 and 151 km/h) do not.
+
+Diagnosis runs of ns-3 wrote each reported RSRP next to the deterministic path loss of the same
+3GPP model at the user's position. At the same position, cell and LOS state, the loss at 16-30 m/s
+is 8.7 dB higher than at 8 m/s (7.5-8.8 dB, depending on which users are present), and at
+36 and 42 m/s it is identical to 8 m/s. RSRP plus path loss is the same at every speed, so the
+RSRP measurement itself is correct. The loss lowers every link of a user alike: it leaves the
+signal-to-interference ratio unchanged but lowers the signal-to-noise ratio. At light load the
+link monitoring of ns-3 is close to noise-limited, and its late-handover failures happen at serving
+RSRP of -133 to -142 dBm. This explains the drop at 8 and 42 m/s. Part A (16 and 30 m/s) has the
+loss throughout; part B at 8 m/s and part C at 3 and 42 m/s do not.
+
+HandoverLab 1.2.0 adds the loss as an option (`radio.penetration_db`, `radio.penetration_sd_db`;
+off by default). `compare(..., car=True)` and `holdout(..., car=True)` apply it the way ns-3 does
+(`car_loss` in `verify/ns3.py`). No parameter was fitted for the following runs (part A two seeds,
+hold-out four seeds per cell):
+
+| HandoverLab with `car=True` | Part A failures (ns-3: 0.432) | Part A rank | TTT trend (ns-3: 36) | Part B ratio / rank | Part C ratio / rank |
+|---|---|---|---|---|---|
+| default failure model | 0.38 | 0.80 | 2.0 | 6.3 / 0.83 | 3.1 / 0.69 |
+| `exec_can_fail: false` | 0.31 | 0.89 | 2.6 | 4.4 / 0.85 | 2.6 / 0.76 |
+| `exec_can_fail: false`, `lm_load: 0` (link monitoring sees noise only) | 0.12 | -0.50 | 0.7 | 2.5 / 0.75 | 1.7 / 0.78 |
+| as the row above, with the ns-3 out-of-sync counting | 0.26 | -0.45 | 0.5 | 5.2 / 0.78 | 4.0 / 0.79 |
+
+Without any fitted parameter, the loss brings part A to the level of ns-3 (0.38 against 0.43;
+0.13 without it). It reproduces the absence of failures at 8 and 42 m/s when link monitoring sees
+noise only, and it improves the ranking on both hold-out sets. Handover and unnecessary-handover
+rates stay within their limits. Two differences remain:
+
+- The time-to-trigger trend: ns-3's failure rate grows 36-fold from 100 to 1000 ms, HandoverLab's
+  by at most 2.6. HandoverLab has too many failures at short time-to-trigger.
+- The level on the hold-out sets, 2.5 to 6 times that of ns-3.
+
+Noise-only link monitoring gives the best hold-out results but reverses the time-to-trigger trend.
+So the trend in ns-3 comes from the interference that link monitoring sees, which HandoverLab does
+not reproduce. The limits are still not met: no calibrated preset is offered, and failure rates
+remain relative quantities. Comparisons with ns-3 results should use `car=True`, because the ns-3
+reference includes this loss.
+
 Reproduce with `compare(seeds=[500, 501], overrides=...)` and
 `holdout(seeds=[500, 501, 502, 503], overrides=...)` from `handoverlab.verify.ns3`.
