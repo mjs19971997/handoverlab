@@ -180,6 +180,15 @@ class TrafficConfig:
     load_tau_s: float = 0.2
     rate_scale: float = 1.0
     label_load: float = 1.0             # load assumed for the SINR of the outcome label
+    # traffic model of the users (since 1.4.0): "fixed" keeps the constant service rates of 1.0;
+    # "full_buffer" (always as much as the link carries), "periodic" (a packet every period_s, as
+    # VoIP) and "ftp3" (files of ftp_file_bytes with Poisson arrivals, TR 36.814 FTP model 3) give
+    # each user a buffer that the scheduler empties
+    model: str = "fixed"
+    period_s: float = 0.02
+    packet_bytes: int = 100
+    ftp_file_bytes: int = 500000
+    ftp_rate_hz: float = 0.1
 
 
 @dataclass
@@ -300,6 +309,12 @@ class Scenario:
         _check(T.duration_s > T.warmup_s >= 0, "run.duration_s", "must exceed run.warmup_s (>= 0)")
         shares = sum(s.share for s in self.traffic.services)
         _check(len(self.traffic.services) > 0 and shares > 0, "traffic.services", "needs a positive total share")
+        from .traffic import MODELS
+        Tr = self.traffic
+        _check(Tr.model in MODELS, "traffic.model", "unknown model; known: %s" % ", ".join(MODELS))
+        _check(Tr.period_s > 0 and Tr.packet_bytes > 0, "traffic.period_s", "period and packet size must be positive")
+        _check(Tr.ftp_file_bytes > 0 and Tr.ftp_rate_hz >= 0, "traffic.ftp_file_bytes",
+               "file size must be positive and the arrival rate >= 0")
 
 
 #: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`

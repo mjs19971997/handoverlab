@@ -9,185 +9,83 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.0.2, a patch release of the first stable release 1.0.0** (`python -m pip install handoverlab`). The public surface (configuration and result formats
-> with a schema version, the rule interface, metric names, commands and the documented Python
-> names) is frozen and follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
-> and anything removed is deprecated first.
+> **Status: 1.4.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> result formats with a schema version, the rule interface, metric names, commands and the
+> documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
+> and anything removed is deprecated first. New models are options, so the results of earlier
+> configurations do not change.
 
-![The dashboard: users coloured by their serving cell](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard.png)
+## See it
 
-## What 1.0.2 changes
+**Run and watch.** `handoverlab gui` opens a dashboard in the browser, on your computer only. Choose a
+layout, users and rules, press Run, and follow the users. Each user is coloured by its serving cell:
 
-Every link in the README is absolute, so the links also work on the PyPI project page; the README
-links the documentation site and gives the Zenodo concept DOI; the package metadata state the
-licence as an SPDX expression; the `verify --ns3` help, a gate message and several documentation
-pages are corrected. Results, fingerprints, job IDs and the public surface are as in 1.0.0.
+![The dashboard map: users on the street grid, each joined to its serving site](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard.png)
 
-## What 1.0.1 changes
+**See where things happen.** The tab *Where* marks every handover, unnecessary handover and
+failure at the place where it happened:
 
-The dashboard image in the README has an absolute URL, so it also shows on the PyPI project page,
-and the README gives the Zenodo DOI of 1.0.0. Results, fingerprints, job IDs and the public surface
-are as in 1.0.0.
+![Places of handovers and unnecessary handovers on the street grid](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard-where.png)
 
-## What 1.0.0 brings
+**Compare rules fairly.** All rules run on the same worlds, one world per seed. The tab *Compare*
+shows each mean with its 95 % confidence interval over the seeds, and the paired difference to the
+first rule:
 
-1.0.0 is the first stable release: 1.0.0rc4 with the version and the release metadata set to
-1.0.0, and HandoverLab is now installed from PyPI. Results, fingerprints, job IDs and the public
-surface are as in 1.0.0rc4. The release candidates before it added the following.
+![Handovers, unnecessary handovers, failures and rate of A3 and conditional handover, with confidence intervals](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dashboard-compare.png)
 
-## What 1.0.0rc4 changes
+**Run whole studies.** `handoverlab study` tunes every rule, checks gates, runs paired tests with
+multiple-comparison correction and writes an HTML report:
 
-- **Checked 3GPP citations**: every clause, table and value cited in the scenario cards and the
-  documentation was checked against the specifications; wrong clause numbers were corrected (for
-  example, the highway lanes, lane width and road length are in TR 37.885 Table A-1, the
-  inter-site distance of 500 m in clause 6.1.3), and the 35 m site offset is marked as an
-  assumption.
-- **Documentation audit**: stale statements, versions and option lists corrected; every example
-  and code snippet checked.
+![Study report: paired differences to a reference rule with bootstrap intervals](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/report-comparison.png)
 
-Only text changed: results, fingerprints, job IDs and the public surface are as in 1.0.0rc3.
+## What it models
 
-## What 1.0.0rc3 adds
-
-- **A highway scenario** (`highway-10ghz`): a new layout kind `highway` (the straight multi-lane
-  road of the TR 37.885 highway case, roadside sites at a configurable spacing and offset) and
-  lane-keeping vehicles at 70-140 km/h (profiles `hwy`, `hwy70`, `hwy140`, or your own speed
-  groups). See the how-to [a highway](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/highway.md).
-- **Site lists from CSV files** (`layout.sites_file`), for every layout kind.
-
-All of it is additive: existing defaults, results, fingerprints and study job IDs are unchanged.
-
-## What 1.0.0rc2 adds
-
-- **DAPS handover** (Rel-16, rule `daps`): the source keeps serving during the execution, and a
-  failed execution falls back to the source instead of a re-establishment.
-- **L1/L2-triggered mobility** (Rel-18, rule `ltm`): candidate cells configured in advance, cell
-  switch decided on unfiltered L1 reports, a short RACH-less execution. Both come with base classes
-  (`DAPSRule`, `LTMRule`) for your own rules and pass the rule contract kit.
-- **A learning-based example rule** (`a3_bandit`): A3 offsets learned per cell by an
-  epsilon-greedy bandit from the outcome labels.
-- **An upper mid-band scenario** (`fr3-urban-15ghz`): the default grid at 15 GHz.
-- How-to guides: [DAPS and LTM](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/daps-ltm.md),
-  [a learning-based rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/learning-rule.md), [the upper mid-band](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/upper-mid-band.md).
-
-All of it is additive: existing defaults, results and fingerprints are unchanged.
-
-## What 1.0.0rc1 adds
-
-- **A frozen public surface**: configuration and result files carry `schema: 1`; a newer schema is
-  refused with a clear message instead of being misread. The rule interface has a version, metric
-  names are stable (renamed metrics keep their old name as a warning alias), and a deprecation
-  helper warns before anything goes. A test compares the surface with a stored snapshot. See
-  [stability](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md) and the [metric reference](https://github.com/mjs19971997/handoverlab/blob/main/docs/reference/metrics.md).
-- **How-to guides**: [add a scenario](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/add-scenario.md),
-  [run on many cores](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/many-cores.md),
-  [export event logs](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/export-event-logs.md),
-  [reproduce and check results](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/reproduce.md).
-- **Quality gates in CI**: a lint job (ruff), a minimum test coverage, and a nightly workflow that
-  runs the long verification on Linux and Windows and compares the golden fingerprints of both
-  systems.
-- **Release plumbing**: PyPI publishing with trusted publishing when a version tag is pushed,
-  Zenodo metadata for an archived DOI, and the release steps in [RELEASING](https://github.com/mjs19971997/handoverlab/blob/main/docs/RELEASING.md).
-
-## What stage 4 adds
-
-- **Dashboard** (`pip install "handoverlab[gui]"`, then `handoverlab gui`): a local page in the
-  browser to pick a street grid or open area, speed profile, frequency, users and up to four rules
-  with their parameters; a run button with progress; a map of the users moving on the layout,
-  coloured by serving cell (time slider and play); charts of handovers, failures and rate; and
-  downloads of the results (CSV, JSON, event logs), the figures and an experiment file that
-  `handoverlab run` repeats exactly. It runs on your computer only; the core package does not
-  depend on it. See the [dashboard guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/dashboard.md).
-- **Tutorials and reference**: [your first run](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/first-run.md),
-  [writing your own rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/own-rule.md),
-  [a fair tuning study](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/tuning-study.md),
-  [reading the report](https://github.com/mjs19971997/handoverlab/blob/main/docs/tutorials/reading-the-report.md); an API reference generated from the
-  docstrings and a command-line reference (`mkdocs build`, `pip install "handoverlab[docs]"`), and
-  a workflow that builds the site and can publish it on GitHub Pages.
-- **Event-log levels** `off`, `summary` and `full`: `full` adds a trace of the procedure
-  (reports, preparations, configurations, executions, attachments, failures) from which the
-  serving cell of every user follows at any time. The level never changes a result.
-- **`handoverlab status STUDY`**: finished, failed and remaining jobs per stage, rule runs still to
-  simulate and the time left, estimated from the study's own finished jobs.
-- **Gate policy `extend`**: a grid whose selected value sits on its edge is widened with the same
-  spacing and every method is tuned again with the same budget, up to a cap; each extension is a
-  dated amendment in the study directory and the report.
-- **Failure-model calibration against ns-3 / 5G-LENA, from stored ns-3 outputs only**: 96 % of the
-  ns-3 failures are late handover commands. A Qout filter window of about 0.12 s (instead of 0.2 s)
-  fits the mean failure rate of the 24 reference settings (0.35-0.41 against 0.43 per UE-minute,
-  rank correlation 0.97) but fails every held-back set (three times too many failures in the
-  second ns-3 data set, different responses to the preparation delay and the number of users).
-  So no calibrated preset is offered, the default is unchanged, and failure rates stay relative
-  quantities; see [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md).
-
-## What stage 3 adds
-
-- **`handoverlab study study.yaml`**: one file describes conditions, tuning and test seeds, the
-  rules with their tuning grids and the comparisons; one command runs everything.
-- **Tuning on an equal budget**: every rule evaluates the same number of settings (a random round,
-  then refinement around the best) on seeds that never appear in a test. Selection rule: lowest
-  unnecessary-handover rate within a failure budget set by a reference rule, with fixed tie-breaks.
-- **Gates that fail loudly or warn** before any test run: a selected setting on the edge of its
-  grid, a failure budget that constrains nothing, unequal budgets, tuning seeds reused as test
-  seeds, a flat optimum, a budget no setting meets.
-- **Paired statistics** (`handoverlab.stats`): paired differences, t and bootstrap intervals,
-  exact or approximate Wilcoxon signed-rank tests, Holm correction.
-- **Storage and runs**: one atomic record per job, Parquet tables (CSV without pyarrow),
-  content-hashed job IDs, resumption (finished jobs are skipped, stored rule runs reused), worker
-  processes with `--workers` (default: leave four cores free).
-- **`handoverlab report DIR`**: Markdown and HTML with tables and figures.
-- **Faster engines**: the engines of all rules of a world share one step loop; with many rules per
-  world (as in tuning) about half the engine time, with bit-identical results.
-
-See the [user guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/user_guide.md#10-studies), [docs/performance.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md) and
-the validation section of [docs/verification.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/verification.md).
-
-## What stage 2 adds
-
-- **`handoverlab verify`**: path loss and LOS probability against hand-computed TR 38.901 values,
-  radio statistics (shadowing standard deviation and correlation, LOS share, time variation, L1
-  error), invariants and conservation of counts, determinism, equivalences (CHO with immediate
-  execution = A3), golden event-log fingerprints; a pass/fail report and a JSON copy.
-- **Debug mode** (`debug=True`, `run --debug`, `HANDOVERLAB_DEBUG=1`): invariant checks at every
-  step and a read-only observation for rules; results unchanged.
-- **Event-log fingerprints**: the SHA-256 of every run's event log is stored with its metrics;
-  `verify --results` recomputes stored runs and compares them.
-- **Event logs as tables**: Parquet (with `pyarrow`) or CSV, typed columns, read back with
-  `read_events`.
-- **Contract test kit** for rule plug-ins: `handoverlab.testing.check_rule`.
-- **Scenario cards** for four built-in scenarios (`smoke`, `urban-grid-10ghz`, `open-area-10ghz`,
-  `ns3-urban-3.5ghz`), usable by name in configuration files.
-- **Wider regression** against the bh6 prototype: ten cases, 36 runs, identical metrics and event
-  logs.
-- **Reference comparison with ns-3 / 5G-LENA** over 24 A3 settings: handover and
-  unnecessary-handover rates within the limits (median ratios 0.95 and 1.04, rank correlation 0.99);
-  failure rates differ (0.13 against 0.43 per UE-minute), as documented in the validation section.
-- **Faster world build**: about a third less time for the radio map, with bit-identical results.
-
-See [docs/verification.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/verification.md) and [docs/performance.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md).
-
-## What stage 1 contains
-
-- **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks, default 3 x 3, the
-  minimum area of TR 37.885 Table A-1; 433 m x 250 m pitch, 20 m streets) with sites on the
-  pavement, and an open area of the same size with a hexagonal site grid; explicit site lists.
+- **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
+  pitch, 20 m streets) with sites on the pavement, an open area with a hexagonal site grid, a
+  highway, explicit site lists, and built-in scenario cards (`handoverlab scenarios`).
 - **Channel**: TR 38.901 UMi street canyon and UMa path loss (LOS/NLOS); line of sight from the
-  building geometry plus the spatially consistent LOS state; spatially correlated shadowing shared by
-  all users ("place-tied blockage"), optionally partly moved to a process along each user's path; a
-  time-varying component; L1 measurement error; beam gain and load-coupled interference.
+  building geometry plus the spatially consistent LOS state; spatially correlated shadowing; a
+  time-varying component; L1 measurement error; beam gain and load-coupled interference;
+  optionally a penetration loss per user (in-car loss of TR 38.901).
 - **Mobility**: street-following users with turn probabilities, random waypoints in the open area,
   pedestrian and vehicular speed profiles or your own speed groups.
+- **Traffic**: constant service rates per 5QI class, or a traffic model per user: full buffer,
+  periodic packets (as VoIP) or FTP model 3 of TR 36.814. The load of every cell, and so the
+  interference, follows the traffic of its users.
 - **Measurements**: L1 samples, the TS 38.331 L3 filter, Event A3 with time-to-trigger, periodic
   reporting for conditional handover.
-- **Handover procedures**: baseline handover (report, preparation, command, execution) and Rel-16
-  conditional handover (preparation of up to 8 candidates, per-candidate execution offset and
-  time-to-trigger, release, recovery into a prepared cell), behind a small rule interface.
+- **Handover procedures**: baseline handover (report, preparation, command, execution), Rel-16
+  conditional handover (up to 8 prepared candidates) and DAPS handover, Rel-18 L1/L2-triggered
+  mobility, behind a small rule interface. Rules that learn from outcomes are supported.
 - **Failure model**: Qout/Qin with windows, N310/N311/T310, lost commands and configurations,
-  execution failures, re-establishment (TR 36.839 / TR 36.842 values by default).
+  execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), with options for
+  the link monitoring (own interferer load, restart on a new cell, ideal random access).
 - **Metrics**: outcome of every attempt (useful, unnecessary, too early, wrong cell, too late,
   censored), failures by cause, ping-pong, preparation overhead, interruption, delivered rate.
 - **Reproducibility**: one world per seed shared by all compared rules (paired comparison); the
-  engine draws no random numbers.
+  engine draws no random numbers; golden event-log fingerprints guard every change.
+
+## Checked against ns-3
+
+The same 24 Event-A3 settings were simulated in HandoverLab and in the packet-level simulator
+ns-3 with 5G-LENA. Handover and unnecessary-handover rates agree (median ratio 0.92, rank
+correlation 0.99). For failure rates, with the in-car loss of ns-3 and the restart of the link
+monitoring switched on, the order of settings and conditions agrees too, also on ns-3 results
+that were held back from any tuning (rank correlation 0.82-0.91). The absolute values
+differ, so compare failure rates between rules within HandoverLab. The causes of the remaining
+differences are traced in [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md).
+
+## What's new
+
+- **1.4.0**: traffic models per user (`traffic.model`: full buffer, periodic, FTP model 3); a
+  dashboard with confidence intervals, a map of where handovers and failures happen, and the status
+  of a running study; the ns-3 link-monitoring finding in the calibration report.
+- **1.3.0**: optional restart of the link monitoring on a newly joined cell (TS 38.133).
+- **1.2.0**: optional penetration loss per user; the ns-3 comparison with the in-car loss of ns-3.
+- **1.1.0 / 1.1.1**: optional link-monitoring model; held-back ns-3 results; issue forms, CI on
+  Windows for every test.
+
+Earlier versions and every detail: the [changelog](https://github.com/mjs19971997/handoverlab/blob/main/CHANGELOG.md).
 
 ## Install
 
@@ -263,6 +161,20 @@ for r in hl.simulate(scenario, rules, seeds=[1]):      # both rules run on the s
     print(r.rule, r.metrics["handovers_pm"], r.metrics["unnecessary_pm"], r.metrics["failures_pm"])
 ```
 
+Sample output of [examples/traffic_models.py](https://github.com/mjs19971997/handoverlab/blob/main/examples/traffic_models.py), the same rule under the four
+traffic models (one seed, 30 users, 60 s on the urban grid at 10 GHz):
+
+```text
+model        cell load  rate [Mbit/s]  delivered  SINR [dB]  failures/UE-min
+fixed             0.28          14.25       0.98       24.8             0.00
+full_buffer       0.51         707.08       0.48       22.4             0.04
+periodic          0.28           0.04       0.96       24.9             0.00
+ftp3              0.28           3.93       0.93       24.9             0.00
+```
+
+Busier cells interfere more: under full buffer the SINR drops by more than 2 dB and failures
+appear.
+
 The full script is [examples/compare_a3_cho.py](https://github.com/mjs19971997/handoverlab/blob/main/examples/compare_a3_cho.py). Writing your own
 handover rule takes a few lines; see the [user guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/user_guide.md).
 
@@ -314,9 +226,12 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
    corrected; no change of results.
 9. 1.0.0: the first stable release, published on PyPI.
 10. 1.0.1: the dashboard image shows on the PyPI project page; no change of results.
-11. **1.0.2 (this release)**: README links work on PyPI, the documentation site is linked, text
-    corrections; no change of results.
-12. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
+11. 1.0.2: README links work on PyPI, the documentation site is linked, text corrections; no change
+    of results.
+12. 1.1.0-1.3.0: optional link-monitoring and penetration-loss models traced against ns-3; issue
+    forms and CI for every test on Windows.
+13. **1.4.0 (this release)**: traffic models per user, a richer dashboard, pictures in the README.
+14. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
     calibration scenario.
 
 ## Citation

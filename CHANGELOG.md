@@ -7,6 +7,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-19
+
+### Added
+
+- Traffic models per user: `traffic.model` with `fixed` (the constant service rates of 1.x, the
+  default), `full_buffer`, `periodic` (`traffic.period_s`, `traffic.packet_bytes`) and `ftp3`
+  (TR 36.814 FTP model 3: `traffic.ftp_file_bytes`, `traffic.ftp_rate_hz`). Buffered users ask for
+  what is in their buffer and the scheduler empties it, so cell load and interference follow the
+  traffic. Arrivals come from a new random stream; with the default model, results and
+  fingerprints are those of 1.3. Runs with a buffered model are not batched.
+- `examples/traffic_models.py`: the same rule under the four traffic models.
+- Dashboard: a traffic choice; the tab *Where* (the places of handovers, unnecessary handovers
+  and failures); the tab *Compare* (means with 95 % confidence intervals over the seeds and paired
+  differences to the first rule, as in the study report); the tab *Study* (the status of a study
+  folder); downloads of the comparison (CSV) and of both new figures. Three seeds by default.
+  New functions in `handoverlab.gui.logic`: `comparison_rows`, `comparison_figure`,
+  `event_points`, `events_map_figure`, `study_status_lines`, `comparison_csv`.
+- A golden fingerprint `smoke-ftp3` that runs the optional models of 1.1-1.4 together.
+- README: a picture gallery (dashboard, where handovers happen, comparison, study report), a
+  sample output, the result of the ns-3 comparison and a short list of what is new.
+  `tools/make_readme_images.py` rebuilds the dashboard pictures.
+- `docs/calibration.md`: ns-3 detects a radio problem only after 0.65-0.83 s at the control
+  traffic of its reference runs, not after 200 ms. This explains its time-to-trigger trend and its
+  dependence on the number of users. A setting that meets every part-A limit fails on the
+  hold-out sets, so the calibration stops until fresh ns-3 results are available.
+
 ## [1.3.0] - 2026-10-18
 
 ### Added
@@ -441,7 +467,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/mjs19971997/handoverlab/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mjs19971997/handoverlab/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mjs19971997/handoverlab/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/mjs19971997/handoverlab/compare/v1.1.0...v1.1.1

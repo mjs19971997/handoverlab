@@ -103,6 +103,12 @@ class Engine:
         self.a_rho = 1.0 - np.exp(-self.mdt / T.load_tau_s)
         svc = world.services
         self.tmin, self.thq, self.rate, self.gbr = svc.t_min, svc.theta_q, svc.rate, svc.gbr
+        # traffic model: buffered users ask for at most the peak rate of the carrier
+        self.r_peak = self.W * self.se_max
+        if T.model == "full_buffer":
+            self.rate = np.full(self.U, self.r_peak)
+        self.offered = world.offered
+        self.backlog = np.zeros(self.U) if world.offered is not None else None
         self.t0c = sc.run.warmup_s
         self.level = event_level(log_events)
         self.keep_events = self.level != "off"
@@ -520,14 +526,20 @@ class Engine:
         sinr = ls / (tot - self.rc[serv] * ls + self.noise)      # tot = ln @ rc of this step (rc unchanged)
         ok = con & (sinr >= self.qout)
         se = np.minimum(np.log2(1.0 + sinr), self.se_max)
-        need = np.where(ok, self.rate / (self.W * np.maximum(se, 1e-3)), 0.0)
+        rate = self.rate
+        if self.backlog is not None:                             # buffered traffic: arrivals, then demand
+            self.backlog += self.offered[min(self.nmeas, len(self.offered) - 1)]
+            rate = np.minimum(self.r_peak, self.backlog / self.mdt)
+        need = np.where(ok, rate / (self.W * np.maximum(se, 1e-3)), 0.0)
         G = np.bincount(serv, weights=need * self.gbr, minlength=self.M)
         B = np.bincount(serv, weights=need * ~self.gbr, minlength=self.M)
         free = np.maximum(1.0 - self.bg, 0.0)
         gs = np.minimum(1.0, free / np.maximum(G, 1e-12))
         rem = np.maximum(free - G * gs, 0.0)
         bs = np.minimum(1.0, rem / np.maximum(B, 1e-12))
-        thr = np.where(ok, self.rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
+        thr = np.where(ok, rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
+        if self.backlog is not None:
+            self.backlog = np.maximum(self.backlog - thr * self.mdt, 0.0)
         rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
         self.rho += self.a_rho * (rho_new - self.rho)
         np.multiply(self.chi, self.rho, out=self.rc)
@@ -536,7 +548,7 @@ class Engine:
         if counted:
             acc["steps"] += self.mp
             acc["out_steps"] += self.mp * int(np.count_nonzero(con & (sinr < self.qout)))
-            acc["thr"] += float(thr.sum()); acc["dem"] += float(self.rate.sum())
+            acc["thr"] += float(thr.sum()); acc["dem"] += float(rate.sum())
             acc["sinr"] += float(10.0 * np.log10(sinr[con]).sum()); acc["se"] += float(se[con].sum())
             acc["ncon"] += int(con.sum()); acc["load"] += float(rho_new.mean()); acc["nmeas"] += 1
             acc["prep_time"] += self.proc.prepared_total() * self.mdt

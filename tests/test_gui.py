@@ -97,6 +97,37 @@ def test_figures(outcome):
     assert "t = %.1f s" % out.times[-1] in fig.axes[0].get_title(loc="left")
 
 
+
+def test_comparison_with_intervals(outcome):
+    out, _ = outcome
+    rows = logic.comparison_rows(out)
+    assert len(rows) == 2 * len(logic.CHART_METRICS)
+    a3 = next(r for r in rows if r["rule"] == "A3" and r["metric"] == "handovers_pm")
+    cho = next(r for r in rows if r["rule"] == "CHO" and r["metric"] == "handovers_pm")
+    v = [r.metrics["handovers_pm"] for r in out.results if r.rule == "A3"]
+    assert a3["seeds"] == 2 and a3["mean"] == pytest.approx(np.mean(v)) and a3["ci_low"] <= a3["mean"] <= a3["ci_high"]
+    assert "diff" not in a3 and cho["diff_vs"] == "A3" and cho["diff_low"] <= cho["diff"] <= cho["diff_high"]
+    assert logic.comparison_csv(out).decode().splitlines()[0].startswith("metric,rule,seeds,mean")
+    assert logic.png(logic.comparison_figure(out))[1:4] == b"PNG"
+
+
+def test_where_map(outcome):
+    out, _ = outcome
+    pts = logic.event_points(out, 0)
+    r = next(x for x in out.results if x.rule == "A3" and x.seed == 3)
+    assert len(pts["handover"]) + len(pts["failure"]) == sum(1 for e in r.events if e["kind"] == "rlf"
+                                                              or e.get("cause") or e["t_exec"] >= 0)
+    assert len(pts["unnecessary"]) <= len(pts["handover"])
+    assert logic.png(logic.events_map_figure(out, 1))[1:4] == b"PNG"
+
+
+def test_traffic_setting_and_study_status(tmp_path):
+    assert "traffic" not in logic.scenario_dict(logic.Settings())             # default: the configuration of 1.3
+    assert logic.scenario_dict(logic.Settings(traffic="ftp3"))["traffic"] == {"model": "ftp3"}
+    assert logic.Settings(traffic="voip").check() == ["unknown traffic model 'voip'"]
+    assert logic.study_status_lines(str(tmp_path / "missing.yaml"))[0].startswith("cannot read a study")
+
+
 def test_downloads(outcome):
     out, _ = outcome
     rows = list(csv.DictReader(io.StringIO(logic.metrics_csv(out).decode())))
@@ -133,8 +164,9 @@ def _page_run(AppTest):
     at.sidebar.slider[2].set_value(6)                       # users
     at.sidebar.slider[3].set_value(10)                      # run length
     at.sidebar.slider[4].set_value(0)                       # warm-up
+    at.sidebar.slider[5].set_value(1)                       # seeds (the page offers 3)
     at.button[0].click().run()
     assert not at.exception
     out = at.session_state["outcome"]
     assert out.settings.users == 6 and len(out.results) == 2
-    assert len(at.tabs) == 4
+    assert len(at.tabs) == 7

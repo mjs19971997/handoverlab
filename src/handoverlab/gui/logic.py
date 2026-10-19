@@ -42,6 +42,8 @@ LAYOUTS = {"street_grid": "street grid (TR 37.885)", "open_area": "open area (he
 PATHLOSS = {"umi_street_canyon": "UMi street canyon", "uma": "UMa"}
 FREQUENCIES = (3.5, 7.0, 10.0, 15.0, 28.0)
 RULES = {"a3": "Event A3 (baseline handover)", "cho": "conditional handover"}
+TRAFFIC = {"fixed": "constant service rates", "full_buffer": "full buffer (as much as the link carries)",
+           "periodic": "periodic packets every 20 ms (as VoIP)", "ftp3": "FTP model 3 (0.5 Mbyte files)"}
 #: metrics shown in the charts and the table (key -> label)
 CHART_METRICS = {
     "handovers_pm": "handovers per UE-minute",
@@ -69,6 +71,7 @@ class Settings:
     warmup_s: float = 10.0
     seeds: int = 1
     first_seed: int = 1
+    traffic: str = "fixed"
 
     def check(self) -> List[str]:
         """Problems with these settings (empty if none)."""
@@ -79,6 +82,8 @@ class Settings:
             p.append("unknown speed profile %r" % self.profile)
         if self.pathloss not in PATHLOSS:
             p.append("unknown path-loss model %r" % self.pathloss)
+        if self.traffic not in TRAFFIC:
+            p.append("unknown traffic model %r" % self.traffic)
         if not 1 <= self.blocks <= 4:
             p.append("blocks must be 1 to 4")
         if self.warmup_s >= self.duration_s:
@@ -114,7 +119,7 @@ RULE_PARAMS = {
 
 def scenario_dict(s: Settings) -> Dict[str, Any]:
     """Scenario dictionary (as in a configuration file) for dashboard settings."""
-    return {
+    d = {
         "name": "dashboard-%s" % s.layout.replace("_", "-"),
         "layout": {"kind": s.layout, "blocks": [int(s.blocks), int(s.blocks)],
                    "site_spacing_m": float(s.site_spacing_m)},
@@ -123,6 +128,9 @@ def scenario_dict(s: Settings) -> Dict[str, Any]:
         "mobility": {"users": int(s.users), "profile": s.profile},
         "run": {"duration_s": float(s.duration_s), "warmup_s": float(s.warmup_s)},
     }
+    if s.traffic != "fixed":
+        d["traffic"] = {"model": s.traffic}
+    return d
 
 
 def make_scenario(s: Settings) -> Scenario:
@@ -244,6 +252,131 @@ def summary_rows(out: Outcome) -> List[Dict[str, Any]]:
             row[m] = float(np.mean([r.metrics[m] for r in rs]))
         rows.append(row)
     return rows
+
+
+def comparison_rows(out: Outcome, metrics: Sequence[str] = tuple(CHART_METRICS),
+                    level: float = 0.95) -> List[Dict[str, Any]]:
+    """Every rule against the first one, metric by metric: means, their t intervals over the seeds and the
+    paired difference with its interval (the same statistics as the study report; needs two or more seeds
+    for the intervals)."""
+    from ..stats import paired_differences, t_interval
+    names = out.rule_names
+    seeds = sorted({r.seed for r in out.results})
+    val = {(r.rule, r.seed): r.metrics for r in out.results}
+    rows = []
+    for m in metrics:
+        ref = [val[(names[0], s)][m] for s in seeds]
+        for name in names:
+            v = [val[(name, s)][m] for s in seeds]
+            lo, hi = t_interval(v, level)
+            row: Dict[str, Any] = {"metric": m, "rule": name, "seeds": len(v), "mean": float(np.mean(v)),
+                                   "ci_low": lo, "ci_high": hi}
+            if name != names[0]:
+                d = paired_differences(v, ref)
+                dlo, dhi = t_interval(d, level)
+                row.update(diff_vs=names[0], diff=float(np.mean(d)), diff_low=dlo, diff_high=dhi,
+                           significant=bool(dlo == dlo and (dlo > 0 or dhi < 0)))
+            rows.append(row)
+    return rows
+
+
+def comparison_figure(out: Outcome, metrics: Sequence[str] = tuple(CHART_METRICS), level: float = 0.95):
+    """One panel per metric: mean of every rule with its confidence interval over the seeds."""
+    st = _mpl()
+    S = st["SERIES"]
+    rows = comparison_rows(out, metrics, level)
+    names = out.rule_names
+    fig = st["figure"](3.0 * len(metrics), 3.0)
+    for i, m in enumerate(metrics):
+        ax = fig.add_subplot(1, len(metrics), i + 1)
+        st["style"](ax)
+        for j, name in enumerate(names):
+            r = next(x for x in rows if x["metric"] == m and x["rule"] == name)
+            err = None
+            if r["ci_low"] == r["ci_low"]:                     # rates are not negative: clip the interval at 0
+                err = [[r["mean"] - max(r["ci_low"], 0.0)], [r["ci_high"] - r["mean"]]]
+            ax.errorbar([j], [r["mean"]], yerr=err, fmt="o", color=S[j % len(S)], capsize=4, markersize=6)
+        ax.set_xticks(range(len(names)))
+        ax.set_xticklabels(names, fontsize=7)
+        ax.set_xlim(-0.6, len(names) - 0.4)
+        ax.set_title(CHART_METRICS.get(m, m), fontsize=8, loc="left", color=st["TEXT"])
+    n = len({r.seed for r in out.results})
+    fig.suptitle("mean and %d %% confidence interval over %d seed%s" % (round(100 * level), n, "s" if n > 1 else ""),
+                 fontsize=8, x=0.01, ha="left", color=st["TEXT2"])
+    fig.subplots_adjust(top=0.78, wspace=0.35)
+    return fig
+
+
+def event_points(out: Outcome, rule: int = 0) -> Dict[str, np.ndarray]:
+    """Places of the handovers, unnecessary handovers and failures of the first seed under one rule."""
+    name = out.rule_names[rule]
+    r = next(x for x in out.results if x.rule == name and x.seed == int(out.settings.first_seed))
+    ev = r.events or []
+    pick = {"handover": [], "failure": [], "unnecessary": []}
+    for e in ev:
+        p = (e["x"], e["y"])
+        if e["kind"] == "rlf" or e.get("cause"):
+            pick["failure"].append(p)
+        elif e["t_exec"] >= 0:
+            pick["handover"].append(p)
+            if e["outcome"] == "unnecessary":
+                pick["unnecessary"].append(p)
+    return {k: np.asarray(v, dtype=float).reshape(-1, 2) for k, v in pick.items()}
+
+
+def events_map_figure(out: Outcome, rule: int = 0):
+    """The paths of the users of the first seed with the places of handovers, unnecessary handovers and
+    failures under one rule."""
+    st = _mpl()
+    S = st["SERIES"]
+    fig = st["figure"](7.2, 7.2 * (out.extent[3] - out.extent[2]) / max(out.extent[1] - out.extent[0], 1) + 0.6)
+    ax = fig.add_subplot(1, 1, 1)
+    st["style"](ax)
+    ax.grid(False)
+    from matplotlib.patches import Rectangle
+    for x0, y0, x1, y1 in out.buildings:
+        ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, facecolor="#e9e8e4", edgecolor="none", zorder=0))
+    for u in range(out.x.shape[1]):
+        ax.plot(out.x[:, u], out.y[:, u], color=st["MUTED"], linewidth=0.6, alpha=0.6, zorder=1)
+    ax.scatter(out.sites[:, 0], out.sites[:, 1], marker="^", s=46, color=st["TEXT2"], zorder=3, label="site")
+    pts = event_points(out, rule)
+    style = {"handover": dict(marker="o", s=14, color=S[0], alpha=0.55),
+             "unnecessary": dict(marker="o", s=26, facecolors="none", edgecolors=S[1], linewidths=1.0),
+             "failure": dict(marker="x", s=44, color=S[3 % len(S)], linewidths=1.6)}
+    for k, kw in style.items():
+        p = pts[k]
+        ax.scatter(p[:, 0], p[:, 1], zorder=4, label="%s (%d)" % (k, len(p)), **kw)
+    pad = 0.03 * max(out.extent[1] - out.extent[0], out.extent[3] - out.extent[2])
+    ax.set_xlim(out.extent[0] - pad, out.extent[1] + pad)
+    ax.set_ylim(out.extent[2] - pad, out.extent[3] + pad)
+    ax.set_aspect("equal")
+    ax.set_xlabel("x [m]", fontsize=8)
+    ax.set_ylabel("y [m]", fontsize=8)
+    ax.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=4, frameon=False)
+    ax.set_title("%s: where handovers and failures happen (seed %d)" % (out.rule_names[rule], out.settings.first_seed),
+                 fontsize=9, loc="left", color=st["TEXT"], pad=8)
+    return fig
+
+
+def study_status_lines(folder: str) -> List[str]:
+    """What ``handoverlab status`` prints for a study folder, or the reason it cannot be read."""
+    from ..studies.status import study_status
+    try:
+        return study_status(folder)
+    except Exception as e:                                   # shown to the user, never raised in the page
+        return ["cannot read a study in %r: %s" % (folder, e)]
+
+
+def comparison_csv(out: Outcome) -> bytes:
+    rows = comparison_rows(out)
+    keys = ["metric", "rule", "seeds", "mean", "ci_low", "ci_high", "diff_vs", "diff", "diff_low", "diff_high",
+            "significant"]
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=keys, extrasaction="ignore", lineterminator="\n")
+    w.writeheader()
+    for r in rows:
+        w.writerow(r)
+    return buf.getvalue().encode("utf-8")
 
 
 # ---------------------------------------------------------------------------- figures

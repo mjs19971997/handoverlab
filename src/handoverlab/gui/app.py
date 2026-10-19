@@ -42,13 +42,15 @@ def main() -> None:
     sb.header("Users")
     users = sb.slider("Users", 2, 80, 20)
     profile = sb.selectbox("Speed profile", list(logic.PROFILES), index=2, format_func=lambda k: logic.PROFILES[k])
+    traffic = sb.selectbox("Traffic", list(logic.TRAFFIC), format_func=lambda k: logic.TRAFFIC[k])
     sb.header("Run")
     duration = sb.slider("Run length [s]", 10, 180, 40, 5)
     warmup = sb.slider("Warm-up, not counted [s]", 0, 60, 10, 5)
-    seeds = sb.slider("Seeds", 1, 5, 1, help="Every rule runs on the same world per seed (paired comparison).")
+    seeds = sb.slider("Seeds", 1, 10, 3, help="Every rule runs on the same world per seed (paired comparison); "
+                      "confidence intervals need two or more.")
     first_seed = sb.number_input("First seed", 0, 10**6, 1)
     settings = logic.Settings(layout, blocks, float(spacing), float(carrier), pathloss, users, profile, float(duration),
-                              float(warmup), seeds, int(first_seed))
+                              float(warmup), seeds, int(first_seed), traffic)
 
     # ---------------------------------------------------------------------------- main: rules and run
     st.title("Handover dashboard")
@@ -81,7 +83,8 @@ def main() -> None:
     st.caption("Results of the last run: %s, %d users (%s), %d seed(s), %.0f s; %s." % (
         logic.LAYOUTS[out.settings.layout], out.settings.users, out.settings.profile, out.settings.seeds,
         out.settings.duration_s, ", ".join(out.rule_names)))
-    tab_map, tab_charts, tab_table, tab_dl = st.tabs(["Map", "Charts", "Table", "Downloads"])
+    tab_map, tab_events, tab_cmp, tab_charts, tab_table, tab_study, tab_dl = st.tabs(
+        ["Map", "Where", "Compare", "Charts", "Table", "Study", "Downloads"])
 
     with tab_map:
         c1, c2, c3 = st.columns([2, 5, 1])
@@ -105,6 +108,24 @@ def main() -> None:
                    "serving site; near cells have different colours. Grey users are executing a handover or "
                    "re-establishing after a failure." % out.settings.first_seed)
 
+    with tab_events:
+        ev_rule = st.selectbox("Rule ", range(len(out.rule_names)), format_func=lambda i: out.rule_names[i])
+        st.pyplot(logic.events_map_figure(out, ev_rule), clear_figure=True)
+        st.caption("Grey lines are the paths of the users of the first seed. Dots mark handovers, circles "
+                   "unnecessary handovers and crosses failures, at the place where they happened.")
+
+    with tab_cmp:
+        st.pyplot(logic.comparison_figure(out), clear_figure=True)
+        st.dataframe(logic.comparison_rows(out), hide_index=True)
+        st.caption("Each rule against the first one on the same worlds (paired over the seeds); 'significant' "
+                   "means that the 95 % interval of the difference excludes zero. Use several seeds.")
+
+    with tab_study:
+        folder = st.text_input("Study folder", help="The output folder of `handoverlab study`; this shows what "
+                               "`handoverlab status` prints, also while the study runs.")
+        if folder:
+            st.code("\n".join(logic.study_status_lines(folder)), language=None)
+
     with tab_charts:
         st.pyplot(logic.metrics_figure(out), clear_figure=True)
         c1, c2 = st.columns(2)
@@ -123,6 +144,7 @@ def main() -> None:
         c2.download_button("Results (JSON)", logic.results_json(out), "results.json", "application/json")
         c3.download_button("Event logs (CSV)", logic.events_csv(out), "events.csv", "text/csv")
         c4.download_button("Traces, first seed (CSV)", logic.trace_csv(out), "trace.csv", "text/csv")
+        st.download_button("Comparison with intervals (CSV)", logic.comparison_csv(out), "comparison.csv", "text/csv")
         st.write("Figures")
         c1, c2, c3, c4 = st.columns(4)
         c1.download_button("Map at the chosen time (PNG)", logic.png(logic.map_figure(out, rule_i, k)), "map.png",
@@ -130,6 +152,10 @@ def main() -> None:
         c2.download_button("Metrics (PNG)", logic.png(logic.metrics_figure(out)), "metrics.png", "image/png")
         c3.download_button("Failure causes (PNG)", logic.png(logic.causes_figure(out)), "causes.png", "image/png")
         c4.download_button("Timeline (PNG)", logic.png(logic.timeline_figure(out)), "timeline.png", "image/png")
+        c1, c2 = st.columns(2)
+        c1.download_button("Where handovers happen (PNG)", logic.png(logic.events_map_figure(out, rule_i)),
+                           "where.png", "image/png")
+        c2.download_button("Comparison (PNG)", logic.png(logic.comparison_figure(out)), "comparison.png", "image/png")
         st.write("Experiment file: repeat this run with `handoverlab run dashboard.yaml`")
         st.download_button("Experiment (YAML)", st.session_state.get("experiment", ""), "dashboard.yaml", "text/yaml")
 

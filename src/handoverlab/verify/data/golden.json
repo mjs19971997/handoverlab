@@ -109,6 +109,32 @@
     "n_failures": 5,
     "n_preparations": 382
    }
+  ],
+  "smoke-ftp3": [
+   {
+    "rule": "A3",
+    "fingerprint": "fa79b6c69182f42315077a6602b0ef3d4bc3116655ef7ac26cf31dd849aff7af",
+    "n_events": 81,
+    "sinr_db": 26.441110880461668,
+    "n_attempts": 81,
+    "n_handovers": 81,
+    "n_unnecessary": 23,
+    "n_pingpong": 4,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "1d8eeb13c2a423acf0706e8488afb7b768674c483ff60a74f956189279f83e09",
+    "n_events": 66,
+    "sinr_db": 25.31517187365412,
+    "n_attempts": 66,
+    "n_handovers": 66,
+    "n_unnecessary": 6,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 0
+   }
   ]
  }
 }

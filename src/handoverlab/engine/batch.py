@@ -74,7 +74,8 @@ class EngineBatch:
 
     @staticmethod
     def supported(engines: Sequence[Engine]) -> bool:
-        return len(engines) > 1 and not any(e.debug for e in engines)
+        return (len(engines) > 1 and not any(e.debug for e in engines)
+                and all(e.world.scenario.traffic.model == "fixed" for e in engines))
 
     def advance(self, ch) -> None:
         """Simulate the steps of one radio chunk for every engine."""

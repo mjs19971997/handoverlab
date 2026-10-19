@@ -274,5 +274,39 @@ counting, a shorter filter window). None improved the trend without breaking the
 So the evidence now supports comparing failure rates between rules and conditions in HandoverLab
 on all three sets, and still not reading them as absolute values. No calibrated preset is offered.
 
+### Version 1.4.0: how long ns-3 takes to detect a radio problem
+
+A further diagnosis run of ns-3 wrote the control-channel SINR that its link monitoring uses
+(`NrUePhy::RlfDetection`) and its in-sync and out-of-sync indications, at 16 m/s with 10, 20 and
+40 users and time-to-trigger 100 and 1000 ms. ns-3 declares out-of-sync after 20 consecutive bad
+frames, each the mean SINR in dB of 10 control receptions. Its source code calls this 200 ms, which
+holds for one reception per slot. In these runs a user received only 240 to 310 control channels
+per second, more with more users (23 to 31 per 100 ms for 10 to 40 users). So T310 starts only
+after 0.65 to 0.83 s below Qout. This explains the two remaining differences:
+
+- **The time-to-trigger trend**: with a short time-to-trigger the handover is usually complete
+  before the problem is detected; with a long one it is not.
+- **The dependence on the number of users**: more users mean more control receptions and faster
+  detection. At 100 ms, the failure rate was 0.000, 0.075 and 0.125 per UE-minute for 10, 20 and
+  40 users.
+
+The control SINR itself dips below Qout often (in 5 to 11 % of the 100 ms windows), but only a
+long unbroken run of bad frames counts.
+
+A test on part A used the counting mode of HandoverLab with this detection time (`n310` 77 and
+`n311` 38 steps of 10 ms, `qout_window_s` and `qin_window_s` 0.001 s), together with the in-car
+loss, `exec_can_fail: false` and `rlm_holdoff_s: 0.2`. Only the interferer load of link
+monitoring was tuned (`lm_load_per_ue`). At 0.3 it meets every part-A limit: failures 0.455
+against 0.432 (ratio 1.05), rank 0.97, a time-to-trigger trend above 20, and handover and
+unnecessary-handover rates within their limits. On the hold-out sets it fails clearly: part B
+0.003 against 0.033 (rank 0.57), part C 0.007 against 0.037 (rank 0.61). The hold-out cells mostly
+have short time-to-trigger, where this setting gives too few failures (0.006 against 0.031 at
+100 ms in part A).
+
+The hold-out sets have now been used to judge several candidates. Tuning further against them
+would fit them rather than test the model, so the calibration stops here. A new attempt needs
+fresh, independent ns-3 results. The mechanism above is the starting point for one: the detection
+time should follow the control traffic of each cell.
+
 Reproduce with `compare(seeds=[500, 501], overrides=...)` and
 `holdout(seeds=[500, 501, 502, 503], overrides=...)` from `handoverlab.verify.ns3`.

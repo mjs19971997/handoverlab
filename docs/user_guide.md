@@ -161,6 +161,9 @@ output: results/metrics.csv
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |
 | | `load_tau_s`, `rate_scale`, `label_load` | `0.2`, `1`, `1` | load smoothing; rate multiplier; load assumed by the label |
+| | `model` | `fixed` | traffic model (1.4.0): `fixed` (constant service rates), `full_buffer`, `periodic`, `ftp3`; see `examples/traffic_models.py` |
+| | `period_s`, `packet_bytes` | `0.02`, `100` | `periodic`: one packet every period |
+| | `ftp_file_bytes`, `ftp_rate_hz` | `500000`, `0.1` | `ftp3`: file size (TR 36.814 FTP model 3) and file arrivals per user and second |
 | `mobility` | `users` | `40` | number of users |
 | | `profile` | `veh16` | `ped`, `veh8`, `veh16`, `veh30`, `mix`, `c8`, `c16`, `c30`; highway: `hwy`, `hwy70`, `hwy140` |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]` |

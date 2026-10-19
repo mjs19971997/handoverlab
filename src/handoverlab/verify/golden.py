@@ -48,6 +48,12 @@ def cases() -> Dict[str, Dict[str, Any]]:
         "smoke-open": dict(scenario=smoke.with_overrides({"name": "smoke-open", "layout.kind": "open_area",
                                                           "radio.place_share": 0.5, "mobility.profile": "mix"}),
                            seed=3, rules=RULES[::2]),
+        # the optional models of 1.1-1.4: FTP traffic, in-car loss, link monitoring with its own load,
+        # execution that cannot fail and the restart of link monitoring on a new cell
+        "smoke-ftp3": dict(scenario=smoke.with_overrides({
+            "name": "smoke-ftp3", "traffic.model": "ftp3", "traffic.ftp_rate_hz": 0.5, "radio.penetration_db": 9.0,
+            "radio.penetration_sd_db": 5.0, "protocol.lm_load": 0.05, "protocol.lm_load_per_ue": 0.02,
+            "protocol.exec_can_fail": False, "protocol.rlm_holdoff_s": 0.2}), seed=4, rules=RULES[:2]),
     }
 
 

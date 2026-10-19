@@ -79,6 +79,11 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.load_tau_s` | 0.2 | assumption |
 | `traffic.rate_scale` | **0.001** | light traffic |
 | `traffic.label_load` | 1 | assumption (all cells transmit for the label) |
+| `traffic.model` | fixed | fixed: constant service rates (the model of 1.0) |
+| `traffic.period_s` | 0.02 | periodic model: 20 ms, as VoIP |
+| `traffic.packet_bytes` | 100 | periodic model: assumption |
+| `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
+| `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | **20** | assumption |
 | `mobility.profile` | **c16** | the ns-3 study (constant speed on the centre lines; c8, c16 and c30 are compared) |
 | `mobility.groups` | none | profile |

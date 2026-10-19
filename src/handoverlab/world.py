@@ -9,6 +9,7 @@ only from their decisions.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -17,7 +18,7 @@ from .config import Scenario
 from .layout import Layout, make_layout
 from .mobility import trajectories
 from .seeds import streams
-from .traffic import ServiceTable, assign_services, background_load
+from .traffic import ServiceTable, assign_services, background_load, offered_bits
 
 
 @dataclass
@@ -32,6 +33,7 @@ class World:
     heading: np.ndarray      # (S, U) [rad]
     services: ServiceTable
     bg_load: np.ndarray      # (M,) background load of every cell
+    offered: Optional[np.ndarray] = None   # (n_meas, U) arriving bits per measurement interval (traffic.model)
 
     @property
     def n_steps(self) -> int:
@@ -52,4 +54,9 @@ def build_world(scenario: Scenario, seed: int) -> World:
     tr = scenario.traffic
     svc = ServiceTable(tr.services, assign_services(tr.services, scenario.mobility.users, rng_svc), tr.rate_scale)
     bg = background_load(tr, layout.n_sites, rng_bg)
-    return World(scenario, int(seed), layout, rmap, x, y, v, th, svc, bg)
+    offered = None
+    if tr.model in ("periodic", "ftp3"):                       # own stream: the other draws stay as they were
+        P = scenario.protocol
+        mp = max(1, int(round(P.l1_period_s / P.step_s)))
+        offered = offered_bits(tr, -(-x.shape[0] // mp), mp * P.step_s, x.shape[1], streams(seed, "traffic", 1)[0])
+    return World(scenario, int(seed), layout, rmap, x, y, v, th, svc, bg, offered)
