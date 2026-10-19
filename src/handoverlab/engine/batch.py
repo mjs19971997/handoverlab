@@ -152,7 +152,8 @@ class EngineBatch:
                 for j, u in zip(*exp):
                     E[j].fail(u, t, "rlf")
             # --- handover command / conditional configuration reaches the UE
-            for e in E:
+            for j, e in enumerate(E):
+                e.sl_now = sl[j]
                 e.proc.step(t)
             # --- measurement instant (rc changes here)
             if i % mp == 0:

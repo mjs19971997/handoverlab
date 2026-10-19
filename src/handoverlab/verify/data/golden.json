@@ -254,6 +254,56 @@
     "n_preparations": 150
    }
   ],
+  "smoke-3gpp": [
+   {
+    "rule": "A3",
+    "fingerprint": "7aebfc61fd490f8177e151777b6c63b2c7d9ac2d230dca8100e0dda1ae7e3498",
+    "n_events": 116,
+    "sinr_db": 20.03989344957073,
+    "n_attempts": 116,
+    "n_handovers": 114,
+    "n_unnecessary": 11,
+    "n_pingpong": 1,
+    "n_failures": 1,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "a32e5055fa9a36342010433cd8c4e6c9109382280adb1db6d54b87a16352b94a",
+    "n_events": 106,
+    "sinr_db": 16.442631384966965,
+    "n_attempts": 106,
+    "n_handovers": 94,
+    "n_unnecessary": 1,
+    "n_pingpong": 0,
+    "n_failures": 12,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "1c29dd2839771461ec28dc4f11110da5484fe69d6a74e2ba47d14d6759970b50",
+    "n_events": 120,
+    "sinr_db": 21.363677172411293,
+    "n_attempts": 120,
+    "n_handovers": 120,
+    "n_unnecessary": 17,
+    "n_pingpong": 3,
+    "n_failures": 0,
+    "n_preparations": 178
+   },
+   {
+    "rule": "LTM",
+    "fingerprint": "864781444c06dc6f36a93fe147d9afad308627f31373819310b6c7a663af76e5",
+    "n_events": 136,
+    "sinr_db": 21.560752769731376,
+    "n_attempts": 136,
+    "n_handovers": 135,
+    "n_unnecessary": 30,
+    "n_pingpong": 11,
+    "n_failures": 1,
+    "n_preparations": 228
+   }
+  ],
   "smoke-mro": [
    {
     "rule": "A3",

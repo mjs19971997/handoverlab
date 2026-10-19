@@ -4,6 +4,12 @@ The radio model itself is calibrated against 3GPP (TR 38.901 clause 7.8.1, the 2
 R1-165974); see [radio calibration against 3GPP](calibration-3gpp.md). This page is about the
 failure model, which no 3GPP calibration covers.
 
+**Fresh hold-out D (1.9.0).** 48 new ns-3 runs on conditions never used before (12 and 20 m/s)
+were compared with the 1.3.0 configuration fixed in advance: handover and unnecessary-handover
+rates agree (median ratios 0.93 and 0.95, ranks 0.97), and the failure level agrees too (ratio
+0.84, limit 0.67-1.5), but the order of the failure rates does not (rank 0.68, limit 0.8). See
+[standard compliance](standard-compliance.md#fresh-ns-3-hold-out-190).
+
 **Summary (1.5.0).** Handover and unnecessary-handover rates of HandoverLab agree with ns-3 /
 5G-LENA. For failure rates, the order of settings and conditions agrees on part A and on both
 hold-out sets when the in-car loss of ns-3 and the restart of link monitoring are switched on

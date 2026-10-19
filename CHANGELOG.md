@@ -7,6 +7,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-19
+
+### Added
+
+- Handover command and execution as TS 38.331 specifies them, as options (the defaults keep the
+  model of 1.x and every fingerprint): `protocol.cmd_during_t310: receive` -- a handover or LTM cell
+  switch command that reaches the UE while T310 runs is received at the first step with
+  link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2; the default counts it as lost,
+  which is stricter than the TR 36.839 evaluation rule); `protocol.t304_s` -- the execution fails
+  only when T304 expires, random access goes on until then (TS 38.331 5.3.5.3, 5.3.5.8.3, 5.3.10.3).
+  The 3GPP protocol profile is `{cmd_during_t310: receive, t304_s: 1.0, rlm_holdoff_s: 0.2}`.
+- `docs/standard-compliance.md`: every rule of measurement, link monitoring, RLF, handover, CHO,
+  DAPS, LTM and conditional LTM, clause by clause against the official texts of Releases 17 to 19
+  (TS 38.331, 38.133, 38.300, 38.321, 38.322, 38.213, 38.215, 38.423, TR 36.839, TR 38.901,
+  TR 38.913, TR 38.914, ITU-R M.2410/M.2412), with what is followed, abstracted or not modelled;
+  the same rules in ns-3 / 5G-LENA; a fresh ns-3 hold-out (48 runs at speeds never used before:
+  handover rates and the failure level agree with the 1.3.0 configuration, the order of the
+  failure rates does not); and a comparison with handover statistics measured in commercial 5G
+  networks (the 3GPP profile brings the handover failure rate from about six times above the
+  measured range to just above it).
+- Golden fingerprint `smoke-3gpp`.
+
 ## [1.8.0] - 2026-10-19
 
 ### Added
@@ -544,7 +566,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/mjs19971997/handoverlab/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/mjs19971997/handoverlab/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/mjs19971997/handoverlab/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/mjs19971997/handoverlab/compare/v1.5.0...v1.6.0

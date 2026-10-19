@@ -9,7 +9,7 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.8.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.9.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -99,6 +99,18 @@ the industry mean, and `handoverlab verify` repeats the check
 
 ![HandoverLab against the 21 companies of 3GPP R1-165974](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/calibration_38901.png)
 
+## Follows the 3GPP texts
+
+Every rule of the handover procedure is listed clause by clause against the official 3GPP texts
+(TS 38.331, 38.133, 38.300, 38.321 of Releases 17 to 19, TR 36.839, TR 38.901) in
+[standard compliance](https://github.com/mjs19971997/handoverlab/blob/main/docs/standard-compliance.md),
+with what is followed, what is abstracted and what is not modelled yet. Since 1.9.0 the 3GPP
+protocol profile (`protocol: {cmd_during_t310: receive, t304_s: 1.0, rlm_holdoff_s: 0.2}`) makes the
+handover command and its execution behave as TS 38.331 specifies. Against handover statistics
+measured in commercial 5G networks (SIGCOMM, IMC and MobiCom measurement studies) the profile
+brings the handover failure rate from about six times above the measured range to just above it;
+ping-pong with the Verizon A3 setting and the handover distance in low-band rural cells match.
+
 ## Checked against ns-3
 
 The same 24 Event-A3 settings were simulated in HandoverLab and in the packet-level simulator
@@ -124,6 +136,9 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.9.0**: the 3GPP protocol profile (handover command received during T310 and T304 as in
+  TS 38.331), a clause-by-clause standard-compliance page, a fresh ns-3 hold-out and a comparison
+  with commercial 5G measurements.
 - **1.8.0**: the radio model calibrated against 3GPP: the large-scale calibration of TR 38.901
   clause 7.8.1 against the 21 companies of R1-165974, as the `verify` group `calibration`.
 - **1.7.0**: indoor office (TR 38.901 InH) and rural (RMa) scenarios with the IMT-2020 link
@@ -289,8 +304,10 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 14. 1.5.0: signalling and energy metrics.
 15. 1.6.0: conditional LTM.
 16. 1.7.0: indoor and rural scenarios; mobility robustness optimisation.
-17. **1.8.0 (this release)**: the radio model calibrated against 3GPP (TR 38.901 clause 7.8.1).
-18. Later (planned, not done): optional compiled kernels for the step loop.
+17. 1.8.0: the radio model calibrated against 3GPP (TR 38.901 clause 7.8.1).
+18. **1.9.0 (this release)**: the 3GPP protocol profile and the standard-compliance page.
+19. Later (planned, not done): beam management and beam failure recovery (TS 38.321 5.17), optional
+    compiled kernels for the step loop.
 
 ## Citation
 

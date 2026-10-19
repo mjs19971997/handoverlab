@@ -190,7 +190,7 @@ def _fmt(v: Any) -> str:
 
 
 _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "radio.soft_los_d_m",
-             "radio.shadow_los_far_db")
+             "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s")
 
 
 def card_markdown(name: str, figure: str = None) -> str:
@@ -210,7 +210,7 @@ def card_markdown(name: str, figure: str = None) -> str:
           "Values in **bold** differ from the HandoverLab defaults.", "",
           "| Key | Value | Source |", "|---|---|---|"]
     flat = _flat(sc.to_dict(full=sc.layout.kind == "highway"))
-    for key in _KEYS_1_7:                           # keys of 1.7.0 are shown only where a card sets them
+    for key in _KEYS_1_7:                           # keys of 1.7.0 and later: shown only where a card sets them
         if key in flat and flat[key] == default.get(key):
             del flat[key]
     for key, value in flat.items():

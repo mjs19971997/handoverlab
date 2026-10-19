@@ -69,6 +69,11 @@ def cases() -> Dict[str, Dict[str, Any]]:
         "rural-hard": dict(scenario=builtin_scenario("rural-700mhz").with_overrides({
             "name": "rural-hard", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 8,
             "layout.area_m": [4000.0, 2000.0], "radio.soft_los": False}), seed=7, rules=RULES[::2]),
+        # since 1.9.0: the 3GPP protocol profile (command received during T310, T304, restart of monitoring)
+        "smoke-3gpp": dict(scenario=smoke.with_overrides({
+            "name": "smoke-3gpp", "radio.isolation": 1.0, "mobility.profile": "veh30",
+            "protocol.cmd_during_t310": "receive", "protocol.t304_s": 1.0, "protocol.rlm_holdoff_s": 0.2}),
+            seed=10, rules=RULES + [{"rule": "ltm", "name": "LTM"}]),
         "smoke-mro": dict(scenario=smoke.with_overrides({"name": "smoke-mro", "radio.isolation": 1.0,
                                                          "mobility.profile": "veh30", "run.duration_s": 60.0}),
                           seed=8, rules=[RULES[0], {"rule": "a3_mro", "name": "A3-MRO", "window_s": 5.0,

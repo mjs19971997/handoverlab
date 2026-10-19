@@ -270,6 +270,13 @@ class Engine:
         lt = ln[u, tgt]
         s = lt / (tot[u] - self.rc[tgt] * lt + self.noise)
         if s < self.qout and self.P.exec_can_fail:
+            t304 = self.P.t304_s
+            if t304 is not None and t - self.f_tx[u] < t304 - EPS:
+                # random access goes on while T304 runs (TS 38.331 5.3.5.3, 5.3.10.3): try again next step
+                self.t_done[u] = t + self.dt
+                if t >= self.t0c:
+                    self.acc["int_exec"] += self.dt
+                return
             if not (self.proc.fallback and self._fallback(u, t, ln, tot)):
                 self.fail(u, t, "exec")
             return
@@ -453,6 +460,7 @@ class Engine:
                 for u in np.nonzero(run & con & (t - self.t310 >= P.t310_s - EPS))[0]:
                     self.fail(u, t, "rlf")
             # --- handover command / conditional configuration reaches the UE
+            self.sl_now = sl
             self.proc.step(t)
             if self.debug:
                 inv.check_step(self, t, sinr)

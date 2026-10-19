@@ -189,6 +189,8 @@ output: results/metrics.csv
 | | `lm_load`, `lm_load_per_ue` | `null`, `0` | optional (1.1.0): interferer load at link monitoring, plus a part per user served by the interfering cell; `null` and `0` keep the load of the data channel ([calibration](calibration.md)) |
 | | `exec_can_fail` | `true` | `false`: the execution always joins the target (ideal random access) |
 | | `rlm_holdoff_s` | `0` | optional (1.3.0): no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (TS 38.133 clause 8.1: `0.2`) |
+| | `cmd_during_t310` | `lost` | `receive` (1.9.0): a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2) |
+| | `t304_s` | none | T304 (1.9.0): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |

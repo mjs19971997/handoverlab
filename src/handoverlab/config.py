@@ -169,6 +169,11 @@ class ProtocolConfig:
     lm_load_per_ue: float = 0.0         # added to lm_load per user served by the interfering cell
     exec_can_fail: bool = True          # False: the execution always joins the target (ideal random access)
     rlm_holdoff_s: float = 0.0          # no out-of-sync on a newly joined cell for this time (TS 38.133: 0.2 s)
+    # handover command and execution as TS 38.331 specifies them (since 1.9.0; the defaults keep the model of 1.x):
+    # "receive": a command that reaches a UE while T310 runs is received at the first step with link-monitoring
+    # SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); "lost": it is lost at once
+    cmd_during_t310: str = "lost"
+    t304_s: Optional[float] = None      # T304: the execution fails only when T304 expires (TS 38.331 5.3.5.8.3)
 
 
 @dataclass
@@ -333,6 +338,8 @@ class Scenario:
         _check(P.lm_load is None or P.lm_load >= 0, "protocol.lm_load", "must be >= 0 or null")
         _check(P.lm_load_per_ue >= 0, "protocol.lm_load_per_ue", "must be >= 0")
         _check(P.rlm_holdoff_s >= 0, "protocol.rlm_holdoff_s", "must be >= 0")
+        _check(P.cmd_during_t310 in ("lost", "receive"), "protocol.cmd_during_t310", "must be 'lost' or 'receive'")
+        _check(P.t304_s is None or P.t304_s > 0, "protocol.t304_s", "must be positive or null")
         _check(M.users >= 1, "mobility.users", "must be >= 1")
         if M.groups is None:
             from .mobility import PROFILES
@@ -351,8 +358,9 @@ class Scenario:
 #: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`
 LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
                                                     "area_m", "min_site_distance_m"),
-                                         "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db")}
-_SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig}
+                                         "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db"),
+                                         "protocol": ("cmd_during_t310", "t304_s")}
+_SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 
 
 def read_sites(path: Union[str, os.PathLike]) -> Tuple[Tuple[float, float], ...]:

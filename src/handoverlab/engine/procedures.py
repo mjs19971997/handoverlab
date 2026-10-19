@@ -51,6 +51,26 @@ from ..measurement import (EPS, INF, a3_condition, held_for, select_prepared_set
                            update_entry_times)
 from .invariants import check_rule_value
 
+
+def receive_during_t310(eng, u, wait, t) -> bool:
+    """A command that reaches user ``u`` while T310 runs, with ``protocol.cmd_during_t310 = "receive"``.
+
+    TS 38.331 5.3.5.5.2: the UE executes a received reconfiguration with sync and stops T310.  The
+    command is received at the first step with link-monitoring SINR >= Qout (the 10 % BLER reference of
+    TS 38.133 8.1; HARQ and RLC retransmissions go on while T310 runs).  Returns True while the command
+    waits, and the caller then does nothing; after reception (T310 stopped) or with the default "lost"
+    it returns False and the caller acts as before.
+    """
+    if not (eng.run[u] and eng.P.cmd_during_t310 == "receive"):
+        return False
+    if not wait[u]:
+        wait[u] = True
+        eng.C["cmd"] += int(t >= eng.t0c)
+    if eng.sl_now[u] < eng.qout:
+        return True
+    eng.run[u] = False
+    return False
+
 CONNECTED, EXECUTING, REESTABLISHING = 0, 1, 2      # connection state of a user
 
 
@@ -120,13 +140,17 @@ class BaselineProcedure(Procedure):
         self.pend = np.zeros(U, dtype=bool)         # handover command on its way
         self.pend_t = np.zeros(U)
         self.n_pend = 0                             # number of commands on their way
+        self.cmd_wait = np.zeros(U, dtype=bool)     # command arrived during T310, not yet received
 
     def step(self, t):
         eng = self.eng
         if not self.n_pend:
             return
         for u in np.nonzero(self.pend & (t >= self.pend_t - EPS))[0]:
-            eng.C["cmd"] += int(t >= eng.t0c)
+            if receive_during_t310(eng, u, self.cmd_wait, t):
+                continue
+            eng.C["cmd"] += int(t >= eng.t0c) * (not self.cmd_wait[u])
+            self.cmd_wait[u] = False
             if eng.run[u]:
                 eng.fail(u, t, "cmd")                   # command lost while T310 runs
             else:
@@ -156,6 +180,7 @@ class BaselineProcedure(Procedure):
             eng.C["reports"] += int(counted)
 
     def cancel_command(self, u):
+        self.cmd_wait[u] = False
         if self.pend[u]:
             self.pend[u] = False
             self.n_pend -= 1
@@ -381,6 +406,7 @@ class LTMProcedure(ConditionalProcedure):
         self.cmd_t = np.zeros(U)
         self.cmd_tgt = np.zeros(U, dtype=int)
         self.n_cmd = 0
+        self.cmd_wait = np.zeros(U, dtype=bool)      # command arrived during T310, not yet received
 
     def exec_time(self, u):
         return float(self.rule.exec_s)
@@ -398,6 +424,7 @@ class LTMProcedure(ConditionalProcedure):
         return so
 
     def cancel_command(self, u):
+        self.cmd_wait[u] = False
         if self.cmd[u]:
             self.cmd[u] = False
             self.n_cmd -= 1
@@ -411,7 +438,10 @@ class LTMProcedure(ConditionalProcedure):
             return
         eng = self.eng
         for u in np.nonzero(self.cmd & (t >= self.cmd_t - EPS))[0]:
-            eng.C["cmd"] += int(t >= eng.t0c)
+            if receive_during_t310(eng, u, self.cmd_wait, t):
+                continue
+            eng.C["cmd"] += int(t >= eng.t0c) * (not self.cmd_wait[u])
+            self.cmd_wait[u] = False
             if eng.run[u]:
                 eng.fail(u, t, "cmd")                   # command lost while T310 runs
             else:
