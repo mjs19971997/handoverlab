@@ -6,6 +6,7 @@ Since 1.0.0rc2 HandoverLab has two procedures next to baseline and conditional h
 |---|---|---|---|
 | `daps` | DAPS handover (Rel-16) | TS 38.300 clause 9.2.3.2, TS 38.331 clause 5.3.5.8.3 | the source keeps serving during the execution; a failed execution falls back to the source |
 | `ltm` | L1/L2-triggered mobility (Rel-18) | TS 38.300 clause 9.2.3.5 | candidates configured in advance; the switch is decided on unfiltered L1 reports and sent as a MAC CE; short RACH-less execution |
+| `cltm` | conditional LTM (Rel-19 work on LTM, since 1.6.0) | as `ltm` for the candidates and the execution | the UE decides the switch on its L1 measurements and executes at once: no cell switch command that could arrive late |
 
 Both run on the same worlds and seeds as every other rule, so they can be compared pairwise with
 `a3` and `cho` in an experiment or a study. The [user guide](../user_guide.md#procedures) describes the
@@ -23,6 +24,7 @@ rules:
   - {rule: daps, off_db: 3.0, ttt_s: 0.16}
   - {rule: cho, o_prep_db: -2.0, o_exec_db: 3.0, ttt_exec_s: 0.08}
   - {rule: ltm, o_prep_db: -3.0, o_switch_db: 2.0, ttt_switch_s: 0.08}
+  - {rule: cltm, o_prep_db: -3.0, o_switch_db: 2.0, ttt_switch_s: 0.08}
 output: results/procedures.csv
 ```
 
@@ -142,4 +144,6 @@ check_rule(SpeedLTM, {"o_switch_db": 2.0})
 - LTM: L1 reports arrive at every L1 sample with the scenario's L1 error, without beam-level
   reports or reporting delay; candidate configurations use the preparation delay and the loss
   model of conditional configurations; early timing-advance acquisition always succeeds.
-  Conditional LTM (TS 38.300 clause 9.2.3.7) is not modelled.
+- Conditional LTM (`cltm`): the switch condition is modelled like the LTM switch condition
+  (one offset and a time-to-trigger on L1 samples), since the Rel-19 condition was not frozen
+  when the rule was written; the UE-side evaluation has no reporting delay.

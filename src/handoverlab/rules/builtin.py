@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, BaselineRule, ConditionalRule, DAPSRule,
-                   LTMRule)
+                   CLTMRule, LTMRule)
 
 
 class A3(BaselineRule):
@@ -170,6 +170,54 @@ class LTM(LTMRule):
         return dict(o_prep_db=self.o_prep_db, o_switch_db=self.o_switch_db, ttt_switch_s=self.ttt_switch_s,
                     ttt_prep_s=self.ttt_prep_s, n_max=self.n_max, rel_hys_db=self.release_hys_db,
                     cmd_delay_s=self.cmd_delay_s, exec_s=self.exec_s, recovery=self.recovery)
+
+    def prep_offsets(self, obs):
+        return self.o_prep_db
+
+    def switch_offsets(self, obs):
+        return self.o_switch_db
+
+
+class CLTM(CLTMRule):
+    """Conditional L1/L2-triggered mobility with fixed offsets (3GPP Rel-19 work on LTM).
+
+    Specification: TS 38.300 clause 9.2.3.5 (LTM, Rel-18) for the candidate configuration, L1
+    measurements and RACH-less execution; the Rel-19 work item on further NR mobility
+    enhancements adds conditional LTM, in which the UE executes a configured LTM cell switch when
+    a condition holds, without the cell switch command.  As the Rel-19 text was not frozen when
+    this rule was written, the condition is modelled like the LTM switch condition: a configured
+    candidate whose unfiltered L1 measurement is better than the serving cell by ``o_switch_db``
+    at every L1 sample for ``ttt_switch_s``; the UE then executes at once (``exec_s``).
+
+    o_prep_db     candidate preparation offset [dB] (L3)
+    o_switch_db   cell switch offset [dB] (L1), evaluated by the UE
+    ttt_switch_s  time the switch condition must hold [s] (0: one L1 sample)
+    ttt_prep_s    time-to-trigger of the candidate report [s]
+    n_max         largest candidate set (1-8)
+    rel_hys_db    release hysteresis [dB]
+    exec_s        execution time of the cell switch [s]
+    recovery      a failed UE that selects a candidate recovers into it in ``cho_recovery_s``
+    """
+
+    def __init__(self, o_prep_db: float = -3.0, o_switch_db: float = 2.0, ttt_switch_s: float = 0.08,
+                 ttt_prep_s: float = 0.0, n_max: int = 4, rel_hys_db: float = 3.0, exec_s: float = 0.02,
+                 recovery: bool = True, name: str = "CLTM"):
+        super().__init__(name)
+        if not 1 <= int(n_max) <= MAX_CONDITIONAL_CELLS:
+            raise ValueError("n_max must be between 1 and %d" % MAX_CONDITIONAL_CELLS)
+        if min(ttt_switch_s, ttt_prep_s) < 0 or exec_s <= 0:
+            raise ValueError("times must be >= 0 and exec_s > 0")
+        self.o_prep_db, self.o_switch_db = float(o_prep_db), float(o_switch_db)
+        self.ttt_switch_s, self.ttt_prep_s = float(ttt_switch_s), float(ttt_prep_s)
+        self.n_max, self.release_hys_db = int(n_max), float(rel_hys_db)
+        self.exec_s, self.recovery = float(exec_s), bool(recovery)
+        self.cmd_delay_s = 0.0
+        self.report_offset_db = self.o_prep_db
+
+    def params(self):
+        return dict(o_prep_db=self.o_prep_db, o_switch_db=self.o_switch_db, ttt_switch_s=self.ttt_switch_s,
+                    ttt_prep_s=self.ttt_prep_s, n_max=self.n_max, rel_hys_db=self.release_hys_db,
+                    exec_s=self.exec_s, recovery=self.recovery)
 
     def prep_offsets(self, obs):
         return self.o_prep_db

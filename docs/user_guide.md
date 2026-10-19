@@ -183,6 +183,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 | `cho` | conditional | `o_prep_db` (-2.0), `o_exec_db` (3.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `immediate` (false), `name` |
 | `daps` | daps | `off_db` (3.0), `ttt_s` (0.16), `interruption_s` (0.0), `fallback` (true), `source_data` (true), `name` |
 | `ltm` | ltm | `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `cmd_delay_s` (0.01), `exec_s` (0.02), `recovery` (true), `name` |
+| `cltm` | cltm | as `ltm` without `cmd_delay_s`: `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `exec_s` (0.02), `recovery` (true), `name` |
 | `a3_bandit` | baseline | `arms_db` ([1, 2, 3, 4, 5]), `ttt_s` (0.16), `epsilon` (0.1), `epoch` (10), `w_unnecessary` (1.0), `w_failure` (2.0), `name` |
 
 `daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`
@@ -212,6 +213,10 @@ The family of a rule selects the procedure the engine runs around its decisions:
   the UE after `cmd_delay_s` and is lost if T310 runs; the execution (RACH-less, with early timing
   advance) takes `exec_s`. Preparation counts (`preparations_pm`, `unused_preparations_pm`, ...)
   count candidate configurations; `recoveries_pm` counts failures recovered into a candidate.
+- **cltm** (`cltm`, conditional LTM, Rel-19 work on LTM; since 1.6.0): candidates as for `ltm`, but
+  the UE evaluates the L1 switch condition itself and executes as soon as it holds, without a cell
+  switch command. There is no command that could arrive late (`commands_pm` is 0), as in
+  conditional handover, and the switch is decided on fast L1 measurements, as in LTM.
 
 See the how-to [DAPS handover and L1/L2-triggered mobility](guides/daps-ltm.md) and, for the
 learning rule, [a learning-based rule](guides/learning-rule.md).
@@ -398,7 +403,7 @@ result or a fingerprint. The event-log columns and units are in
 |---|---|
 | `seed`, `rule` | the run (in tables) |
 | `t_attempt`, `t_exec`, `t_end` | start of the attempt, start of the execution (-1 if none), time of the outcome [s] |
-| `ue`, `kind` | user; `ho` baseline handover, `cho` conditional handover, `daps` DAPS handover, `ltm` L1/L2-triggered mobility, `rlf` failure without handover |
+| `ue`, `kind` | user; `ho` baseline handover, `cho` conditional handover, `daps` DAPS handover, `ltm` L1/L2-triggered mobility, `cltm` conditional LTM, `rlf` failure without handover |
 | `src`, `tgt` | source cell; target cell (for `rlf`: cell of the re-establishment) |
 | `outcome`, `cause` | outcome label (section 7) and failure cause |
 | `dwell`, `gain_db` | time of stay in the target [s]; mean SINR gain over the evaluation window [dB] |

@@ -54,6 +54,9 @@ def cases() -> Dict[str, Dict[str, Any]]:
             "name": "smoke-ftp3", "traffic.model": "ftp3", "traffic.ftp_rate_hz": 0.5, "radio.penetration_db": 9.0,
             "radio.penetration_sd_db": 5.0, "protocol.lm_load": 0.05, "protocol.lm_load_per_ue": 0.02,
             "protocol.exec_can_fail": False, "protocol.rlm_holdoff_s": 0.2}), seed=4, rules=RULES[:2]),
+        "smoke-cltm": dict(scenario=smoke.with_overrides({"name": "smoke-cltm", "radio.isolation": 1.0,
+                                                          "mobility.profile": "veh30"}), seed=5,
+                           rules=[{"rule": "ltm", "name": "LTM"}, {"rule": "cltm", "name": "CLTM"}]),
     }
 
 

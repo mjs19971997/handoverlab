@@ -46,7 +46,7 @@ from .world import build_world
 
 
 #: rule families known to the engine
-FAMILIES = ("baseline", "conditional", "daps", "ltm")
+FAMILIES = ("baseline", "conditional", "daps", "ltm", "cltm")
 
 
 @dataclass

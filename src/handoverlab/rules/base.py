@@ -247,3 +247,14 @@ class LTMRule(Rule):
     def switch_offsets(self, obs: Observation) -> Union[float, np.ndarray]:
         """Cell switch offset [dB] on L1 measurements (``obs.l1_dbm``): a scalar or an array (U, M)."""
         raise NotImplementedError
+
+
+class CLTMRule(LTMRule):
+    """Conditional L1/L2-triggered mobility (Rel-19 work on LTM; available since version 1.6.0).
+
+    As :class:`LTMRule` (candidates configured on L3 reports, cell switch on L1 measurements,
+    RACH-less execution), but the UE evaluates the switch condition itself and executes as soon as
+    it holds, without a cell switch command (as conditional handover does on L3 measurements).
+    ``cmd_delay_s`` is not used.  The same hooks as :class:`LTMRule`.
+    """
+    family = "cltm"

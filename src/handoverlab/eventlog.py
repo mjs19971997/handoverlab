@@ -57,7 +57,7 @@ EVENT_COLUMNS: Dict[str, Tuple[type, str, str]] = {
     "t_end": (float, "s", "time at which the outcome was decided"),
     "ue": (int, "", "user index"),
     "kind": (str, "", "'ho' baseline handover, 'cho' conditional handover, 'daps' DAPS handover, 'ltm' "
-                      "L1/L2-triggered mobility, 'rlf' link failure without handover"),
+                      "L1/L2-triggered mobility, 'cltm' conditional LTM, 'rlf' link failure without handover"),
     "src": (int, "", "source (serving) cell"),
     "tgt": (int, "", "target cell; for 'rlf' the cell of the re-establishment"),
     "outcome": (str, "", "useful, unnecessary, too_early, wrong_cell, too_late, censored; 'rlf' rows: too_late "

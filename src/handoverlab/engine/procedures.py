@@ -442,6 +442,32 @@ class LTMProcedure(ConditionalProcedure):
         return con
 
 
+class CLTMProcedure(LTMProcedure):
+    """Conditional LTM: the UE executes a configured candidate when the L1 switch condition holds."""
+    kind = "cltm"
+
+    def _execute(self, obs, con):
+        """UE side: the L1 switch condition of the configured candidates, executed without a command."""
+        eng, rule, t = self.eng, self.rule, obs.t
+        l1 = obs.l1_dbm if obs.l1_dbm is not None else obs.meas_dbm
+        lgap = l1 - l1[eng.ar, obs.serving][:, None]
+        so = rule.switch_offsets(obs)
+        if eng.debug:
+            check_rule_value(eng, "switch_offsets", so, t)
+        cx = self.prepared & (lgap > so) & con[:, None]
+        self.tx = np.where(cx, np.minimum(self.tx, t), INF)
+        rdy = held_for(self.tx, t, rule.ttt_switch_s)
+        for u in np.nonzero(rdy.any(1))[0]:
+            n = int(np.argmax(np.where(rdy[u], lgap[u], -INF)))
+            o = so[u, n] if isinstance(so, np.ndarray) else so
+            eng.new_flight(u, n, t, self.pkey[u, n], int(self.prepared[u].sum()), o)
+            if eng.trace_log is not None:
+                eng.trace_event(t, u, "switch", eng.serv[u], n, o)
+            eng.start_exec(u, n, t)
+            self.tx[u] = INF
+        return eng.state == CONNECTED
+
+
 def make_procedure(eng, rule) -> Procedure:
     if rule.family == "baseline":
         return BaselineProcedure(eng, rule)
@@ -451,4 +477,6 @@ def make_procedure(eng, rule) -> Procedure:
         return DAPSProcedure(eng, rule)
     if rule.family == "ltm":
         return LTMProcedure(eng, rule)
+    if rule.family == "cltm":
+        return CLTMProcedure(eng, rule)
     raise ValueError("rule %r has unknown family %r" % (getattr(rule, "name", rule), rule.family))

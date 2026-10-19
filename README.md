@@ -9,7 +9,7 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.5.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.6.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -56,7 +56,7 @@ multiple-comparison correction and writes an HTML report:
   reporting for conditional handover.
 - **Handover procedures**: baseline handover (report, preparation, command, execution), Rel-16
   conditional handover (up to 8 prepared candidates) and DAPS handover, Rel-18 L1/L2-triggered
-  mobility, behind a small rule interface. Rules that learn from outcomes are supported.
+  mobility and conditional LTM from the Rel-19 work, behind a small rule interface. Rules that learn from outcomes are supported.
 - **Failure model**: Qout/Qin with windows, N310/N311/T310, lost commands and configurations,
   execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), with options for
   the link monitoring (own interferer load, restart on a new cell, ideal random access).
@@ -71,8 +71,8 @@ multiple-comparison correction and writes an HTML report:
 
 HandoverLab targets the questions of dense beyond-5G networks: small cells 50-300 m apart, the
 upper mid-band (FR3, 7-24 GHz; the scenario `fr3-urban-15ghz`, 10 GHz by default), and the
-mobility procedures beyond baseline handover: conditional handover, DAPS handover and
-L1/L2-triggered mobility of Release 18, next to rules that learn from handover outcomes. The cost
+mobility procedures beyond baseline handover: conditional handover, DAPS handover,
+L1/L2-triggered mobility of Release 18 and conditional LTM from the Release 19 work, next to rules that learn from handover outcomes. The cost
 of each procedure (signalling, prepared cells, interruption, energy) is measured next to its
 benefit.
 
@@ -101,6 +101,7 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.6.0**: conditional LTM (rule `cltm`), from the Release 19 work on L1/L2-triggered mobility.
 - **1.5.0**: signalling and energy metrics (RRC messages, handover commands, L1 measurements,
   site power and energy per bit); why failure rates differ from ns-3, stated in the README.
 - **1.4.0**: traffic models per user (`traffic.model`: full buffer, periodic, FTP model 3); a
@@ -257,8 +258,9 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 12. 1.1.0-1.3.0: optional link-monitoring and penetration-loss models traced against ns-3; issue
     forms and CI for every test on Windows.
 13. 1.4.0: traffic models per user, a richer dashboard, pictures in the README.
-14. **1.5.0 (this release)**: signalling and energy metrics.
-15. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
+14. 1.5.0: signalling and energy metrics.
+15. **1.6.0 (this release)**: conditional LTM.
+16. Later (planned, not done): optional compiled kernels for the step loop, a TR 38.901
     calibration scenario.
 
 ## Citation

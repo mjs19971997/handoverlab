@@ -135,6 +135,32 @@
     "n_failures": 0,
     "n_preparations": 0
    }
+  ],
+  "smoke-cltm": [
+   {
+    "rule": "LTM",
+    "fingerprint": "632473d7e601707eaecfe945c24bb737bf2596bd7db31df9893306c9dee0ec1d",
+    "n_events": 151,
+    "sinr_db": 19.891945673306004,
+    "n_attempts": 151,
+    "n_handovers": 150,
+    "n_unnecessary": 41,
+    "n_pingpong": 17,
+    "n_failures": 1,
+    "n_preparations": 260
+   },
+   {
+    "rule": "CLTM",
+    "fingerprint": "eba18a5091c66d46f41e7ab69f8287ea29da7ce07aca89350c5e6258dbb6307d",
+    "n_events": 151,
+    "sinr_db": 20.236883203624057,
+    "n_attempts": 151,
+    "n_handovers": 150,
+    "n_unnecessary": 41,
+    "n_pingpong": 18,
+    "n_failures": 1,
+    "n_preparations": 253
+   }
   ]
  }
 }

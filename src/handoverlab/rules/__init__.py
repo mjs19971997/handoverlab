@@ -23,11 +23,12 @@ import inspect
 from typing import Any, Dict, List, Optional, Type
 
 from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, BaselineRule, ConditionalRule, DAPSRule,
-                   FailureRecord, LTMRule, Observation, OutcomeRecord, Rule, RuleContext)
-from .builtin import A3, CHO, DAPS, LTM, BanditA3
+                   CLTMRule, FailureRecord, LTMRule, Observation, OutcomeRecord, Rule, RuleContext)
+from .builtin import A3, CHO, CLTM, DAPS, LTM, BanditA3
 
 ENTRY_POINT_GROUP = "handoverlab.rules"
-_REGISTRY: Dict[str, Type[Rule]] = {"a3": A3, "cho": CHO, "daps": DAPS, "ltm": LTM, "a3_bandit": BanditA3}
+_REGISTRY: Dict[str, Type[Rule]] = {"a3": A3, "cho": CHO, "daps": DAPS, "ltm": LTM, "cltm": CLTM,
+                                   "a3_bandit": BanditA3}
 
 #: base classes a rule must derive from (DAPSRule derives from BaselineRule)
 RULE_BASES = (BaselineRule, ConditionalRule, LTMRule)
@@ -101,7 +102,7 @@ def make_rule(spec: Dict[str, Any]) -> Rule:
         raise ValueError("rule %r: %s (parameters: %s)" % (spec["rule"], e, ", ".join(allowed)))
 
 
-__all__ = ["Rule", "BaselineRule", "ConditionalRule", "DAPSRule", "LTMRule", "RuleContext", "Observation",
+__all__ = ["Rule", "BaselineRule", "ConditionalRule", "DAPSRule", "LTMRule", "CLTMRule", "RuleContext", "Observation",
            "OutcomeRecord", "FailureRecord", "USEFUL", "UNNECESSARY", "EARLY", "LATE", "MAX_CONDITIONAL_CELLS", "A3",
-           "CHO", "DAPS", "LTM", "BanditA3", "RULE_BASES",
+           "CHO", "DAPS", "LTM", "CLTM", "BanditA3", "RULE_BASES",
            "register_rule", "get_rule_class", "available_rules", "make_rule", "rule_key"]

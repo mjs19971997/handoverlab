@@ -7,6 +7,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-19
+
+### Added
+
+- Conditional LTM, from the Release 19 work on L1/L2-triggered mobility: the rule `cltm` (class
+  `CLTM`, base class `CLTMRule`, family `cltm`, event-log kind `cltm`). Candidates are configured
+  as for `ltm`; the UE evaluates the L1 switch condition itself and executes at once, without a cell
+  switch command, so no command can arrive while T310 runs. The rule keeps the rule contract
+  (`handoverlab.testing.check_rule`), and a golden fingerprint `smoke-cltm` guards it. The results
+  of every existing rule are unchanged.
+
 ## [1.5.0] - 2026-10-19
 
 ### Added
@@ -483,7 +494,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/mjs19971997/handoverlab/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/mjs19971997/handoverlab/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/mjs19971997/handoverlab/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mjs19971997/handoverlab/compare/v1.2.0...v1.3.0
