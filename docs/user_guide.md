@@ -156,6 +156,7 @@ output: results/metrics.csv
 | | `cfg_loss_as_failure` | `false` | check mode: a lost conditional configuration fails like a lost handover command |
 | | `lm_load`, `lm_load_per_ue` | `null`, `0` | optional (1.1.0): interferer load at link monitoring, plus a part per user served by the interfering cell; `null` and `0` keep the load of the data channel ([calibration](calibration.md)) |
 | | `exec_can_fail` | `true` | `false`: the execution always joins the target (ideal random access) |
+| | `rlm_holdoff_s` | `0` | optional (1.3.0): no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (TS 38.133 clause 8.1: `0.2`) |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |

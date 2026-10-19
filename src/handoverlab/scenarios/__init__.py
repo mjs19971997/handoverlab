@@ -81,6 +81,7 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.cfg_loss_as_failure": "check mode only",
     "protocol.lm_load": "off by default: link monitoring sees the load of the data channel (calibration option)",
     "protocol.lm_load_per_ue": "off by default (calibration option)",
+    "protocol.rlm_holdoff_s": "off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell",
     "protocol.exec_can_fail": "TR 36.839: the execution fails when the target is below Qout",
     "radio.penetration_db": "off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car",
     "radio.penetration_sd_db": "off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car",

@@ -40,7 +40,7 @@ class EngineBatch:
 
     _STACKED = (("state", np.int8), ("t_done", float), ("re_cell", int), ("serv", np.intp), ("qo", float),
                 ("qi", float), ("n_o", int), ("n_i", int), ("run", bool), ("t310", float), ("k310", int),
-                ("rc", float), ("rho", float), ("rc_lm", float))
+                ("rlm_t0", float), ("rc", float), ("rho", float), ("rc_lm", float))
 
     def __init__(self, engines: Sequence[Engine]):
         self.engines: List[Engine] = list(engines)
@@ -139,6 +139,8 @@ class EngineBatch:
                 self.n_o[:] = (self.n_o + 1) * (qo < qout)
                 self.n_i[:] = (self.n_i + 1) * (qi > qin)
                 start = con & ~run & (self.n_o >= P.n310)
+            if P.rlm_holdoff_s > 0:
+                start &= t >= self.rlm_t0 - EPS
             if cnz(start):
                 run |= start
                 t310[start] = t

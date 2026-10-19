@@ -124,6 +124,7 @@ class Engine:
         self.qo = np.zeros(U); self.qi = np.zeros(U)
         self.n_o = np.zeros(U, dtype=int); self.n_i = np.zeros(U, dtype=int)
         self.run = np.zeros(U, dtype=bool); self.t310 = np.zeros(U); self.k310 = np.zeros(U, dtype=int)
+        self.rlm_t0 = np.full(U, -INF)                  # no out-of-sync before (protocol.rlm_holdoff_s)
         # attempt in flight (reported / prepared / executing)
         self.f_on = np.zeros(U, dtype=bool); self.f_t = np.zeros(U); self.f_tx = np.full(U, np.nan)
         self.f_src = np.zeros(U, dtype=int); self.f_tgt = np.zeros(U, dtype=int); self.f_key = np.full(U, -1)
@@ -253,6 +254,8 @@ class Engine:
             s = self._sinr_lm(u, cell, self.lm_ln)
         self.qo[u] = self.qi[u] = s
         self.n_o[u] = self.n_i[u] = 0
+        if self.P.rlm_holdoff_s > 0 and t is not None:
+            self.rlm_t0[u] = t + self.P.rlm_holdoff_s
         self.run[u] = False
         self.proc.on_attach(u)
 
@@ -433,6 +436,8 @@ class Engine:
                 self.n_o[:] = (self.n_o + 1) * (qo < qout)
                 self.n_i[:] = (self.n_i + 1) * (qi > qin)
                 start = con & ~run & (self.n_o >= P.n310)
+            if P.rlm_holdoff_s > 0:
+                start &= t >= self.rlm_t0 - EPS
             if cnz(start):
                 run |= start
                 self.t310[start] = t

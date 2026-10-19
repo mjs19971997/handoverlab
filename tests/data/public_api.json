@@ -425,6 +425,7 @@
   "protocol.qout_window_s",
   "protocol.reest_s",
   "protocol.report_interval_s",
+  "protocol.rlm_holdoff_s",
   "protocol.step_s",
   "protocol.t310_s",
   "radio.bandwidth_mhz",

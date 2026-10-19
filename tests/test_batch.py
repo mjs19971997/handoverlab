@@ -18,7 +18,7 @@ CASES = {
     "n310": {"radio.isolation": 1.0, "protocol.n310": 2, "protocol.n311": 2, "protocol.t310_s": 0.5},
     "open": {"layout.kind": "open_area", "radio.place_share": 0.5, "mobility.profile": "mix"},
     "lm": {"radio.isolation": 1.0, "protocol.lm_load": 0.2, "protocol.lm_load_per_ue": 0.05,
-           "protocol.exec_can_fail": False},
+           "protocol.exec_can_fail": False, "protocol.rlm_holdoff_s": 0.2},
 }
 
 

@@ -7,6 +7,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-18
+
+### Added
+
+- Optional restart of radio-link monitoring on a newly joined cell: `protocol.rlm_holdoff_s`, the
+  time after a handover or re-establishment during which no out-of-sync can start T310
+  (TS 38.133 clause 8.1: 0.2 s). Off by default; with the defaults, results and fingerprints are
+  those of 1.2.
+- `docs/calibration.md`: failure-by-failure comparison with ns-3 and the comparison with the
+  restart. The speed dependence now agrees, and the ranking limits are met on part A and on both
+  hold-out sets. The absolute level and the time-to-trigger trend are not, so failure rates remain
+  relative quantities.
+
 ## [1.2.0] - 2026-10-18
 
 ### Added
@@ -428,7 +441,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/mjs19971997/handoverlab/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mjs19971997/handoverlab/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/mjs19971997/handoverlab/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mjs19971997/handoverlab/compare/v1.0.2...v1.1.0

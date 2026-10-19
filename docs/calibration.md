@@ -238,5 +238,41 @@ not reproduce. The limits are still not met: no calibrated preset is offered, an
 remain relative quantities. Comparisons with ns-3 results should use `car=True`, because the ns-3
 reference includes this loss.
 
+### Version 1.3.0: link monitoring restarts on a new cell
+
+The remaining failures were compared with those of ns-3, failure by failure (A3 6 dB / 100 ms at
+200 m). At 42 m/s, every HandoverLab failure came about 0.2 s after a handover, at an
+intersection: T310 had started on the newly joined cell at once, and the next handover command
+arrived while it was running. In ns-3, as in TS 38.133 clause 8.1, radio-link monitoring restarts
+on a new cell and needs a full evaluation period (200 ms) before an out-of-sync indication. Overall,
+half of HandoverLab's failures came less than 2 s after the previous handover, against a quarter to
+a third in ns-3.
+
+Version 1.3.0 adds the restart as an option, `protocol.rlm_holdoff_s` (off by default; 0.2 s from
+TS 38.133, not fitted). With `car=True`, `exec_can_fail: false` and `rlm_holdoff_s: 0.2`:
+
+| | HandoverLab | ns-3 | Limit | |
+|---|---|---|---|---|
+| Part A mean failures (two seeds) | 0.288 (ratio 0.67) | 0.432 | 0.8-1.25 | fails |
+| Part A rank over the 24 settings | 0.91 | | at least 0.9 | passes |
+| Part A TTT trend | 4.9 | 36 | at least 20 | fails |
+| Part B failures (four seeds; ratio) | 0.133 (4.0) | 0.033 | 0.67-1.5 | fails |
+| Part B rank over 12 cells | 0.86 | | at least 0.8 | passes |
+| Part C failures (four seeds; ratio) | 0.084 (2.3) | 0.037 | 0.67-1.5 | fails |
+| Part C rank over 20 cells | 0.82 | | at least 0.8 | passes |
+
+The speed dependence now agrees: at 200 m, 0.000 / 0.200 / 0.256 / 0.013 failures per UE-minute at
+8 / 16 / 30 / 42 m/s against ns-3's 0.005 / 0.100 / 0.077 / 0.003, and none at 3 m/s in either.
+The ranking limits are met on all three sets: HandoverLab orders handover settings and conditions
+by failure rate as ns-3 does, on data it was not tuned on. The absolute level and the
+time-to-trigger trend are not met. HandoverLab has two to four times too many failures at short
+time-to-trigger and too few at the longest one, and its failure rate does not rise with the number
+of users as in ns-3 (10 / 40 users: 0.375 / 0.131 against 0.045 / 0.159). Six variants of the link
+monitoring were tried on part A (noise-only, interference per served user, the ns-3 out-of-sync
+counting, a shorter filter window). None improved the trend without breaking the ranking.
+
+So the evidence now supports comparing failure rates between rules and conditions in HandoverLab
+on all three sets, and still not reading them as absolute values. No calibrated preset is offered.
+
 Reproduce with `compare(seeds=[500, 501], overrides=...)` and
 `holdout(seeds=[500, 501, 502, 503], overrides=...)` from `handoverlab.verify.ns3`.

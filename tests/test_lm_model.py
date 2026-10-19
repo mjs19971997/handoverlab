@@ -55,3 +55,24 @@ def test_penetration_loss_per_user():
     assert car_loss(16) and car_loss(30) and not car_loss(8) and not car_loss(36)      # 30-120 km/h, as in ns-3
     with pytest.raises(ConfigError, match="penetration_sd_db"):
         sc.with_overrides({"radio.penetration_sd_db": -1.0}).validate()
+
+
+def test_rlm_holdoff_after_a_handover():
+    from handoverlab.engine import core
+    starts = []
+    orig = core.Engine.fail
+
+    def fail(self, u, t, kind):
+        if kind == "cmd":
+            starts.append(t - self.last_ho[u] - (t - self.t310[u]))     # T310 start after the last handover
+        return orig(self, u, t, kind)
+    core.Engine.fail = fail
+    try:
+        m0 = _run(exec_can_fail=False)
+        early = [x for x in starts if 0 <= x < 0.2 - 1e-9]
+        starts.clear()
+        m1 = _run(exec_can_fail=False, rlm_holdoff_s=0.2)
+        assert not [x for x in starts if 0 <= x < 0.2 - 1e-9]       # no T310 within 0.2 s of joining a cell
+    finally:
+        core.Engine.fail = orig
+    assert early and m1["failures_pm"] < m0["failures_pm"]

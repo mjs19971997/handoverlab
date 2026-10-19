@@ -145,6 +145,7 @@ class ProtocolConfig:
     lm_load: Optional[float] = None     # interferer load at link monitoring; None: the load of the data channel
     lm_load_per_ue: float = 0.0         # added to lm_load per user served by the interfering cell
     exec_can_fail: bool = True          # False: the execution always joins the target (ideal random access)
+    rlm_holdoff_s: float = 0.0          # no out-of-sync on a newly joined cell for this time (TS 38.133: 0.2 s)
 
 
 @dataclass
@@ -291,6 +292,7 @@ class Scenario:
         _check(P.n310 >= 1 and P.n311 >= 1, "protocol.n310", "N310 and N311 must be >= 1")
         _check(P.lm_load is None or P.lm_load >= 0, "protocol.lm_load", "must be >= 0 or null")
         _check(P.lm_load_per_ue >= 0, "protocol.lm_load_per_ue", "must be >= 0")
+        _check(P.rlm_holdoff_s >= 0, "protocol.rlm_holdoff_s", "must be >= 0")
         _check(M.users >= 1, "mobility.users", "must be >= 1")
         if M.groups is None:
             from .mobility import PROFILES
