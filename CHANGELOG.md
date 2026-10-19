@@ -7,6 +7,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-19
+
+### Added
+
+- Large-scale calibration of the radio model against 3GPP: `handoverlab.verify.calibration`
+  reproduces the calibration drop of TR 38.901 clause 7.8.1 (Table 7.8-1: UMa, UMi-Street Canyon
+  and the indoor office; three sectors per site with the element of Table 7.3-1 in a ten-element
+  tilted array; 80 % indoor users with the O2I loss of clause 7.4.3.1; geographical wrap-around)
+  with the propagation formulas of the simulator and compares the CDFs of coupling loss, SINR and
+  SIR with the 21 companies of the 3GPP contribution R1-165974 (`verify/data/r1_165974.csv`). At
+  6 and 30 GHz, 325 of 342 percentiles lie inside the company range and none is more than about
+  1 dB from the industry mean. New `verify` group `calibration`, the page
+  `docs/calibration-3gpp.md`, the figure `docs/images/calibration_38901.png`
+  (`tools/make_calibration_figure.py`) and a README section.
+
+Results and fingerprints are unchanged: the calibration is a check, not a change of the model.
+
 ## [1.7.0] - 2026-10-19
 
 ### Added
@@ -527,7 +544,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/mjs19971997/handoverlab/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/mjs19971997/handoverlab/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/mjs19971997/handoverlab/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/mjs19971997/handoverlab/compare/v1.4.0...v1.5.0

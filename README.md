@@ -9,7 +9,7 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.7.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.8.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -79,6 +79,18 @@ A3 tuned by mobility robustness optimisation, the fair baseline for a new rule. 
 of each procedure (signalling, prepared cells, interruption, energy) is measured next to its
 benefit.
 
+## Calibrated against 3GPP
+
+The radio model passes the large-scale calibration of TR 38.901 (clause 7.8.1): in the
+calibration drop of 3GPP, the CDFs of the coupling loss and of the geometry (SINR) lie inside the
+range of the 21 companies that reported their results in the 3GPP contribution R1-165974 (Huawei,
+Ericsson, Nokia, Samsung, Qualcomm and others), for UMa, UMi and the indoor office at 6 and
+30 GHz. 325 of 342 compared percentiles are inside the range, none is more than about 1 dB from
+the industry mean, and `handoverlab verify` repeats the check
+([details](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration-3gpp.md)).
+
+![HandoverLab against the 21 companies of 3GPP R1-165974](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/calibration_38901.png)
+
 ## Checked against ns-3
 
 The same 24 Event-A3 settings were simulated in HandoverLab and in the packet-level simulator
@@ -104,6 +116,8 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.8.0**: the radio model calibrated against 3GPP: the large-scale calibration of TR 38.901
+  clause 7.8.1 against the 21 companies of R1-165974, as the `verify` group `calibration`.
 - **1.7.0**: indoor office (TR 38.901 InH) and rural (RMa) scenarios with the IMT-2020 link
   budgets, the optional soft LOS state of TR 38.901, and the rule `a3_mro` (mobility robustness
   optimisation of a cell individual offset per cell pair).
@@ -266,9 +280,9 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 13. 1.4.0: traffic models per user, a richer dashboard, pictures in the README.
 14. 1.5.0: signalling and energy metrics.
 15. 1.6.0: conditional LTM.
-16. **1.7.0 (this release)**: indoor and rural scenarios; mobility robustness optimisation.
-17. Later (planned, not done): optional compiled kernels for the step loop, a TR 38.901
-    calibration scenario.
+16. 1.7.0: indoor and rural scenarios; mobility robustness optimisation.
+17. **1.8.0 (this release)**: the radio model calibrated against 3GPP (TR 38.901 clause 7.8.1).
+18. Later (planned, not done): optional compiled kernels for the step loop.
 
 ## Citation
 

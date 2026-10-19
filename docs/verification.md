@@ -21,11 +21,12 @@ writes the report with the versions of Python, NumPy and SciPy and the platform.
 | Unit tests | path loss, LOS probability, L3 filter, A3 and CHO triggers, failure model on synthetic radio samples | `tests/` |
 | Invariants, end of run | attempts = sum of outcomes; failures = sum of causes; every attempt started got exactly one outcome; preparations = lost + cancelled + used + unused + open | every run |
 | Invariants, debug mode | per step: valid states and serving cells, T310 only while connected, no attempt to the serving cell, an execution always belongs to an attempt, finite SINR; event-log times in order; rule outputs of valid shape without NaN; the observation given to a rule is read-only | `debug=True`, `--debug`, `HANDOVERLAB_DEBUG=1` |
-| Path loss by hand | TR 38.901 UMi and UMa, LOS and NLOS, both breakpoint branches, LOS probabilities, noise | `verify` group `pathloss` |
+| Path loss by hand | TR 38.901 UMi, UMa, RMa and InH, LOS and NLOS, both breakpoint branches, LOS probabilities, soft LOS weight, noise | `verify` group `pathloss` |
+| 3GPP calibration | large-scale calibration of TR 38.901 clause 7.8.1: CDFs of coupling loss, SINR and SIR of UMa, UMi and the indoor office at 6 and 30 GHz inside the range of the 21 companies of R1-165974 ([details](calibration-3gpp.md)) | `verify` group `calibration`, `tests/test_calibration.py` |
 | Radio statistics | shadowing standard deviation (LOS, NLOS), spatial correlation, correlation between sites, LOS share against the LOS probability, time-varying part, L1 error, L3 filter | `verify` group `radio` |
 | Determinism | same world twice gives identical event logs; rule order changes nothing; engines batched in one step loop = engines run one by one; another seed differs; global random state untouched; a study gives the same fingerprints with one or two worker processes | `verify` group `invariants`, `tests/test_batch.py`, `tests/test_study.py` |
 | Equivalences | CHO with immediate execution = A3 (three settings); a plug-in rule that reduces to A3 = A3 | `verify` group `equivalences` |
-| Golden fingerprints | SHA-256 of the event logs of eight short reference runs (three scenarios, up to three rules) | `verify` group `fingerprints`, `tests/test_verify.py` |
+| Golden fingerprints | SHA-256 of the event logs of short reference runs (several scenarios, up to three rules each) | `verify` group `fingerprints`, `tests/test_verify.py` |
 | Regression against bh6 | ten cases, 36 runs: every metric and (for the wide sample) every event log identical to the prototype from which HandoverLab was ported | `tests/test_regression_bh6*.py` |
 | Reference case | ns-3 / 5G-LENA, 24 A3 settings on four conditions | `verify --ns3` |
 | Rule contract | any rule plug-in: construction, parameters, debug run, determinism, global random state, independence, optional equivalence | `handoverlab.testing.check_rule` |

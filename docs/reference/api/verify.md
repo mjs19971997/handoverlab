@@ -7,6 +7,11 @@ The checks of `handoverlab verify`.
       show_root_heading: true
       members_order: source
 
+::: handoverlab.verify.calibration
+    options:
+      show_root_heading: true
+      members_order: source
+
 ::: handoverlab.verify.ns3
     options:
       show_root_heading: true

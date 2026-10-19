@@ -1,5 +1,9 @@
 # Failure-model calibration against ns-3 / 5G-LENA
 
+The radio model itself is calibrated against 3GPP (TR 38.901 clause 7.8.1, the 21 companies of
+R1-165974); see [radio calibration against 3GPP](calibration-3gpp.md). This page is about the
+failure model, which no 3GPP calibration covers.
+
 **Summary (1.5.0).** Handover and unnecessary-handover rates of HandoverLab agree with ns-3 /
 5G-LENA. For failure rates, the order of settings and conditions agrees on part A and on both
 hold-out sets when the in-car loss of ns-3 and the restart of link monitoring are switched on

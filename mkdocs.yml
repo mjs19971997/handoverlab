@@ -63,6 +63,7 @@ nav:
           - Stability helpers: reference/api/stability.md
   - Explanation:
       - Verification: verification.md
+      - Radio calibration against 3GPP: calibration-3gpp.md
       - Failure-model calibration: calibration.md
       - Performance: performance.md
   - Project:

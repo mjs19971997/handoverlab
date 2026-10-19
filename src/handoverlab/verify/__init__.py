@@ -6,6 +6,8 @@ Check groups (all run by default, in this order):
 ``pathloss``      TR 38.901 path loss, breakpoint and LOS probability against hand values
 ``radio``         statistics of the radio model against its parameters (shadowing, LOS share, time variation,
                   L1 error, L3 filter)
+``calibration``   large-scale calibration of TR 38.901 clause 7.8.1 against the 21 companies of 3GPP
+                  R1-165974 (coupling loss, SINR and SIR CDFs of UMa, UMi and the indoor office at 6 and 30 GHz)
 ``invariants``    built-in rules in debug mode, conservation of counts, determinism, independence of rules
 ``equivalences``  CHO with immediate execution = A3; a plug-in rule that reduces to A3 = A3
 ``fingerprints``  golden event-log fingerprints of short reference runs
@@ -24,7 +26,7 @@ from typing import Callable, Optional, Sequence
 
 from .report import FAIL, NOTE, PASS, Check, Report, header
 
-GROUPS = ("pathloss", "radio", "invariants", "equivalences", "fingerprints")
+GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints")
 
 
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
@@ -49,6 +51,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "radio" in groups:
         from .radio import radio_statistics
         radio_statistics(rep, seeds=(3, 4, 5) if full else (3,))
+    if "calibration" in groups:
+        from .calibration import calibration_checks
+        calibration_checks(rep, n_users=30000 if full else 10000)
     if "invariants" in groups:
         from .engine_checks import invariant_checks
         invariant_checks(rep, duration_s=dur)
