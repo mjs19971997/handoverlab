@@ -33,6 +33,8 @@ nav:
       - A learning-based rule: guides/learning-rule.md
       - The upper mid-band: guides/upper-mid-band.md
       - A highway: guides/highway.md
+      - Indoor and rural scenarios: guides/indoor-rural.md
+      - Mobility robustness optimisation: guides/mro.md
       - Scenario cards:
           - smoke: scenarios/smoke.md
           - urban-grid-10ghz: scenarios/urban-grid-10ghz.md
@@ -40,6 +42,8 @@ nav:
           - ns3-urban-3.5ghz: scenarios/ns3-urban-3.5ghz.md
           - fr3-urban-15ghz: scenarios/fr3-urban-15ghz.md
           - highway-10ghz: scenarios/highway-10ghz.md
+          - indoor-office-4ghz: scenarios/indoor-office-4ghz.md
+          - rural-700mhz: scenarios/rural-700mhz.md
   - Reference:
       - Command line: reference/cli.md
       - Metric names: reference/metrics.md

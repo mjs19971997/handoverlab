@@ -20,6 +20,12 @@ Highway
     Roadside sites stand every ``site_spacing`` metres, ``site_offset`` metres
     beyond the road edge, alternately on the two sides.  ``ys`` holds the lane
     centre lines and ``street_width`` the lane width.
+
+Indoor (since 1.7.0)
+    The indoor office of TR 38.901 Table 7.2-2: a hall of 120 m x 50 m,
+    centred on the origin, without walls (the InH LOS probability stands for
+    them), ceiling sites on a rectangular grid every ``site_spacing`` metres
+    (20 m: 12 sites in two rows).
 """
 from __future__ import annotations
 
@@ -31,7 +37,7 @@ import numpy as np
 
 @dataclass
 class Layout:
-    kind: str                # "street_grid", "open_area" or "highway"
+    kind: str                # "street_grid", "open_area", "highway" or "indoor"
     sites: np.ndarray        # (M, 2) site positions [m]
     buildings: np.ndarray    # (B, 4) rectangles x0, y0, x1, y1 [m]
     xs: np.ndarray           # x of the north-south street centre lines
@@ -144,13 +150,32 @@ def highway(length: float = 2000.0, lanes: int = 3, lane_width: float = 4.0, sit
                   -length / 2.0, length / 2.0, -ext, ext)
 
 
+def indoor(size: Tuple[float, float] = (120.0, 50.0), site_spacing: float = 20.0,
+           sites: Optional[Sequence[Sequence[float]]] = None) -> Layout:
+    """Indoor hall centred on the origin with sites on a rectangular grid (TR 38.901 Table 7.2-2)."""
+    w, h = size
+    if sites is None:
+        gx, gy = np.meshgrid(_along(w, site_spacing), _along(h, site_spacing))
+        site_arr = np.c_[gx.ravel(), gy.ravel()]
+    else:
+        site_arr = np.asarray(sites, dtype=float).reshape(-1, 2)
+    return Layout("indoor", site_arr, np.zeros((0, 4)), np.array([]), np.array([]), 0.0,
+                  -w / 2.0, w / 2.0, -h / 2.0, h / 2.0)
+
+
+#: hall size of the indoor layout when ``layout.area_m`` is not set (TR 38.901 Table 7.2-2)
+INDOOR_SIZE_M = (120.0, 50.0)
+
+
 def make_layout(cfg) -> Layout:
     """Layout from a :class:`handoverlab.config.LayoutConfig`."""
     if cfg.kind == "street_grid":
         return street_grid(cfg.blocks, cfg.pitch_m, cfg.street_width_m, cfg.site_spacing_m,
                            cfg.site_offset_m, cfg.sites)
     if cfg.kind == "open_area":
-        return open_area(cfg.size_m, cfg.site_spacing_m, cfg.sites)
+        return open_area(cfg.area_m or cfg.size_m, cfg.site_spacing_m, cfg.sites)
+    if cfg.kind == "indoor":
+        return indoor(cfg.area_m or INDOOR_SIZE_M, cfg.site_spacing_m, cfg.sites)
     if cfg.kind == "highway":
         return highway(cfg.road_length_m, cfg.lanes, cfg.lane_width_m, cfg.site_spacing_m, cfg.site_offset_m,
                        cfg.sites)

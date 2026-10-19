@@ -7,6 +7,37 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-19
+
+### Added
+
+- Indoor and rural scenarios from TR 38.901. Path-loss models `radio.pathloss: rma` (RMa, LOS with
+  its breakpoint and NLOS, default W = 20 m and h = 5 m, 0.5-30 GHz) and `inh_office` (InH-Office,
+  LOS probability of the mixed office), each with its LOS probability of Table 7.4.2-1; the layout
+  kind `indoor` (the indoor office of Table 7.2-2: a hall of 120 m x 50 m with ceiling sites on a
+  rectangular grid); the key `layout.area_m` (size of the open area or the indoor hall); the
+  mobility profiles `ped3` (about 3 km/h) and `veh120` (about 120 km/h). Two scenario cards,
+  `indoor-office-4ghz` and `rural-700mhz`, with the link budgets of the IMT-2020 Indoor Hotspot-eMBB
+  and Rural-eMBB evaluations (ITU-R M.2412-0 Table 5), and the how-to `docs/guides/indoor-rural.md`.
+- The optional soft LOS state of TR 38.901 clause 7.6.3.3 (`radio.soft_los`, `radio.soft_los_d_m`):
+  the received power mixes the LOS and NLOS powers with the weights LOS_soft^2 and 1 - LOS_soft^2
+  (Eq. 7.6-18 and 7.6-19) instead of switching hard. It uses the random process of the hard state
+  and reduces to it for a very steep transition. The two new scenario cards use it.
+- `radio.shadow_los_far_db`: shadowing of LOS links beyond the breakpoint (RMa: 6 dB instead of
+  4 dB, Table 7.4.1-1).
+- Mobility robustness optimisation: the rule `a3_mro` (class `MROA3`). Event A3 with a cell
+  individual offset per pair of serving and neighbour cell, moved by a deterministic counter rule
+  once per window: earlier after too-late handovers and link failures, later after too-early,
+  wrong-cell and ping-pong handovers (the failure classes of TS 38.300 clause 15.5.2; a ping-pong is
+  a return to the previous cell within `protocol.pingpong_s`, seen in the serving cell). With
+  `step_db: 0` it gives exactly the results of `a3`. How-to: `docs/guides/mro.md`.
+- The `pathloss` group of `handoverlab verify` checks RMa, InH, both LOS probabilities and the soft
+  LOS weight against values computed by hand. Golden fingerprints `indoor`, `rural`, `rural-hard`,
+  `smoke-soft` and `smoke-mro`.
+
+The fingerprints of 1.6.0 are unchanged: the new keys are left out of scenario dictionaries and
+job IDs at their default, so the results of every existing scenario and rule stay as they were.
+
 ## [1.6.0] - 2026-10-19
 
 ### Added
@@ -494,7 +525,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/mjs19971997/handoverlab/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/mjs19971997/handoverlab/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/mjs19971997/handoverlab/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/mjs19971997/handoverlab/compare/v1.3.0...v1.4.0

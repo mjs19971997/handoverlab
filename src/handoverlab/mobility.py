@@ -7,7 +7,8 @@ of TR 37.885); each user keeps a constant lateral displacement from the centre
 line and a constant speed.  Open area: straight legs between random waypoints.
 Highway (since 1.0.0rc3): lane-keeping vehicles at a constant speed in one
 lane; at the end of the road a vehicle turns into the same lane of the other
-direction, so that it stays on the road without jumping.
+direction, so that it stays on the road without jumping.  Indoor (since
+1.7.0): random waypoints as in the open area, 2 m away from the walls.
 """
 from __future__ import annotations
 
@@ -32,6 +33,10 @@ PROFILES: Dict[str, List[SpeedGroup]] = {
     "hwy": [SpeedGroup(1.0, 70.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],    # 70-140 km/h
     "hwy70": [SpeedGroup(1.0, 63.0 / 3.6, 77.0 / 3.6, (0.0, 0.5))],   # about 70 km/h
     "hwy140": [SpeedGroup(1.0, 126.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],  # up to 140 km/h
+    # indoor and rural (since 1.7.0): TR 38.901 Table 7.2-2 (indoor office: 3 km/h); rural users in cars at
+    # 120 km/h (TR 38.913 rural evaluation; TR 38.901 Table 7.2-3 gives the users as 50 % indoor, 50 % in car)
+    "ped3": [SpeedGroup(1.0, 2.7 / 3.6, 3.3 / 3.6, (0.0, 0.0))],      # about 3 km/h
+    "veh120": [SpeedGroup(1.0, 108.0 / 3.6, 132.0 / 3.6, (0.0, 0.0))],  # about 120 km/h
 }
 
 _DX = np.array([1.0, 0.0, -1.0, 0.0])      # heading index 0: east, 1: north, 2: west, 3: south
@@ -92,14 +97,25 @@ def grid_waypoints(layout, v: float, t_end: float, rng):
     return np.array(T), np.array(Xb), np.array(Yb), np.array(Hb)
 
 
-def open_waypoints(layout, v: float, t_end: float, rng, margin: float = 10.0):
-    """Break points of one user in the open area (random waypoints, straight legs)."""
+def open_waypoints(layout, v: float, t_end: float, rng, margin: float = 10.0, min_dist: float = 0.0):
+    """Break points of one user in the open area (random waypoints, straight legs).
+
+    With ``min_dist > 0`` (since 1.7.0) a start or waypoint closer than that to a site is drawn again.
+    """
     x0, x1, y0, y1 = layout.xmin + margin, layout.xmax - margin, layout.ymin + margin, layout.ymax - margin
-    x, y = rng.uniform(x0, x1), rng.uniform(y0, y1)
+    sites = layout.sites
+
+    def point():
+        while True:
+            px, py = rng.uniform(x0, x1), rng.uniform(y0, y1)
+            if min_dist <= 0.0 or np.min(np.hypot(sites[:, 0] - px, sites[:, 1] - py)) >= min_dist:
+                return px, py
+
+    x, y = point()
     T, Xb, Yb = [0.0], [x], [y]
     t = 0.0
     while t < t_end:
-        nx_, ny_ = rng.uniform(x0, x1), rng.uniform(y0, y1)
+        nx_, ny_ = point()
         t += max(np.hypot(nx_ - x, ny_ - y), 1.0) / v
         x, y = nx_, ny_
         T.append(t); Xb.append(x); Yb.append(y)
@@ -135,11 +151,12 @@ def highway_waypoints(layout, v: float, t_end: float, rng):
     return np.array(T), np.array(Xb), np.array(Yb), np.array(Hb)
 
 
-def trajectories(layout, mobility, duration_s: float, step_s: float, rng):
+def trajectories(layout, mobility, duration_s: float, step_s: float, rng, min_dist: float = 0.0):
     """Trajectories of all users.
 
     Returns ``x, y`` (S, U) positions [m], ``speed`` (U,) [m/s] and
-    ``heading`` (S, U) [rad], one row per simulation step.
+    ``heading`` (S, U) [rad], one row per simulation step.  ``min_dist``: minimum distance of a
+    start or waypoint from every site in the open area and indoors (since 1.7.0).
     """
     S = int(round(duration_s / step_s))
     U = mobility.users
@@ -157,8 +174,10 @@ def trajectories(layout, mobility, duration_s: float, step_s: float, rng):
             T, Xb, Yb, Hb = grid_waypoints(layout, v[u], duration_s + step_s, rng)
         elif layout.kind == "highway":
             T, Xb, Yb, Hb = highway_waypoints(layout, v[u], duration_s + step_s, rng)
+        elif layout.kind == "indoor":
+            T, Xb, Yb, Hb = open_waypoints(layout, v[u], duration_s + step_s, rng, margin=2.0, min_dist=min_dist)
         else:
-            T, Xb, Yb, Hb = open_waypoints(layout, v[u], duration_s + step_s, rng)
+            T, Xb, Yb, Hb = open_waypoints(layout, v[u], duration_s + step_s, rng, min_dist=min_dist)
         X[:, u] = np.interp(t, T, Xb) + off[u, 0]
         Y[:, u] = np.interp(t, T, Yb) + off[u, 1]
         leg = np.clip(np.searchsorted(T, t, side="right") - 1, 0, len(T) - 2)

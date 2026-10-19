@@ -57,6 +57,22 @@ def cases() -> Dict[str, Dict[str, Any]]:
         "smoke-cltm": dict(scenario=smoke.with_overrides({"name": "smoke-cltm", "radio.isolation": 1.0,
                                                           "mobility.profile": "veh30"}), seed=5,
                            rules=[{"rule": "ltm", "name": "LTM"}, {"rule": "cltm", "name": "CLTM"}]),
+        # since 1.7.0: the indoor and rural scenarios (shortened) and mobility robustness optimisation
+        "indoor": dict(scenario=builtin_scenario("indoor-office-4ghz").with_overrides({
+            "name": "indoor", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 12}),
+            seed=6, rules=RULES[::2]),
+        "rural": dict(scenario=builtin_scenario("rural-700mhz").with_overrides({
+            "name": "rural", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 8,
+            "layout.area_m": [4000.0, 2000.0]}), seed=7, rules=RULES[::2]),
+        "smoke-soft": dict(scenario=smoke.with_overrides({"name": "smoke-soft", "radio.soft_los": True}),
+                           seed=9, rules=RULES[:1]),
+        "rural-hard": dict(scenario=builtin_scenario("rural-700mhz").with_overrides({
+            "name": "rural-hard", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 8,
+            "layout.area_m": [4000.0, 2000.0], "radio.soft_los": False}), seed=7, rules=RULES[::2]),
+        "smoke-mro": dict(scenario=smoke.with_overrides({"name": "smoke-mro", "radio.isolation": 1.0,
+                                                         "mobility.profile": "veh30", "run.duration_s": 60.0}),
+                          seed=8, rules=[RULES[0], {"rule": "a3_mro", "name": "A3-MRO", "window_s": 5.0,
+                                                    "step_db": 1.0}]),
     }
 
 

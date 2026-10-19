@@ -2,7 +2,7 @@
 """Checks of the radio model against the formulas of 3GPP TR 38.901.
 
 ``pathloss_checks``
-    Path loss, breakpoint distance and LOS probability against values
+    Path loss (UMi, UMa, RMa, InH), breakpoint distance and LOS probability against values
     computed by hand from TR 38.901 Tables 7.4.1-1 and 7.4.2-1 (independently
     of the implementation), continuity at the breakpoint, NLOS >= LOS, noise.
 
@@ -59,6 +59,33 @@ def _hand_uma_nlos(d, fc, hb=25.0, hu=1.5):
     return max(_hand_uma_los(d, fc, hb, hu), 13.54 + 39.08 * math.log10(d3) + 20 * math.log10(fc) - 0.6 * (hu - 1.5))
 
 
+def _hand_rma_los(d, fc, hb=35.0, hu=1.5, h=5.0):
+    def pl1(d3):
+        return (20 * math.log10(40 * math.pi * d3 * fc / 3) + min(0.03 * h ** 1.72, 10) * math.log10(d3)
+                - min(0.044 * h ** 1.72, 14.77) + 0.002 * math.log10(h) * d3)
+    d3 = math.hypot(d, hb - hu)
+    dbp = 2 * math.pi * hb * hu * fc * 1e9 / C0
+    d3bp = math.hypot(dbp, hb - hu)
+    return pl1(d3) if d <= dbp else pl1(d3bp) + 40 * math.log10(d3 / d3bp)
+
+
+def _hand_rma_nlos(d, fc, hb=35.0, hu=1.5, w=20.0, h=5.0):
+    d3 = math.hypot(d, hb - hu)
+    p = (161.04 - 7.1 * math.log10(w) + 7.5 * math.log10(h) - (24.37 - 3.7 * (h / hb) ** 2) * math.log10(hb)
+         + (43.42 - 3.1 * math.log10(hb)) * (math.log10(d3) - 3) + 20 * math.log10(fc)
+         - (3.2 * math.log10(11.75 * hu) ** 2 - 4.97))
+    return max(_hand_rma_los(d, fc, hb, hu), p)
+
+
+def _hand_inh_los(d, fc, hb=3.0, hu=1.0):
+    return 32.4 + 17.3 * math.log10(math.hypot(d, hb - hu)) + 20 * math.log10(fc)
+
+
+def _hand_inh_nlos(d, fc, hb=3.0, hu=1.0):
+    d3 = math.hypot(d, hb - hu)
+    return max(_hand_inh_los(d, fc, hb, hu), 38.3 * math.log10(d3) + 17.30 + 24.9 * math.log10(fc))
+
+
 def pathloss_checks(rep) -> None:
     rep.section("pathloss", "path loss and LOS probability (TR 38.901 Tables 7.4.1-1, 7.4.2-1), by hand")
     cases = [  # name, model, los, d2d, fc, h_bs, published hand value or None
@@ -70,12 +97,22 @@ def pathloss_checks(rep) -> None:
         ("UMa LOS  3.5 GHz, d2D 100 m, hBS 25 m", "uma", True, 100.0, 3.5, 25.0, 83.138),
         ("UMa NLOS 3.5 GHz, d2D 100 m, hBS 25 m", "uma", False, 100.0, 3.5, 25.0, 103.038),
         ("UMa LOS  7 GHz, d2D 1500 m (PL2)", "uma", True, 1500.0, 7.0, 25.0, None),
+        # since 1.7.0; reference values of this release, computed by hand from Table 7.4.1-1
+        ("RMa LOS  0.7 GHz, d2D 500 m, hBS 35 m (PL1, below dBP 770.2 m)", "rma", True, 500.0, 0.7, 35.0, 84.633),
+        ("RMa LOS  0.7 GHz, d2D 2000 m (PL2)", "rma", True, 2000.0, 0.7, 35.0, 105.403),
+        ("RMa NLOS 0.7 GHz, d2D 500 m", "rma", False, 500.0, 0.7, 35.0, 104.843),
+        ("RMa NLOS 3.5 GHz, d2D 1000 m", "rma", False, 1000.0, 3.5, 35.0, 130.424),
+        ("InH LOS  4 GHz, d2D 10 m, hBS 3 m, hUT 1 m", "inh_office", True, 10.0, 4.0, 3.0, 61.889),
+        ("InH NLOS 4 GHz, d2D 40 m", "inh_office", False, 40.0, 4.0, 3.0, 93.671),
     ]
     hand = {("umi_street_canyon", True): _hand_umi_los, ("umi_street_canyon", False): _hand_umi_nlos,
-            ("uma", True): _hand_uma_los, ("uma", False): _hand_uma_nlos}
+            ("uma", True): _hand_uma_los, ("uma", False): _hand_uma_nlos,
+            ("rma", True): _hand_rma_los, ("rma", False): _hand_rma_nlos,
+            ("inh_office", True): _hand_inh_los, ("inh_office", False): _hand_inh_nlos}
     for name, model, los, d, fc, hb, pub in cases:
-        code = float(pl.path_loss(np.array([d]), np.array([los]), model, fc, hb, 1.5)[0])
-        ref = hand[(model, los)](d, fc, hb)
+        hu = 1.0 if model == "inh_office" else 1.5
+        code = float(pl.path_loss(np.array([d]), np.array([los]), model, fc, hb, hu)[0])
+        ref = hand[(model, los)](d, fc, hb, hu)
         ok = abs(code - ref) < 1e-9 and (pub is None or abs(code - pub) < 5e-4)
         table = "" if pub is None else ", table %.3f" % pub
         rep.check(name, ok, "code %.4f dB, by hand %.4f dB%s" % (code, ref, table))
@@ -90,12 +127,44 @@ def pathloss_checks(rep) -> None:
             ref = 1.0 if d <= 18.0 else 18.0 / d + math.exp(-d / dc) * (1.0 - 18.0 / d)
             code = float(pl.p_los(np.array(d), model))
             rep.check("%s LOS probability at %g m" % (name, d), abs(code - ref) < 1e-12, "%.4f" % code)
+    dbp_r = pl.rma_breakpoint(0.7, 35.0, 1.5)
+    rep.check("RMa breakpoint distance dBP = 2 pi hBS hUT fc / c, 0.7 GHz, 35 m / 1.5 m",
+              abs(dbp_r - 770.223) < 1e-3, "%.4f m" % dbp_r)
+    a, b = pl.rma_los(np.array(dbp_r - 1e-7), 0.7), pl.rma_los(np.array(dbp_r + 1e-7), 0.7)
+    rep.check("RMa LOS continuous at the breakpoint", abs(float(a) - float(b)) < 1e-4, "%.4f / %.4f dB" % (a, b))
+    for model, name, f in (("rma", "RMa", lambda d: 1.0 if d <= 10.0 else math.exp(-(d - 10.0) / 1000.0)),
+                           ("inh_office", "InH mixed office",
+                            lambda d: 1.0 if d <= 1.2 else (math.exp(-(d - 1.2) / 4.7) if d < 6.5
+                                                            else 0.32 * math.exp(-(d - 6.5) / 32.6)))):
+        for d in ((5.0, 500.0, 2000.0) if model == "rma" else (1.0, 4.0, 20.0)):
+            code = float(pl.p_los(np.array(d), model))
+            rep.check("%s LOS probability at %g m" % (name, d), abs(code - f(d)) < 1e-12, "%.4f" % code)
+    # soft LOS state (TR 38.901 Eq. 7.6-18 and 7.6-19, since 1.7.0): power weight LOS_soft^2
+    for z, fc, ref in ((0.1, 10.0, 0.7786628), (-0.2, 0.7, 0.0404275)):
+        code = float(pl.soft_los_power_weight(z, fc))
+        lam = C0 / (fc * 1e9)
+        hand = (0.5 + math.atan(math.sqrt(20.0 / lam) * z) / math.pi) ** 2
+        rep.check("soft LOS power weight, z = G + F(d) = %g, %g GHz" % (z, fc),
+                  abs(code - hand) < 1e-12 and abs(code - ref) < 1e-6, "%.6f" % code)
+    w = pl.soft_los_power_weight(np.array([-1e6, 0.0, 1e6]), 3.5)
+    mixed = pl.mix_db(np.array([0.0, 0.5, 1.0]), -80.0, -100.0)
+    rep.check("soft LOS: hard limits and the power mixture",
+              abs(w[0]) < 1e-9 and abs(w[1] - 0.25) < 1e-12 and abs(w[2] - 1.0) < 1e-6
+              and abs(mixed[0] + 100.0) < 1e-9 and abs(mixed[2] + 80.0) < 1e-9
+              and abs(mixed[1] - 10 * math.log10(0.5e-8 + 0.5e-10)) < 1e-9,
+              "%.4f / %.4f / %.4f dB" % tuple(mixed))
     d = np.linspace(10.0, 2000.0, 400)
     ok = True
     for fc in (3.5, 7.0, 10.0, 15.0, 28.0):
         for model, hb in (("umi_street_canyon", 10.0), ("uma", 25.0)):
             ok &= bool(np.all(pl.path_loss(d, False, model, fc, hb, 1.5) >= pl.path_loss(d, True, model, fc, hb, 1.5)))
     rep.check("NLOS loss >= LOS loss everywhere (UMi and UMa, 3.5-28 GHz, 10-2000 m)", ok)
+    ok = all(bool(np.all(pl.path_loss(d, False, "rma", fc, 35.0, 1.5) >= pl.path_loss(d, True, "rma", fc, 35.0, 1.5)))
+             for fc in (0.7, 3.5, 7.0, 28.0))
+    di = np.linspace(1.0, 150.0, 300)
+    ok &= all(bool(np.all(pl.path_loss(di, False, "inh_office", fc, 3.0, 1.0)
+                          >= pl.path_loss(di, True, "inh_office", fc, 3.0, 1.0))) for fc in (2.0, 4.0, 28.0, 60.0))
+    rep.check("NLOS loss >= LOS loss everywhere (RMa 0.7-28 GHz, 10-2000 m; InH 2-60 GHz, 1-150 m)", ok)
     n = Scenario().radio.noise_dbm
     rep.check("thermal noise -174 dBm/Hz over 200 MHz plus a noise figure of 7 dB",
               abs(n - (-174.0 + 10.0 * math.log10(200e6) + 7.0)) < 1e-9 and abs(n + 83.990) < 1e-3, "%.3f dBm" % n)

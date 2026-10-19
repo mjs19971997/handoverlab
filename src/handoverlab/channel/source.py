@@ -29,7 +29,7 @@ from scipy.signal import lfilter
 from scipy.special import ndtri
 
 from ..seeds import streams
-from .pathloss import p_los, path_loss
+from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, soft_los_power_weight
 
 LN10_10 = np.log(10.0) / 10.0
 
@@ -95,6 +95,28 @@ class RadioSource:
             out[:, u, :] = _ar1(rng.standard_normal((n, self.M)), r_u[u], z[u])
         return out
 
+    def _soft_open(self, x, y, sites, n, shape):
+        """Static part of the received power with the soft LOS state (open area, indoor; since 1.7.0).
+
+        The LOS process along each user's path gives ``G + F(d)``; the LOS and NLOS powers, each with
+        its own path loss and shadowing standard deviation on the same unit shadowing, are mixed with
+        the weights LOS_soft^2 and 1 - LOS_soft^2 (TR 38.901 Eq. 7.6-18 and 7.6-19).
+        """
+        R, rmap = self.R, self.rmap
+        d2 = np.hypot(x[:, None] - sites[None, :, 0], y[:, None] - sites[None, :, 1])
+        g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
+        self.zl = g[-1].copy()
+        z = ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
+        u = rmap.lookup(x, y).astype(np.float64) if rmap.has_field else np.zeros_like(d2)
+        if self.own:
+            o = self._ar1_users(self.rng_o, self.r_o, self.zo, n)
+            self.zo = o[-1].copy()
+            u += np.sqrt(1.0 - R.place_share) * o.reshape(d2.shape)
+        args = (R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m)
+        g_l = -path_loss(d2, True, *args) + los_shadow_sd(d2, R) * u
+        g_n = -path_loss(d2, False, *args) + R.shadow_nlos_db * u
+        return mix_db(soft_los_power_weight(z, R.carrier_ghz, R.soft_los_d_m), g_l, g_n).reshape(shape)
+
     def chunks(self) -> Iterator[Chunk]:
         """Yield :class:`Chunk` objects covering the whole run in order."""
         R, rmap = self.R, self.rmap
@@ -106,20 +128,24 @@ class RadioSource:
             y = self.Y[k0:k1].ravel()
             shape = (n, self.U, self.M)
             sig = None
-            if rmap.is_grid:
+            if not rmap.is_grid and R.soft_los:
+                rs = self._soft_open(x, y, sites, n, shape)
+            elif rmap.is_grid:
                 rs = rmap.lookup(x, y).astype(np.float64).reshape(shape)
                 if self.own:
-                    sig = np.where(rmap.los_at(x, y), R.shadow_los_db, R.shadow_nlos_db).reshape(shape)
+                    s_los = R.shadow_los_db if R.shadow_los_far_db is None else los_shadow_sd(
+                        np.hypot(x[:, None] - sites[None, :, 0], y[:, None] - sites[None, :, 1]), R)
+                    sig = np.where(rmap.los_at(x, y), s_los, R.shadow_nlos_db).reshape(shape)
             else:
                 d2 = np.hypot(x[:, None] - sites[None, :, 0], y[:, None] - sites[None, :, 1])
                 g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
                 self.zl = g[-1].copy()
                 los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9))
                 rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m).reshape(shape)
-                sig = np.where(los, R.shadow_los_db, R.shadow_nlos_db).reshape(shape)
+                sig = np.where(los, los_shadow_sd(d2, R), R.shadow_nlos_db).reshape(shape)
                 if rmap.has_field:
                     rs += rmap.lookup(x, y).astype(np.float64).reshape(shape) * sig
-            if self.own:
+            if self.own and sig is not None:
                 o = self._ar1_users(self.rng_o, self.r_o, self.zo, n)
                 self.zo = o[-1].copy()
                 rs += np.sqrt(1.0 - R.place_share) * sig * o

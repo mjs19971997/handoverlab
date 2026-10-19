@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="291" viewBox="0 0 640 291">
+<rect x="0" y="0" width="640" height="267" fill="#f4f4f0" stroke="#999"/>
+<circle cx="53.3" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="160.0" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="266.7" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="373.3" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="480.0" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="586.7" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="53.3" cy="80.0" r="3" fill="#c0392b"/>
+<circle cx="160.0" cy="80.0" r="3" fill="#c0392b"/>
+<circle cx="266.7" cy="80.0" r="3" fill="#c0392b"/>
+<circle cx="373.3" cy="80.0" r="3" fill="#c0392b"/>
+<circle cx="480.0" cy="80.0" r="3" fill="#c0392b"/>
+<circle cx="586.7" cy="80.0" r="3" fill="#c0392b"/>
+<text x="4" y="284" font-family="sans-serif" font-size="12" fill="#333">indoor-office-4ghz: 12 sites, 120 m x 50 m (grey: buildings, red: sites)</text>
+</svg>

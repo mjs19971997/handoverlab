@@ -5,11 +5,11 @@
 A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
-conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid, an open area or along a highway, with a
+conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid, an open area, along a highway, in an indoor office or across rural cells, with a
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.6.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.7.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -42,9 +42,10 @@ multiple-comparison correction and writes an HTML report:
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
   pitch, 20 m streets) with sites on the pavement, an open area with a hexagonal site grid, a
-  highway, explicit site lists, and built-in scenario cards (`handoverlab scenarios`).
-- **Channel**: TR 38.901 UMi street canyon and UMa path loss (LOS/NLOS); line of sight from the
-  building geometry plus the spatially consistent LOS state; spatially correlated shadowing; a
+  highway, the TR 38.901 indoor office, rural macro cells, explicit site lists, and built-in
+  scenario cards (`handoverlab scenarios`).
+- **Channel**: TR 38.901 UMi street canyon, UMa, RMa and InH-Office path loss (LOS/NLOS); line of sight from the
+  building geometry plus the spatially consistent LOS state, hard or soft; spatially correlated shadowing; a
   time-varying component; L1 measurement error; beam gain and load-coupled interference;
   optionally a penetration loss per user (in-car loss of TR 38.901).
 - **Mobility**: street-following users with turn probabilities, random waypoints in the open area,
@@ -56,7 +57,8 @@ multiple-comparison correction and writes an HTML report:
   reporting for conditional handover.
 - **Handover procedures**: baseline handover (report, preparation, command, execution), Rel-16
   conditional handover (up to 8 prepared candidates) and DAPS handover, Rel-18 L1/L2-triggered
-  mobility and conditional LTM from the Rel-19 work, behind a small rule interface. Rules that learn from outcomes are supported.
+  mobility and conditional LTM from the Rel-19 work, behind a small rule interface. Rules that learn from outcomes are supported, among them
+  mobility robustness optimisation of a cell individual offset per cell pair (`a3_mro`).
 - **Failure model**: Qout/Qin with windows, N310/N311/T310, lost commands and configurations,
   execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), with options for
   the link monitoring (own interferer load, restart on a new cell, ideal random access).
@@ -72,7 +74,8 @@ multiple-comparison correction and writes an HTML report:
 HandoverLab targets the questions of dense beyond-5G networks: small cells 50-300 m apart, the
 upper mid-band (FR3, 7-24 GHz; the scenario `fr3-urban-15ghz`, 10 GHz by default), and the
 mobility procedures beyond baseline handover: conditional handover, DAPS handover,
-L1/L2-triggered mobility of Release 18 and conditional LTM from the Release 19 work, next to rules that learn from handover outcomes. The cost
+L1/L2-triggered mobility of Release 18 and conditional LTM from the Release 19 work, next to rules that learn from handover outcomes and
+A3 tuned by mobility robustness optimisation, the fair baseline for a new rule. The cost
 of each procedure (signalling, prepared cells, interruption, energy) is measured next to its
 benefit.
 
@@ -101,6 +104,9 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.7.0**: indoor office (TR 38.901 InH) and rural (RMa) scenarios with the IMT-2020 link
+  budgets, the optional soft LOS state of TR 38.901, and the rule `a3_mro` (mobility robustness
+  optimisation of a cell individual offset per cell pair).
 - **1.6.0**: conditional LTM (rule `cltm`), from the Release 19 work on L1/L2-triggered mobility.
 - **1.5.0**: signalling and energy metrics (RRC messages, handover commands, L1 measurements,
   site power and energy per bit); why failure rates differ from ns-3, stated in the README.
@@ -259,8 +265,9 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     forms and CI for every test on Windows.
 13. 1.4.0: traffic models per user, a richer dashboard, pictures in the README.
 14. 1.5.0: signalling and energy metrics.
-15. **1.6.0 (this release)**: conditional LTM.
-16. Later (planned, not done): optional compiled kernels for the step loop, a TR 38.901
+15. 1.6.0: conditional LTM.
+16. **1.7.0 (this release)**: indoor and rural scenarios; mobility robustness optimisation.
+17. Later (planned, not done): optional compiled kernels for the step loop, a TR 38.901
     calibration scenario.
 
 ## Citation

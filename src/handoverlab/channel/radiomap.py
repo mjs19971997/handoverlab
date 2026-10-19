@@ -28,7 +28,7 @@ from scipy.special import ndtri
 
 from ..layout import Layout, los_matrix
 from ..seeds import streams
-from .pathloss import p_los, path_loss
+from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, soft_los_power_weight
 
 FLOOR_DB = -300.0
 
@@ -149,13 +149,27 @@ class RadioMap:
                 ip, im = np.nonzero(los)
                 lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0).at_pairs(px, py, ip, im)
                 dd = d2[ip, im]
-                los[ip, im] = lat < ndtri(np.clip(p_los(dd, radio.pathloss), 1e-9, 1.0 - 1e-9))
+                thr = ndtri(np.clip(p_los(dd, radio.pathloss), 1e-9, 1.0 - 1e-9))
+                los[ip, im] = lat < thr
+                if radio.soft_los:                        # soft LOS on the links the buildings leave clear
+                    w = soft_los_power_weight(thr - lat, radio.carrier_ghz, radio.soft_los_d_m)
+                    sh = shadow[ip, im].astype(np.float64) if shadow is not None else 0.0
+                    del lat, thr
             gain[...] = path_loss(d2, los, radio.pathloss, radio.carrier_ghz, radio.bs_height_m,
                                   radio.ue_height_m)
             np.negative(gain, out=gain)
             if shadow is not None:
-                shadow *= np.where(los, np.float32(radio.shadow_los_db), np.float32(radio.shadow_nlos_db))
+                if radio.shadow_los_far_db is None:
+                    shadow *= np.where(los, np.float32(radio.shadow_los_db), np.float32(radio.shadow_nlos_db))
+                else:
+                    shadow *= np.where(los, los_shadow_sd(d2, radio), radio.shadow_nlos_db).astype(np.float32)
                 gain += shadow
+            if radio.clutter_los and radio.soft_los:
+                args = (radio.pathloss, radio.carrier_ghz, radio.bs_height_m, radio.ue_height_m)
+                g_l = -path_loss(dd, True, *args) + los_shadow_sd(dd, radio) * sh
+                g_n = -path_loss(dd, False, *args) + radio.shadow_nlos_db * sh
+                gain[ip, im] = mix_db(w, g_l, g_n)
+                del g_l, g_n, w, sh
             self.los = np.zeros((P + 1, M), dtype=bool)
             self.los[:P] = los
             self.los_share = float(los.mean())

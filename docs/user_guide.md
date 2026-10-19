@@ -63,6 +63,31 @@ same lane of the other direction. The profiles `hwy` (70-140 km/h), `hwy70` (abo
 `hwy140` (126-140 km/h) are meant for it. See the how-to [highway and vehicular
 scenarios](guides/highway.md).
 
+### Indoor (`layout.kind = "indoor"`, since 1.7.0)
+
+The indoor office of TR 38.901 Table 7.2-2: a hall of 120 m x 50 m (`layout.area_m`) centred on
+the origin, without walls, with ceiling sites on a rectangular grid every `layout.site_spacing_m`
+metres (20 m gives the 12 sites of the standard). As in the open area, the LOS state is a process
+along each user's path; use it with `radio.pathloss: inh_office`, whose LOS probability stands for
+the walls and furniture. Users move between random waypoints at least 2 m from the walls; the
+profile `ped3` (about 3 km/h) is meant for it. `layout.area_m` (since 1.7.0) also sets the size
+of the open area, for example for large rural cells. See the how-to [indoor and rural
+scenarios](guides/indoor-rural.md).
+
+### Soft LOS state (`radio.soft_los`, since 1.7.0)
+
+By default the LOS state of a link switches hard between LOS and NLOS along a user's path. With
+`radio.soft_los: true` HandoverLab uses the optional soft LOS state of TR 38.901 clause 7.6.3.3
+(V17.0.0, Eq. 7.6-18 and 7.6-19): `LOS_soft = 1/2 + arctan(sqrt(soft_los_d_m / lambda) (G + F(d))) / pi`
+with the wavelength `lambda`, `F(d) = sqrt(2) erf^-1(2 Pr_LOS(d) - 1)` and `G` the same spatially
+consistent Gaussian process that sets the hard state, so the soft state turns into the hard one for
+a very large `soft_los_d_m`. The channel `H = H_LOS LOS_soft + H_NLOS sqrt(1 - LOS_soft^2)` becomes,
+at the received-power level of HandoverLab, the power mixture `LOS_soft^2 P_LOS + (1 - LOS_soft^2) P_NLOS`,
+each with its own path loss and shadowing standard deviation on the same shadowing field. On the
+street grid the buildings still block hard; the soft state applies to the clutter LOS state of the
+links that the buildings leave clear. With `radio.place_share < 1` on the grid, the part of the
+shadowing that moves with the user takes the standard deviation of the dominant state.
+
 ### Sites from a file
 
 `layout.sites_file` (since 1.0.0rc3) names a CSV file with a header row and the columns `x` and
@@ -84,6 +109,8 @@ parameter with its source, known limitations and the reference results it was ch
 | [`ns3-urban-3.5ghz`](scenarios/ns3-urban-3.5ghz.md) | the set-up of the comparison with ns-3 / 5G-LENA: seven sites, 3.5 GHz, light load |
 | [`fr3-urban-15ghz`](scenarios/fr3-urban-15ghz.md) | the default grid in the upper mid-band (FR3): 15 GHz, 400 MHz, 3.5 dB more beam gain (since 1.0.0rc2) |
 | [`highway-10ghz`](scenarios/highway-10ghz.md) | the TR 37.885 highway: 2000 m, 3 + 3 lanes, roadside sites every 500 m, vehicles at 70-140 km/h (since 1.0.0rc3) |
+| [`indoor-office-4ghz`](scenarios/indoor-office-4ghz.md) | the TR 38.901 indoor office: 120 m x 50 m hall, 12 ceiling sites 20 m apart, InH path loss at 4 GHz, pedestrians at 3 km/h (since 1.7.0) |
+| [`rural-700mhz`](scenarios/rural-700mhz.md) | rural macro cells: 11 sites 35 m high, 1732 m apart, RMa path loss at 700 MHz, vehicles at 120 km/h (since 1.7.0) |
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
@@ -124,6 +151,7 @@ output: results/metrics.csv
 | | `lanes`, `lane_width_m` | `3`, `4` | highway: lanes per direction and their width [m] (since 1.0.0rc3) |
 | | `road_length_m` | `2000` | highway: length of the road [m] (since 1.0.0rc3) |
 | | `sites_file` | none | CSV file with columns `x`, `y` that fills `sites` (since 1.0.0rc3) |
+| | `area_m` | none | open area and indoor: width and height of the rectangle [m]; unset: the grid size (open area), 120 x 50 (indoor) (since 1.7.0) |
 | `radio` | `carrier_ghz` | `10` | carrier frequency (0.5-100 GHz) |
 | | `bandwidth_mhz` | `200` | carrier bandwidth |
 | | `tx_power_dbm` | `35` | transmit power per site |
@@ -131,13 +159,15 @@ output: results/metrics.csv
 | | `noise_figure_db` | `7` | UE noise figure |
 | | `isolation` | `0.3` | mean-to-peak gain of an interfering data beam (1 = no beam isolation) |
 | | `bs_height_m`, `ue_height_m` | `10`, `1.5` | antenna heights |
-| | `pathloss` | `umi_street_canyon` | or `uma` (TR 38.901 Table 7.4.1-1) |
+| | `pathloss` | `umi_street_canyon` | or `uma`, `rma` (0.5-30 GHz), `inh_office` (TR 38.901 Table 7.4.1-1; the last two since 1.7.0) |
 | | `shadow_los_db`, `shadow_nlos_db` | `4`, `7.82` | shadowing standard deviation |
+| | `shadow_los_far_db` | none | optional (1.7.0): standard deviation of LOS links beyond the breakpoint distance (RMa: `6`) |
 | | `shadow_decorr_m` | `10` | shadowing decorrelation distance |
 | | `shadow_site_corr` | `0.5` | correlation of the shadowing between sites |
 | | `place_share` | `1` | share of shadowing variance tied to place (rest moves with the user) |
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
+| | `soft_los`, `soft_los_d_m` | `false`, `20` | optional (1.7.0): soft LOS state of TR 38.901 clause 7.6.3.3 instead of a hard switch (see below) |
 | | `time_var_db`, `time_var_tau_s` | `1.5`, `1` | time-varying component (moving blockers) |
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
 | | `energy_p0_w`, `energy_slope` | `56`, `2.6` | site power for the energy metrics (1.5.0): EARTH model of a micro base station |
@@ -185,6 +215,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 | `ltm` | ltm | `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `cmd_delay_s` (0.01), `exec_s` (0.02), `recovery` (true), `name` |
 | `cltm` | cltm | as `ltm` without `cmd_delay_s`: `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `exec_s` (0.02), `recovery` (true), `name` |
 | `a3_bandit` | baseline | `arms_db` ([1, 2, 3, 4, 5]), `ttt_s` (0.16), `epsilon` (0.1), `epoch` (10), `w_unnecessary` (1.0), `w_failure` (2.0), `name` |
+| `a3_mro` | baseline | `off_db` (3.0), `ttt_s` (0.16), `step_db` (0.5), `window_s` (10.0), `min_db` (-4.0), `max_db` (4.0), `min_events` (1), `count_pingpong` (true), `pingpong_s` (none: `protocol.pingpong_s`), `count_unnecessary` (false), `name` (since 1.7.0) |
 
 `daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`
 unchanged.
@@ -219,7 +250,8 @@ The family of a rule selects the procedure the engine runs around its decisions:
   conditional handover, and the switch is decided on fast L1 measurements, as in LTM.
 
 See the how-to [DAPS handover and L1/L2-triggered mobility](guides/daps-ltm.md) and, for the
-learning rule, [a learning-based rule](guides/learning-rule.md).
+learning rule, [a learning-based rule](guides/learning-rule.md); for `a3_mro`, [mobility robustness
+optimisation](guides/mro.md).
 
 ## 4. Command line
 

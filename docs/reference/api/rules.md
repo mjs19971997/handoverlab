@@ -16,3 +16,8 @@ Base classes, the registry and the built-in rules; see Tutorial 2 for a worked e
     options:
       show_root_heading: true
       members_order: source
+
+::: handoverlab.rules.mro
+    options:
+      show_root_heading: true
+      members_order: source

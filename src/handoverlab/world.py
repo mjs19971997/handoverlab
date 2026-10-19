@@ -50,7 +50,7 @@ def build_world(scenario: Scenario, seed: int) -> World:
     rng_traj, rng_svc, rng_bg = streams(seed, "world", 3)
     rmap = RadioMap(layout, scenario.radio, seed)
     x, y, v, th = trajectories(layout, scenario.mobility, scenario.run.duration_s, scenario.protocol.step_s,
-                               rng_traj)
+                               rng_traj, scenario.layout.min_site_distance_m)
     tr = scenario.traffic
     svc = ServiceTable(tr.services, assign_services(tr.services, scenario.mobility.users, rng_svc), tr.rate_scale)
     bg = background_load(tr, layout.n_sites, rng_bg)

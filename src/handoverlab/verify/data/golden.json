@@ -161,6 +161,124 @@
     "n_failures": 1,
     "n_preparations": 253
    }
+  ],
+  "indoor": [
+   {
+    "rule": "A3",
+    "fingerprint": "e3daf69186ad2e62ddf3b31f79b07928d79b7795052a19f2665964b0f732bef2",
+    "n_events": 49,
+    "sinr_db": 12.7811474446411,
+    "n_attempts": 49,
+    "n_handovers": 49,
+    "n_unnecessary": 19,
+    "n_pingpong": 2,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "a775f465b12bec597d008176022e14162581d6ed9ab910f8109c3921bf682564",
+    "n_events": 50,
+    "sinr_db": 13.073251595576696,
+    "n_attempts": 50,
+    "n_handovers": 49,
+    "n_unnecessary": 20,
+    "n_pingpong": 2,
+    "n_failures": 1,
+    "n_preparations": 125
+   }
+  ],
+  "rural": [
+   {
+    "rule": "A3",
+    "fingerprint": "c7974dd82a03eb026f4559349472f2c9c2c277e9bc64c337640793aafff7b874",
+    "n_events": 53,
+    "sinr_db": 19.150999685958652,
+    "n_attempts": 53,
+    "n_handovers": 53,
+    "n_unnecessary": 26,
+    "n_pingpong": 7,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "4e0cd51495a460b86bb3386ab4ab2160017267565d88fffd1abc7cb614178eac",
+    "n_events": 58,
+    "sinr_db": 19.705172720525372,
+    "n_attempts": 58,
+    "n_handovers": 58,
+    "n_unnecessary": 31,
+    "n_pingpong": 8,
+    "n_failures": 0,
+    "n_preparations": 112
+   }
+  ],
+  "smoke-soft": [
+   {
+    "rule": "A3",
+    "fingerprint": "4c921045e8498b5724cf227a206d3bcb103ef944abb80a5779ba9cecc71d0e27",
+    "n_events": 91,
+    "sinr_db": 26.569678892184903,
+    "n_attempts": 91,
+    "n_handovers": 91,
+    "n_unnecessary": 29,
+    "n_pingpong": 8,
+    "n_failures": 0,
+    "n_preparations": 0
+   }
+  ],
+  "rural-hard": [
+   {
+    "rule": "A3",
+    "fingerprint": "cc54206c5e4890dfa69cbe4429fd93cdc712e617125e12e49516b30df47919a1",
+    "n_events": 71,
+    "sinr_db": 19.206337207827637,
+    "n_attempts": 71,
+    "n_handovers": 69,
+    "n_unnecessary": 39,
+    "n_pingpong": 12,
+    "n_failures": 2,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "3af7d2c3199cadf6bca4ca7b009e84abe8b21fad5f032c2867aed68d042da65b",
+    "n_events": 74,
+    "sinr_db": 20.101736013386333,
+    "n_attempts": 74,
+    "n_handovers": 70,
+    "n_unnecessary": 40,
+    "n_pingpong": 10,
+    "n_failures": 4,
+    "n_preparations": 150
+   }
+  ],
+  "smoke-mro": [
+   {
+    "rule": "A3",
+    "fingerprint": "c73ceb2325e02160603baff70ee1c319735cf206ee4ae819f5b2b4e1a2c4799d",
+    "n_events": 286,
+    "sinr_db": 20.125221289078656,
+    "n_attempts": 286,
+    "n_handovers": 272,
+    "n_unnecessary": 41,
+    "n_pingpong": 10,
+    "n_failures": 12,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-MRO",
+    "fingerprint": "efcc23a480eeee891df8bdfb622f6d3e0d87910167481cac7c129d99380963ab",
+    "n_events": 278,
+    "sinr_db": 20.167384221946218,
+    "n_attempts": 278,
+    "n_handovers": 271,
+    "n_unnecessary": 36,
+    "n_pingpong": 10,
+    "n_failures": 5,
+    "n_preparations": 0
+   }
   ]
  }
 }

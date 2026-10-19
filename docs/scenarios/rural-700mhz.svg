@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="397" viewBox="0 0 640 397">
+<rect x="0" y="0" width="640" height="373" fill="#f4f4f0" stroke="#999"/>
+<circle cx="42.9" cy="346.7" r="3" fill="#c0392b"/>
+<circle cx="227.6" cy="346.7" r="3" fill="#c0392b"/>
+<circle cx="412.4" cy="346.7" r="3" fill="#c0392b"/>
+<circle cx="597.1" cy="346.7" r="3" fill="#c0392b"/>
+<circle cx="135.3" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="320.0" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="504.7" cy="186.7" r="3" fill="#c0392b"/>
+<circle cx="42.9" cy="26.7" r="3" fill="#c0392b"/>
+<circle cx="227.6" cy="26.7" r="3" fill="#c0392b"/>
+<circle cx="412.4" cy="26.7" r="3" fill="#c0392b"/>
+<circle cx="597.1" cy="26.7" r="3" fill="#c0392b"/>
+<text x="4" y="390" font-family="sans-serif" font-size="12" fill="#333">rural-700mhz: 11 sites, 6000 m x 3500 m (grey: buildings, red: sites)</text>
+</svg>

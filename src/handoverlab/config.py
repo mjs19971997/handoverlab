@@ -58,6 +58,17 @@ class LayoutConfig:
     ``site_spacing_m`` metres, ``site_offset_m`` beyond the road edge,
     alternately on the two sides.
 
+    ``indoor`` (since 1.7.0) is the indoor office of TR 38.901 Table 7.2-2:
+    a hall of 120 m x 50 m without walls and ceiling sites on a rectangular
+    grid of spacing ``site_spacing_m`` (20 m in the standard).
+
+    ``area_m`` (since 1.7.0) sets the width and height of the rectangle of
+    ``open_area`` and ``indoor`` [m]; unset, ``open_area`` takes the size of
+    the street grid and ``indoor`` 120 m x 50 m.  ``min_site_distance_m``
+    (since 1.7.0) is the minimum 2D distance of a user's start and waypoints
+    from every site in ``open_area`` and ``indoor`` (TR 38.901 Table 7.2-3,
+    RMa: 35 m); the straight legs between them may pass closer.
+
     ``sites_file`` (since 1.0.0rc3) names a CSV file with the columns ``x`` and
     ``y`` [m]; it is read when the scenario is loaded and fills ``sites``.
     """
@@ -72,6 +83,8 @@ class LayoutConfig:
     lane_width_m: float = 4.0
     road_length_m: float = 2000.0
     sites_file: Optional[str] = None
+    area_m: Optional[Tuple[float, float]] = None
+    min_site_distance_m: float = 0.0
 
     @property
     def size_m(self) -> Tuple[float, float]:
@@ -92,14 +105,20 @@ class RadioConfig:
     isolation: float = 0.30             # mean-to-peak gain of an interfering data beam
     bs_height_m: float = 10.0
     ue_height_m: float = 1.5
-    pathloss: str = "umi_street_canyon"  # or "uma"
+    pathloss: str = "umi_street_canyon"  # or "uma", "rma" (since 1.7.0), "inh_office" (since 1.7.0)
     shadow_los_db: float = 4.0
     shadow_nlos_db: float = 7.82
+    shadow_los_far_db: Optional[float] = None  # LOS beyond the breakpoint (since 1.7.0; RMa: 6 dB); None: shadow_los_db
     shadow_decorr_m: float = 10.0
     shadow_site_corr: float = 0.5       # correlation of the shadowing between sites
     place_share: float = 1.0            # share of shadowing variance tied to place (1 = fully place-tied)
     clutter_los: bool = True            # spatially consistent LOS state on top of the buildings
     los_corr_m: float = 50.0
+    # optional soft LOS state (since 1.7.0; TR 38.901 clause 7.6.3.3, Eq. 7.6-18 and 7.6-19): the received
+    # power mixes the LOS and NLOS powers with the weights LOS_soft^2 and 1 - LOS_soft^2, where
+    # LOS_soft = 1/2 + arctan(sqrt(soft_los_d_m / lambda) (G + F(d))) / pi, instead of a hard switch
+    soft_los: bool = False
+    soft_los_d_m: float = 20.0
     time_var_db: float = 1.5            # time-varying component (moving blockers)
     time_var_tau_s: float = 1.0
     l1_error_db: float = 1.0            # error of one L1 RSRP sample
@@ -281,8 +300,11 @@ class Scenario:
     def validate(self) -> None:
         """Range checks that name the offending key."""
         L, R, P, M, T = self.layout, self.radio, self.protocol, self.mobility, self.run
-        _check(L.kind in ("street_grid", "open_area", "highway"), "layout.kind",
-               "must be 'street_grid', 'open_area' or 'highway'")
+        _check(L.kind in ("street_grid", "open_area", "highway", "indoor"), "layout.kind",
+               "must be 'street_grid', 'open_area', 'highway' or 'indoor'")
+        _check(L.min_site_distance_m >= 0, "layout.min_site_distance_m", "must be >= 0")
+        _check(L.area_m is None or (L.area_m[0] > 0 and L.area_m[1] > 0), "layout.area_m",
+               "width and height must be positive")
         _check(L.lanes >= 1, "layout.lanes", "must be >= 1")
         _check(L.lane_width_m > 0, "layout.lane_width_m", "must be positive")
         _check(L.road_length_m > 0, "layout.road_length_m", "must be positive")
@@ -290,12 +312,16 @@ class Scenario:
         _check(L.blocks[0] >= 1 and L.blocks[1] >= 1, "layout.blocks", "needs at least 1 x 1 blocks")
         _check(L.site_spacing_m > 0, "layout.site_spacing_m", "must be positive")
         _check(L.street_width_m > 0, "layout.street_width_m", "must be positive")
-        _check(R.pathloss in ("umi_street_canyon", "uma"), "radio.pathloss",
-               "must be 'umi_street_canyon' or 'uma'")
+        _check(R.pathloss in ("umi_street_canyon", "uma", "rma", "inh_office"), "radio.pathloss",
+               "must be 'umi_street_canyon', 'uma', 'rma' or 'inh_office'")
         _check(0.5 <= R.carrier_ghz <= 100.0, "radio.carrier_ghz", "TR 38.901 covers 0.5-100 GHz")
+        _check(R.pathloss != "rma" or R.carrier_ghz <= 30.0, "radio.carrier_ghz",
+               "the TR 38.901 RMa model covers 0.5-30 GHz")
         _check(0.0 <= R.place_share <= 1.0, "radio.place_share", "must be in [0, 1]")
         _check(0.0 <= R.shadow_site_corr <= 1.0, "radio.shadow_site_corr", "must be in [0, 1]")
         _check(R.map_res_m > 0, "radio.map_res_m", "must be positive")
+        _check(R.soft_los_d_m > 0, "radio.soft_los_d_m", "must be positive")
+        _check(R.shadow_los_far_db is None or R.shadow_los_far_db >= 0, "radio.shadow_los_far_db", "must be >= 0")
         _check(R.penetration_sd_db >= 0, "radio.penetration_sd_db", "must be >= 0")
         _check(R.energy_p0_w >= 0 and R.energy_slope >= 0, "radio.energy_p0_w", "energy parameters must be >= 0")
         _check(P.step_s > 0, "protocol.step_s", "must be positive")
@@ -323,8 +349,10 @@ class Scenario:
 
 
 #: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`
-LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file")}
-_SECTIONS = {"layout": LayoutConfig}
+LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
+                                                    "area_m", "min_site_distance_m"),
+                                         "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db")}
+_SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig}
 
 
 def read_sites(path: Union[str, os.PathLike]) -> Tuple[Tuple[float, float], ...]:
