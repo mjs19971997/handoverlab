@@ -15,7 +15,9 @@ All notable changes to this project are documented in this file. The format foll
   its breakpoint and NLOS, default W = 20 m and h = 5 m, 0.5-30 GHz) and `inh_office` (InH-Office,
   LOS probability of the mixed office), each with its LOS probability of Table 7.4.2-1; the layout
   kind `indoor` (the indoor office of Table 7.2-2: a hall of 120 m x 50 m with ceiling sites on a
-  rectangular grid); the key `layout.area_m` (size of the open area or the indoor hall); the
+  rectangular grid); the keys `layout.area_m` (size of the open area or the indoor hall) and
+  `layout.min_site_distance_m` (minimum distance of a user's start and waypoints from every site,
+  TR 38.901 Table 7.2-3: 35 m for RMa); the
   mobility profiles `ped3` (about 3 km/h) and `veh120` (about 120 km/h). Two scenario cards,
   `indoor-office-4ghz` and `rural-700mhz`, with the link budgets of the IMT-2020 Indoor Hotspot-eMBB
   and Rural-eMBB evaluations (ITU-R M.2412-0 Table 5), and the how-to `docs/guides/indoor-rural.md`.

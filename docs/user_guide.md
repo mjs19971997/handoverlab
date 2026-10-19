@@ -152,6 +152,7 @@ output: results/metrics.csv
 | | `road_length_m` | `2000` | highway: length of the road [m] (since 1.0.0rc3) |
 | | `sites_file` | none | CSV file with columns `x`, `y` that fills `sites` (since 1.0.0rc3) |
 | | `area_m` | none | open area and indoor: width and height of the rectangle [m]; unset: the grid size (open area), 120 x 50 (indoor) (since 1.7.0) |
+| | `min_site_distance_m` | `0` | open area and indoor: minimum distance of a user's start and waypoints from every site [m] (since 1.7.0; RMa: 35) |
 | `radio` | `carrier_ghz` | `10` | carrier frequency (0.5-100 GHz) |
 | | `bandwidth_mhz` | `200` | carrier bandwidth |
 | | `tx_power_dbm` | `35` | transmit power per site |
