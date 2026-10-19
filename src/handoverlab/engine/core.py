@@ -566,7 +566,10 @@ class Engine:
         run = self.world.scenario.run
         ue_min = self.U * (run.duration_s - run.warmup_s) / 60.0
         ue_s = max(self.acc["steps"], 1) * self.U * self.dt
-        return summarize(C, self.acc, ue_min, ue_s, self.U, self.dt, self.proc.open_preparations())
+        R = self.world.scenario.radio
+        p_tx = 10.0 ** (R.tx_power_dbm / 10.0) / 1000.0              # transmit power per site [W]
+        return summarize(C, self.acc, ue_min, ue_s, self.U, self.dt, self.proc.open_preparations(),
+                         n_sites=self.M, power=(R.energy_p0_w, R.energy_slope * p_tx))
 
     @property
     def events(self) -> Optional[List[dict]]:

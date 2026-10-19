@@ -9,7 +9,7 @@ conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for
 received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
 failure model, and an outcome label for every handover attempt.
 
-> **Status: 1.4.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.5.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -61,9 +61,20 @@ multiple-comparison correction and writes an HTML report:
   execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), with options for
   the link monitoring (own interferer load, restart on a new cell, ideal random access).
 - **Metrics**: outcome of every attempt (useful, unnecessary, too early, wrong cell, too late,
-  censored), failures by cause, ping-pong, preparation overhead, interruption, delivered rate.
+  censored), failures by cause, ping-pong, preparation overhead, interruption, delivered rate,
+  signalling (RRC messages, commands), L1 measurements of the device and network energy (EARTH
+  model).
 - **Reproducibility**: one world per seed shared by all compared rules (paired comparison); the
   engine draws no random numbers; golden event-log fingerprints guard every change.
+
+## Built for beyond-5G
+
+HandoverLab targets the questions of dense beyond-5G networks: small cells 50-300 m apart, the
+upper mid-band (FR3, 7-24 GHz; the scenario `fr3-urban-15ghz`, 10 GHz by default), and the
+mobility procedures beyond baseline handover: conditional handover, DAPS handover and
+L1/L2-triggered mobility of Release 18, next to rules that learn from handover outcomes. The cost
+of each procedure (signalling, prepared cells, interruption, energy) is measured next to its
+benefit.
 
 ## Checked against ns-3
 
@@ -72,11 +83,26 @@ ns-3 with 5G-LENA. Handover and unnecessary-handover rates agree (median ratio 0
 correlation 0.99). For failure rates, with the in-car loss of ns-3 and the restart of the link
 monitoring switched on, the order of settings and conditions agrees too, also on ns-3 results
 that were held back from any tuning (rank correlation 0.82-0.91). The absolute values
-differ, so compare failure rates between rules within HandoverLab. The causes of the remaining
-differences are traced in [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md).
+differ, so compare failure rates between rules within HandoverLab. The causes are traced in
+[docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md). On two of them HandoverLab follows the 3GPP texts more closely
+than ns-3:
+
+- **In-car penetration loss.** TR 38.901 clause 7.4.3.2 gives it to a user inside a car. ns-3 adds
+  it only while a user moves at 30-120 km/h and drops it above 120 km/h. HandoverLab applies it
+  per user when configured (`radio.penetration_db`), at any speed.
+- **Time to detect a radio problem.** TS 38.133 clause 8.1 evaluates out-of-sync over about
+  200 ms. ns-3 counts control receptions instead of time, and at light traffic this took 0.65 to
+  0.83 s in the reference runs. HandoverLab evaluates over time (`protocol.qout_window_s`, 0.2 s).
+
+On a third point ns-3 was closer to the 3GPP texts: link monitoring restarts on a newly joined cell.
+HandoverLab has had this as an option since 1.3.0 (`protocol.rlm_holdoff_s`). The comparison
+covers baseline handover at 3.5 GHz only: 5G-LENA has no conditional handover, DAPS or
+L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.5.0**: signalling and energy metrics (RRC messages, handover commands, L1 measurements,
+  site power and energy per bit); why failure rates differ from ns-3, stated in the README.
 - **1.4.0**: traffic models per user (`traffic.model`: full buffer, periodic, FTP model 3); a
   dashboard with confidence intervals, a map of where handovers and failures happen, and the status
   of a running study; the ns-3 link-monitoring finding in the calibration report.
@@ -230,8 +256,9 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     of results.
 12. 1.1.0-1.3.0: optional link-monitoring and penetration-loss models traced against ns-3; issue
     forms and CI for every test on Windows.
-13. **1.4.0 (this release)**: traffic models per user, a richer dashboard, pictures in the README.
-14. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
+13. 1.4.0: traffic models per user, a richer dashboard, pictures in the README.
+14. **1.5.0 (this release)**: signalling and energy metrics.
+15. Later (planned, not done): conditional LTM, optional compiled kernels for the step loop, a TR 38.901
     calibration scenario.
 
 ## Citation

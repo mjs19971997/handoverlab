@@ -7,6 +7,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-19
+
+### Added
+
+- Signalling and energy metrics, derived from counters (the event log and all fingerprints are
+  unchanged): `commands_pm`, `rrc_messages_pm` (measurement reports, handover commands, conditional
+  configurations, releases and completions of TS 38.331), `l1_measurements_pm` (a proxy for the
+  measurement energy of the device), `site_power_w` and `energy_uj_per_bit` (linear EARTH model of
+  a micro base station), and the count `n_commands`. The model parameters are
+  `radio.energy_p0_w` (56 W) and `radio.energy_slope` (2.6). The definitions are in
+  `docs/reference/metrics.md`.
+- README: "Built for beyond-5G" and, under "Checked against ns-3", why failure rates differ:
+  on the in-car loss and on the time to detect out-of-sync HandoverLab follows the 3GPP texts more
+  closely, and on the restart of link monitoring ns-3 did. `docs/calibration.md` opens with the
+  same summary.
+
 ## [1.4.0] - 2026-10-19
 
 ### Added
@@ -467,7 +483,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/mjs19971997/handoverlab/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/mjs19971997/handoverlab/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mjs19971997/handoverlab/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mjs19971997/handoverlab/compare/v1.1.1...v1.2.0

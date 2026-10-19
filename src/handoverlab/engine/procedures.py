@@ -126,6 +126,7 @@ class BaselineProcedure(Procedure):
         if not self.n_pend:
             return
         for u in np.nonzero(self.pend & (t >= self.pend_t - EPS))[0]:
+            eng.C["cmd"] += int(t >= eng.t0c)
             if eng.run[u]:
                 eng.fail(u, t, "cmd")                   # command lost while T310 runs
             else:
@@ -410,6 +411,7 @@ class LTMProcedure(ConditionalProcedure):
             return
         eng = self.eng
         for u in np.nonzero(self.cmd & (t >= self.cmd_t - EPS))[0]:
+            eng.C["cmd"] += int(t >= eng.t0c)
             if eng.run[u]:
                 eng.fail(u, t, "cmd")                   # command lost while T310 runs
             else:

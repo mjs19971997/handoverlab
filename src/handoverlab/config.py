@@ -107,6 +107,10 @@ class RadioConfig:
     # clause 7.4.3.2: a user in a standard car has 9 dB mean and 5 dB standard deviation)
     penetration_db: float = 0.0
     penetration_sd_db: float = 0.0
+    # site power for the energy metrics (since 1.5.0): EARTH model of a micro base station
+    # (Auer et al., IEEE Wireless Communications 2011): P_in = energy_p0_w + energy_slope x P_tx x load
+    energy_p0_w: float = 56.0
+    energy_slope: float = 2.6
     map_res_m: float = 1.0
 
     @property
@@ -293,6 +297,7 @@ class Scenario:
         _check(0.0 <= R.shadow_site_corr <= 1.0, "radio.shadow_site_corr", "must be in [0, 1]")
         _check(R.map_res_m > 0, "radio.map_res_m", "must be positive")
         _check(R.penetration_sd_db >= 0, "radio.penetration_sd_db", "must be >= 0")
+        _check(R.energy_p0_w >= 0 and R.energy_slope >= 0, "radio.energy_p0_w", "energy parameters must be >= 0")
         _check(P.step_s > 0, "protocol.step_s", "must be positive")
         mp = P.l1_period_s / P.step_s
         _check(abs(mp - round(mp)) < 1e-9 and mp >= 1, "protocol.l1_period_s",

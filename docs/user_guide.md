@@ -140,6 +140,7 @@ output: results/metrics.csv
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
 | | `time_var_db`, `time_var_tau_s` | `1.5`, `1` | time-varying component (moving blockers) |
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
+| | `energy_p0_w`, `energy_slope` | `56`, `2.6` | site power for the energy metrics (1.5.0): EARTH model of a micro base station |
 | | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | `protocol` | `step_s` | `0.01` | simulation step |

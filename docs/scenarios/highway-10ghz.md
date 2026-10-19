@@ -52,6 +52,8 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
 | `radio.penetration_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car |
 | `radio.penetration_sd_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car |
+| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011): 56 W |
+| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011): 2.6 |
 | `radio.map_res_m` | 1 | numerical setting |
 | `protocol.step_s` | 0.01 | numerical setting |
 | `protocol.l1_period_s` | 0.04 | assumption (L1 sample period) |

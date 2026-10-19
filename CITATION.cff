@@ -9,7 +9,7 @@ abstract: >-
   measurement chain, a radio-link failure model, an outcome label for every handover attempt,
   a plug-in interface for handover rules, equal-budget tuning studies with paired statistics,
   and verification against hand-computed values, golden event-log fingerprints and ns-3 / 5G-LENA.
-version: "1.4.0"
+version: "1.5.0"
 doi: 10.5281/zenodo.23409131
 identifiers:
   - type: doi

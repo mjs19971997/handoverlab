@@ -18,7 +18,7 @@ _COUNTS = {
     "reports": "n_reports", "prep_req": "n_preparations", "cfg_ok": "n_configurations",
     "cfg_lost": "n_lost_configurations", "prep_cancel": "n_cancelled_preparations",
     "prep_used": "n_used_preparations", "prep_wasted": "n_unused_preparations", "rel": "n_releases",
-    "rec": "n_recoveries",
+    "rec": "n_recoveries", "cmd": "n_commands",
 }
 
 #: name -> (unit, definition) of every metric returned by a run
@@ -53,6 +53,16 @@ METRICS: Dict[str, tuple] = {
     "spectral_eff": ("bit/s/Hz", "mean spectral efficiency of connected users"),
     "mean_load": ("1", "mean cell load"),
     "open_preparations": ("cells", "preparations still open at the end of the run"),
+    # signalling and energy (since 1.5.0; derived from counters, the event log is unchanged)
+    "commands_pm": ("1/UE-min", "handover commands sent (baseline and DAPS handover, LTM cell switch), also those "
+                                "that arrive while T310 runs"),
+    "rrc_messages_pm": ("1/UE-min", "RRC messages over the air: measurement reports + handover commands + "
+                                    "conditional configurations (delivered or lost) + releases + handover completions"),
+    "l1_measurements_pm": ("1/UE-min", "L1 measurement samples taken by a connected user (one per cell and L1 "
+                                       "period); a proxy for the measurement energy of the device"),
+    "site_power_w": ("W", "mean input power per site, EARTH model: energy_p0_w + energy_slope x transmit power "
+                          "x load"),
+    "energy_uj_per_bit": ("uJ/bit", "network energy per delivered bit: all sites' input power / delivered rate"),
 }
 for _c in CAUSES:
     METRICS["fail_%s_pm" % _c] = ("1/UE-min", "failures with cause %s" % _c)
@@ -73,7 +83,7 @@ class Counters(dict):
 
 
 def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, step_s: float,
-              open_preparations: int) -> Dict[str, float]:
+              open_preparations: int, n_sites: int = 1, l1_per_meas: int = 1, power=(0.0, 0.0)) -> Dict[str, float]:
     """Metric dictionary of a finished run (see :data:`METRICS`)."""
     late = C["f_command_lost"] + C["f_rlf_in_preparation"] + C["f_rlf_without_handover"]
     out = dict(
@@ -95,7 +105,14 @@ def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, 
         sinr_db=acc["sinr"] / max(acc["ncon"], 1), spectral_eff=acc["se"] / max(acc["ncon"], 1),
         mean_load=acc["load"] / max(acc["nmeas"], 1),
         open_preparations=open_preparations,
+        commands_pm=C["cmd"] / ue_min,
+        rrc_messages_pm=(C["reports"] + C["cmd"] + C["cfg_ok"] + C["cfg_lost"] + C["rel"] + C["ho"]) / ue_min,
+        l1_measurements_pm=acc["ncon"] * l1_per_meas * n_sites / ue_min,
     )
+    p0, p_load = power                                   # site power = p0 + p_load x mean load
+    out["site_power_w"] = p0 + p_load * out["mean_load"]
+    bits = acc["thr"] / max(acc["nmeas"], 1)             # delivered bit/s of all users
+    out["energy_uj_per_bit"] = 1e6 * n_sites * out["site_power_w"] / bits if bits > 0 else float("nan")
     for c in CAUSES:
         out["fail_%s_pm" % c] = C["f_" + c] / ue_min
     for k, name in _COUNTS.items():

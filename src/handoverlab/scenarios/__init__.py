@@ -90,6 +90,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "traffic.packet_bytes": "periodic model: assumption",
     "traffic.ftp_file_bytes": "TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte)",
     "traffic.ftp_rate_hz": "ftp3 model: assumption (file arrival rate per user)",
+    "radio.energy_p0_w": "EARTH model, micro base station (Auer et al. 2011): 56 W",
+    "radio.energy_slope": "EARTH model, micro base station (Auer et al. 2011): 2.6",
     "traffic.services": "TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions",
     "traffic.se_max": "assumption (spectral-efficiency cap)",
     "traffic.hotspot_share": "assumption",

@@ -1,5 +1,20 @@
 # Failure-model calibration against ns-3 / 5G-LENA
 
+**Summary (1.5.0).** Handover and unnecessary-handover rates of HandoverLab agree with ns-3 /
+5G-LENA. For failure rates, the order of settings and conditions agrees on part A and on both
+hold-out sets when the in-car loss of ns-3 and the restart of link monitoring are switched on
+(version 1.3.0 below), but the absolute values do not. Three causes were found in the ns-3 code
+and diagnosis runs:
+
+| Cause | ns-3 | TS / TR text | HandoverLab |
+|---|---|---|---|
+| In-car penetration loss | added only at 30-120 km/h | TR 38.901 7.4.3.2: a property of a user in a car | per user when configured, any speed (`radio.penetration_db`) |
+| Time to detect out-of-sync | 20 frames of 10 control receptions; 0.65-0.83 s at light traffic | TS 38.133 8.1: about 200 ms | evaluated over time (`protocol.qout_window_s` 0.2 s) |
+| Link monitoring on a new cell | restarts | TS 38.331: T310 stops at a handover; out-of-sync is evaluated anew (TS 38.133 8.1) | option since 1.3.0 (`protocol.rlm_holdoff_s`) |
+
+On the first two, HandoverLab is closer to the 3GPP texts; on the third, ns-3 was, and HandoverLab
+now offers it. The sections below give the evidence in the order it was found.
+
 **Result of version 0.4.0a1: no calibrated preset is offered, and the default failure model is
 unchanged.** One existing parameter, the Qout filter window `protocol.qout_window_s`, can be set so
 that HandoverLab reproduces the mean failure rate of the ns-3 reference and its ranking over the 24
