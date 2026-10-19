@@ -38,6 +38,14 @@ multiple-comparison correction and writes an HTML report:
 
 ![Study report: paired differences to a reference rule with bootstrap intervals](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/report-comparison.png)
 
+**Indoors and in rural cells.** Since 1.7.0: the TR 38.901 indoor office (12 ceiling sites,
+20 m apart) and rural macro cells (sites 1732 m apart, users in cars at 120 km/h), both with the
+IMT-2020 link budgets and the soft LOS state of TR 38.901:
+
+![Layout of the indoor office: a 120 m x 50 m hall with 12 ceiling sites](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/scenarios/indoor-office-4ghz.svg)
+
+![Layout of the rural scenario: 11 macro sites on a 1732 m hexagonal grid](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/scenarios/rural-700mhz.svg)
+
 ## What it models
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
