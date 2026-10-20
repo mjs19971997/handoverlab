@@ -88,6 +88,47 @@ street grid the buildings still block hard; the soft state applies to the clutte
 links that the buildings leave clear. With `radio.place_share < 1` on the grid, the part of the
 shadowing that moves with the user takes the standard deviation of the dominant state.
 
+### Beams and several carriers (since 1.10.0)
+
+Two optional models replace the antenna abstraction (`bs_gain_db`, `isolation`) and add carriers.
+Both are off by default; without them every result of 1.x is unchanged.
+
+**SSB beams** (`radio.beams`): every site carries `sectors` cells; each cell is a panel of
+`panel = [M, N]` elements with the element of TR 38.901 Table 7.3-1 and sends `n_ssb` SSB beams with
+DFT weights (at most L_max: 4 up to 3 GHz, 8 in FR1, 64 in FR2). The cell quality comes from the
+beams (TS 38.331 5.5.3.3, `ssb_avg`, `ssb_thresh_dbm`). The gNB moves the serving beam (TCI state)
+after periodic L1-RSRP reports (`report_s`, `switch_db`, `tci_delay_s`). Beam failure detection
+and recovery follow TS 38.213 clause 6, TS 38.321 clause 5.17 and TS 38.133 clause 8.5: an
+indication every max(2 ms, T_SSB) when the serving beam's quality, averaged over the BFD evaluation
+period, is below Qout; `bfi_max` (beamFailureInstanceMaxCount) indications within
+`bfd_timer` (beamFailureDetectionTimer) periods start random access: contention-free on a
+candidate beam above `rsrp_thresh_ssb_dbm` while `bfr_timer_s` runs, else contention-based; after
+`preamble_max` failed attempts the random-access problem is a radio-link failure. Radio-link
+monitoring uses the serving beam (`rlm_rs: tci`) or the best N_RLM beams (`rlm_rs: beams`; up to 8
+in FR2). A cell interferes with the mean gain of its beams towards the user, scaled by its load.
+
+```yaml
+scenario:
+  base: urban-grid-10ghz
+  radio:
+    carrier_ghz: 28.0
+    bandwidth_mhz: 400.0
+    beams: {sectors: 3, n_ssb: 8, panel: [4, 8], tilt_deg: 100.0}
+  protocol: {rlm_eval: ts38133}
+```
+
+**Several carriers** (`radio.layers`): each entry adds a carrier with its own sites (`sites`,
+`sites_file`, `site_spacing_m`, `site_offset_m`) or, with `cosited: true`, the sites of the first
+layer with the same LOS states, shadowing and blockers (TR 38.901 clause 7.6.5). Unset values come
+from `radio`. Only cells of one carrier interfere with each other. Measurements are then SS-RSRP
+per resource element, so that cells of different bandwidths compare correctly. With
+`protocol.meas_periods: ts38133` the UE measures the other carriers in the gaps of
+`protocol.gap_pattern` (TS 38.133 Table 9.1.2-1) with the inter-frequency periods of TS 38.133
+9.3.5 (FR1 320 ms, FR2 1.6 s with gap pattern 0) and receives no data during a gap. The rule
+`a3a5` hands over with Event A3 within a carrier and Event A5 towards another one. The scenario
+cards `urban-grid-28ghz-beams` and `dense-urban-2layer` (ITU-R M.2412 two-layer dense urban) use
+these models; see also the guide [Beams and several carriers](guides/beams-layers.md).
+
 ### Sites from a file
 
 `layout.sites_file` (since 1.0.0rc3) names a CSV file with a header row and the columns `x` and
@@ -111,6 +152,8 @@ parameter with its source, known limitations and the reference results it was ch
 | [`highway-10ghz`](scenarios/highway-10ghz.md) | the TR 37.885 highway: 2000 m, 3 + 3 lanes, roadside sites every 500 m, vehicles at 70-140 km/h (since 1.0.0rc3) |
 | [`indoor-office-4ghz`](scenarios/indoor-office-4ghz.md) | the TR 38.901 indoor office: 120 m x 50 m hall, 12 ceiling sites 20 m apart, InH path loss at 4 GHz, pedestrians at 3 km/h (since 1.7.0) |
 | [`rural-700mhz`](scenarios/rural-700mhz.md) | rural macro cells: 11 sites 35 m high, 1732 m apart, RMa path loss at 700 MHz, vehicles at 120 km/h (since 1.7.0) |
+| [`urban-grid-28ghz-beams`](scenarios/urban-grid-28ghz-beams.md) | the urban grid at 28 GHz (FR2) with three sectors per site, 8 SSB beams per sector, beam management and beam failure recovery (since 1.10.0) |
+| [`dense-urban-2layer`](scenarios/dense-urban-2layer.md) | ITU-R M.2412 dense urban, two layers: 4 GHz macro (ISD 200 m, 3 sectors) and 30 GHz micro sites, SSB beams, inter-frequency measurements in gaps, in-car users at 30 km/h (since 1.10.0) |
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
@@ -174,6 +217,9 @@ output: results/metrics.csv
 | | `energy_p0_w`, `energy_slope` | `56`, `2.6` | site power for the energy metrics (1.5.0): EARTH model of a micro base station |
 | | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
+| | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
+| | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)) |
+| | `layers` | none | optional (1.10.0): further carriers with their own cells, e.g. a 28 GHz small-cell layer under a 3.5 GHz macro layer |
 | `protocol` | `step_s` | `0.01` | simulation step |
 | | `l1_period_s` | `0.04` | L1 sample period (multiple of `step_s`) |
 | | `l3_k` | `4` | L3 filter coefficient k (TS 38.331) |
@@ -191,6 +237,11 @@ output: results/metrics.csv
 | | `rlm_holdoff_s` | `0` | optional (1.3.0): no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (TS 38.133 clause 8.1: `0.2`) |
 | | `cmd_during_t310` | `lost` | `receive` (1.9.0): a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2) |
 | | `t304_s` | none | T304 (1.9.0): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
+| | `meas_periods` | `sample` | `ts38133` (1.10.0): every cell's L1 result is the average over its measurement period of TS 38.133 (intra-frequency Tables 9.2.5.2-1/-2, inter-frequency within gaps Tables 9.3.5-1/-2) and enters the L3 filter once per period |
+| | `ssb_period_s` | `0.02` | SSB and SMTC periodicity T_SSB used by the TS 38.133 formulas (1.10.0) |
+| | `gap_pattern` | `0` | measurement gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms) (1.10.0) |
+| | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.2 and 9.3.4 (1.10.0) |
+| | `rlm_eval` | `fixed` | `ts38133` (1.10.0): Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 for the serving cell's frequency range (FR2: 1.6 s / 0.8 s at T_SSB 20 ms) instead of `qout_window_s` / `qin_window_s` |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |
@@ -218,6 +269,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 | `ltm` | ltm | `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `cmd_delay_s` (0.01), `exec_s` (0.02), `recovery` (true), `name` |
 | `cltm` | cltm | as `ltm` without `cmd_delay_s`: `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `exec_s` (0.02), `recovery` (true), `name` |
 | `a3_bandit` | baseline | `arms_db` ([1, 2, 3, 4, 5]), `ttt_s` (0.16), `epsilon` (0.1), `epoch` (10), `w_unnecessary` (1.0), `w_failure` (2.0), `name` |
+| `a3a5` | baseline | `off_db` (3.0), `ttt_s` (0.16), `a5_thresh1_dbm` (-110), `a5_thresh2_dbm` (-105), `a5_hys_db` (1.0), `a5_ttt_s` (0.32), `a3_inter` (false), `a5_down_thresh1_dbm`, `a5_down_thresh2_dbm` (none: as above), `name` (since 1.10.0): Event A3 within a carrier, Event A5 towards other carriers |
 | `a3_mro` | baseline | `off_db` (3.0), `ttt_s` (0.16), `step_db` (0.5), `window_s` (10.0), `min_db` (-4.0), `max_db` (4.0), `min_events` (1), `count_pingpong` (true), `pingpong_s` (none: `protocol.pingpong_s`), `count_unnecessary` (false), `name` (since 1.7.0) |
 
 `daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`

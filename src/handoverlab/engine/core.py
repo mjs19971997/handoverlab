@@ -75,7 +75,7 @@ class Engine:
         self.world, self.rule, self.P = world, rule, P
         self.X, self.Y, self.V, self.TH = world.x, world.y, world.speed, world.heading
         self.S, self.U = self.X.shape
-        self.M = world.layout.n_sites
+        self.M = world.n_cells
         self.dt = P.step_s
         self.mp = max(1, int(round(P.l1_period_s / P.step_s)))      # steps per measurement
         self.mdt = self.mp * P.step_s
@@ -150,8 +150,9 @@ class Engine:
         self.nmeas = 0
         self.proc = make_procedure(self, rule)
         self.kind = self.proc.kind
-        rule.reset(RuleContext(U, self.M, world.layout.sites, world.radio_map.nominal_cell, P.step_s,
-                               self.mdt, world.seed, rule_stream(world.seed), sc))
+        rule.reset(RuleContext(U, self.M, world.cell_sites, world.nominal_cell, P.step_s,
+                               self.mdt, world.seed, rule_stream(world.seed), sc,
+                               None if world.ext is None else world.ext.cell_carrier))
 
     @property
     def meas(self) -> np.ndarray:

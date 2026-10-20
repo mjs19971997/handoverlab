@@ -44,6 +44,13 @@ Rates are per UE-minute of the measured part of the run (after the warm-up) and 
 | `l1_measurements_pm` | 1/UE-min | L1 measurement samples taken by a connected user (one per cell and L1 period); a proxy for the measurement energy of the device |
 | `site_power_w` | W | mean input power per site, EARTH model: `radio.energy_p0_w` + `radio.energy_slope` x transmit power x load |
 | `energy_uj_per_bit` | uJ/bit | network energy per delivered bit: the input power of all sites / the delivered rate of all users |
+| `beam_switches_pm` | 1/UE-min | serving-beam (TCI state) changes after beam reports (since 1.10.0; 0 without `radio.beams`) |
+| `beam_failures_pm` | 1/UE-min | beam failures detected: BFI_COUNTER reached beamFailureInstanceMaxCount (TS 38.321 5.17) |
+| `beam_recoveries_pm` | 1/UE-min | beam failure recoveries completed by random access |
+| `beam_recovery_failures_pm` | 1/UE-min | beam failure recoveries that ended in a random-access problem, i.e. a radio-link failure (TS 38.331 5.3.10.3) |
+| `beam_recovery_s_pm` | s/UE-min | time spent in beam failure recovery |
+| `inter_frequency_handovers_pm` | 1/UE-min | completed handovers between cells of different carriers (since 1.10.0; 0 on one carrier) |
+| `gap_share` | 1 | share of the UE time in measurement gaps while connected; no data is received in a gap (TS 38.133 9.1.2) |
 | `fail_command_lost_pm` | 1/UE-min | failures with cause command_lost |
 | `fail_rlf_in_preparation_pm` | 1/UE-min | failures with cause rlf_in_preparation |
 | `fail_rlf_without_handover_pm` | 1/UE-min | failures with cause rlf_without_handover |

@@ -1,0 +1,40 @@
+# Scenario card (machine-readable).  docs/scenarios/urban-grid-28ghz-beams.md is generated from this file.
+name: urban-grid-28ghz-beams
+title: Small cells with SSB beams and beam failure recovery in the TR 37.885 urban grid at 28 GHz (FR2)
+since: 1.10.0
+purpose: >
+  The `urban-grid-10ghz` world moved to 28 GHz (FR2-1) with explicit SSB beams instead of the
+  antenna abstraction: every site carries three sectors (cells), each a 4 x 8 panel with the
+  element of TR 38.901 Table 7.3-1 sending 8 SSB beams.  The serving beam follows periodic L1-RSRP
+  beam reports; beam failure detection, candidate beam detection and the L1-RSRP measurements use
+  the FR2 evaluation periods of TS 38.133 (receive-beam sweeping factor N = 8), and a detected beam
+  failure is recovered by random access or ends in a radio-link failure (random-access problem).
+  Use it to study beam management and its interplay with handover at FR2.
+layout_note: >
+  Three by three blocks (433 m x 250 m between street centre lines, 20 m streets), 76 sites with three
+  sectors each (228 cells).
+scenario:
+  name: urban-grid-28ghz-beams
+  layout: {kind: street_grid, blocks: [3, 3], site_spacing_m: 100.0}
+  radio:
+    carrier_ghz: 28.0
+    bandwidth_mhz: 400.0
+    scs_khz: 120.0
+    pathloss: umi_street_canyon
+    beams: {sectors: 3, sector_az0_deg: 30.0, n_ssb: 8, panel: [4, 8], tilt_deg: 100.0}
+  protocol: {rlm_eval: ts38133, ssb_period_s: 0.02}
+  mobility: {users: 40, profile: veh16}
+  run: {duration_s: 120.0, warmup_s: 20.0}
+sources:
+  radio.carrier_ghz: "FR2-1 (24.25-52.6 GHz, TS 38.104 Table 5.1-1); 28 GHz is an assumption"
+  radio.bandwidth_mhz: "assumption (400 MHz FR2 channel at 120 kHz subcarrier spacing)"
+  radio.beams: "TR 38.901 clause 7.3 (panel, Table 7.3-1 element, Eq. 7.3-1 weights); three sectors, 8 SSB beams (L_max of FR2 is 64), panel size and tilt are assumptions"
+  protocol.rlm_eval: "TS 38.133 Tables 8.1.2.2-1/-2 (FR2: N = 8)"
+  protocol.ssb_period_s: "assumption (20 ms SSB periodicity)"
+limitations:
+  - "No fast fading and no UE beamforming (the UE's receive-beam sweeping enters only through the factor N of TS 38.133)."
+  - "Evaluation periods are modelled as exponential averages whose time constant is the TS 38.133 period, a conservative reading of minimum requirements."
+  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+  - "228 cells with 8 beams each: a run takes several times longer than `urban-grid-10ghz`."
+references:
+  - "The beam and requirement formulas are checked against hand values in `handoverlab verify` (group `extended`)."

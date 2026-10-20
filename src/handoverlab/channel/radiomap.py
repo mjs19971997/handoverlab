@@ -103,7 +103,7 @@ class GaussianField:
 class RadioMap:
     """Place-tied part of the radio environment of one world."""
 
-    def __init__(self, layout: Layout, radio, seed: int):
+    def __init__(self, layout: Layout, radio, seed: int, sub: int = 0):
         self.layout, self.radio = layout, radio
         self.is_grid = layout.is_grid
         res = float(radio.map_res_m) if self.is_grid else max(float(radio.map_res_m), 2.0)
@@ -114,7 +114,7 @@ class RadioMap:
         self.ny = int(np.ceil((layout.ymax - layout.ymin + 2 * pad) / res)) + 1
         M = layout.n_sites
         XX, YY = np.meshgrid(self.x0 + np.arange(self.nx) * res, self.y0 + np.arange(self.ny) * res)
-        rng_shadow, rng_los = streams(seed, "map", 2)
+        rng_shadow, rng_los = streams(seed, "map", 2, sub)    # sub: a further layer (since 1.10.0)
 
         # nominal plan on a 2 m raster: nearest site (equal power and height, no buildings)
         self.nres = 2.0

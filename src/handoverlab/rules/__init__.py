@@ -2,7 +2,7 @@
 """Handover rules and their registry.
 
 Built-in rules are registered under ``"a3"``, ``"cho"``, ``"daps"``, ``"ltm"``,
-``"cltm"``, ``"a3_bandit"`` and ``"a3_mro"`` (since 1.7.0).  Your own rule can
+``"cltm"``, ``"a3_bandit"``, ``"a3_mro"`` (since 1.7.0) and ``"a3a5"`` (since 1.10.0).  Your own rule can
 be registered in code::
 
     from handoverlab.rules import BaselineRule, register_rule
@@ -24,12 +24,12 @@ from typing import Any, Dict, List, Optional, Type
 
 from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, BaselineRule, ConditionalRule, DAPSRule,
                    CLTMRule, FailureRecord, LTMRule, Observation, OutcomeRecord, Rule, RuleContext)
-from .builtin import A3, CHO, CLTM, DAPS, LTM, BanditA3
+from .builtin import A3, A3A5, CHO, CLTM, DAPS, LTM, BanditA3
 from .mro import MROA3
 
 ENTRY_POINT_GROUP = "handoverlab.rules"
 _REGISTRY: Dict[str, Type[Rule]] = {"a3": A3, "cho": CHO, "daps": DAPS, "ltm": LTM, "cltm": CLTM,
-                                   "a3_bandit": BanditA3, "a3_mro": MROA3}
+                                   "a3_bandit": BanditA3, "a3_mro": MROA3, "a3a5": A3A5}
 
 #: base classes a rule must derive from (DAPSRule derives from BaselineRule)
 RULE_BASES = (BaselineRule, ConditionalRule, LTMRule)
@@ -105,5 +105,5 @@ def make_rule(spec: Dict[str, Any]) -> Rule:
 
 __all__ = ["Rule", "BaselineRule", "ConditionalRule", "DAPSRule", "LTMRule", "CLTMRule", "RuleContext", "Observation",
            "OutcomeRecord", "FailureRecord", "USEFUL", "UNNECESSARY", "EARLY", "LATE", "MAX_CONDITIONAL_CELLS", "A3",
-           "CHO", "DAPS", "LTM", "CLTM", "BanditA3", "MROA3", "RULE_BASES",
+           "CHO", "DAPS", "LTM", "CLTM", "BanditA3", "MROA3", "A3A5", "RULE_BASES",
            "register_rule", "get_rule_class", "available_rules", "make_rule", "rule_key"]

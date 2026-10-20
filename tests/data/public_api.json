@@ -46,6 +46,7 @@
   ],
   "handoverlab.rules": [
    "A3",
+   "A3A5",
    "BanditA3",
    "BaselineRule",
    "CHO",
@@ -149,6 +150,11 @@
     "self",
     "obs"
    ],
+   "entering": [
+    "self",
+    "obs",
+    "offsets"
+   ],
    "time_to_trigger": [
     "self",
     "obs"
@@ -220,7 +226,8 @@
    "measurement_period_s",
    "seed",
    "rng",
-   "scenario"
+   "scenario",
+   "cell_carrier"
   ],
   "Observation": [
    "t",
@@ -275,6 +282,11 @@
  },
  "metrics": [
   "attempts_pm",
+  "beam_failures_pm",
+  "beam_recoveries_pm",
+  "beam_recovery_failures_pm",
+  "beam_recovery_s_pm",
+  "beam_switches_pm",
   "commands_pm",
   "delivered_share",
   "energy_uj_per_bit",
@@ -286,7 +298,9 @@
   "fail_rlf_in_preparation_pm",
   "fail_rlf_without_handover_pm",
   "failures_pm",
+  "gap_share",
   "handovers_pm",
+  "inter_frequency_handovers_pm",
   "interruption_exec_s_pm",
   "interruption_fail_s_pm",
   "interruption_s_pm",
@@ -424,11 +438,14 @@
   "protocol.cmd_during_t310",
   "protocol.exec_can_fail",
   "protocol.exec_s",
+  "protocol.fr2_power_class",
+  "protocol.gap_pattern",
   "protocol.l1_period_s",
   "protocol.l3_k",
   "protocol.label_period_s",
   "protocol.lm_load",
   "protocol.lm_load_per_ue",
+  "protocol.meas_periods",
   "protocol.n310",
   "protocol.n311",
   "protocol.pingpong_s",
@@ -439,11 +456,14 @@
   "protocol.qout_window_s",
   "protocol.reest_s",
   "protocol.report_interval_s",
+  "protocol.rlm_eval",
   "protocol.rlm_holdoff_s",
+  "protocol.ssb_period_s",
   "protocol.step_s",
   "protocol.t304_s",
   "protocol.t310_s",
   "radio.bandwidth_mhz",
+  "radio.beams",
   "radio.bs_gain_db",
   "radio.bs_height_m",
   "radio.carrier_ghz",
@@ -452,6 +472,7 @@
   "radio.energy_slope",
   "radio.isolation",
   "radio.l1_error_db",
+  "radio.layers",
   "radio.los_corr_m",
   "radio.map_res_m",
   "radio.noise_figure_db",
@@ -459,6 +480,7 @@
   "radio.penetration_db",
   "radio.penetration_sd_db",
   "radio.place_share",
+  "radio.scs_khz",
   "radio.shadow_decorr_m",
   "radio.shadow_los_db",
   "radio.shadow_los_far_db",

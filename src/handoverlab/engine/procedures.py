@@ -162,15 +162,24 @@ class BaselineProcedure(Procedure):
         ttt = rule.time_to_trigger(obs)
         if eng.debug:
             check_rule_value(eng, "a3_offsets", off, obs.t)
-            check_rule_value(eng, "time_to_trigger", ttt, obs.t, per_cell=False)
-        cond = a3_condition(obs.gap_db, off, obs.serving, obs.connected)
+            check_rule_value(eng, "time_to_trigger", ttt, obs.t, per_cell=np.ndim(ttt) == 2)
+        own = rule.entering(obs, off)
+        if own is None:
+            cond = a3_condition(obs.gap_db, off, obs.serving, obs.connected)
+        else:                                           # an event of the rule's own (since 1.10.0)
+            cond = np.array(own[0], dtype=bool)
+            cond[eng.ar, obs.serving] = False
+            cond &= obs.connected[:, None]
         te = self.te = update_entry_times(self.te, cond, obs.t)
         ready = ttt_expires_before(te, ttt, obs.t, eng.mdt)
         per_user_ttt = isinstance(ttt, np.ndarray) and np.ndim(ttt) == 1
+        per_cell_ttt = isinstance(ttt, np.ndarray) and np.ndim(ttt) == 2
         for u in np.nonzero(ready.any(1) & ~self.pend)[0]:
             o = off[u] if isinstance(off, np.ndarray) else off
-            tgt = int(np.argmax(np.where(ready[u], obs.gap_db[u] - o, -INF)))
-            t_rep = max(obs.t, te[u, tgt] + (ttt[u] if per_user_ttt else ttt))
+            score = obs.gap_db[u] - o if own is None else own[1][u]
+            tgt = int(np.argmax(np.where(ready[u], score, -INF)))
+            tt = ttt[u, tgt] if per_cell_ttt else ttt[u] if per_user_ttt else ttt
+            t_rep = max(obs.t, te[u, tgt] + tt)
             eng.new_flight(u, tgt, t_rep, -1, 0, o[tgt] if isinstance(o, np.ndarray) else o)
             if eng.trace_log is not None:
                 eng.trace_event(t_rep, u, "report", eng.serv[u], tgt, o[tgt] if isinstance(o, np.ndarray) else o)

@@ -63,6 +63,15 @@ METRICS: Dict[str, tuple] = {
     "site_power_w": ("W", "mean input power per site, EARTH model: energy_p0_w + energy_slope x transmit power "
                           "x load"),
     "energy_uj_per_bit": ("uJ/bit", "network energy per delivered bit: all sites' input power / delivered rate"),
+    # beams and several carriers (since 1.10.0; zero without these options)
+    "beam_switches_pm": ("1/UE-min", "serving-beam (TCI state) changes after beam reports"),
+    "beam_failures_pm": ("1/UE-min", "beam failures detected (BFI_COUNTER reached beamFailureInstanceMaxCount)"),
+    "beam_recoveries_pm": ("1/UE-min", "beam failure recoveries completed by random access"),
+    "beam_recovery_failures_pm": ("1/UE-min", "beam failure recoveries that ended in a random-access problem "
+                                              "(a radio-link failure)"),
+    "beam_recovery_s_pm": ("s/UE-min", "time spent in beam failure recovery"),
+    "inter_frequency_handovers_pm": ("1/UE-min", "completed handovers between cells of different carriers"),
+    "gap_share": ("1", "share of the UE time in measurement gaps while connected (no data in a gap)"),
 }
 for _c in CAUSES:
     METRICS["fail_%s_pm" % _c] = ("1/UE-min", "failures with cause %s" % _c)
@@ -115,6 +124,13 @@ def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, 
     out["energy_uj_per_bit"] = 1e6 * n_sites * out["site_power_w"] / bits if bits > 0 else float("nan")
     for c in CAUSES:
         out["fail_%s_pm" % c] = C["f_" + c] / ue_min
+    out["beam_switches_pm"] = C.get("beam_switch", 0) / ue_min
+    out["beam_failures_pm"] = C.get("bfr", 0) / ue_min
+    out["beam_recoveries_pm"] = C.get("bfr_ok", 0) / ue_min
+    out["beam_recovery_failures_pm"] = C.get("bfr_fail", 0) / ue_min
+    out["beam_recovery_s_pm"] = acc.get("bfr_time", 0.0) / ue_min
+    out["inter_frequency_handovers_pm"] = C.get("ho_inter", 0) / ue_min
+    out["gap_share"] = acc.get("gap_time", 0.0) / ue_s
     for k, name in _COUNTS.items():
         out[name] = C[k]
     for o in OUTCOMES:

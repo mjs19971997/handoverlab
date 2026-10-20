@@ -94,8 +94,112 @@ class LayoutConfig:
 
 
 @dataclass
+class BeamConfig:
+    """SSB beams, beam management and beam failure recovery of one layer (optional, since 1.10.0).
+
+    Every site carries ``sectors`` panels (cells); boresight of sector ``s`` at
+    ``sector_az0_deg + s * 360 / sectors`` degrees.  A panel is a uniform
+    rectangular array of ``panel = (M, N)`` single-polarised elements at half a
+    wavelength (TR 38.901 clause 7.3) with the element pattern of Table 7.3-1;
+    each of the ``n_ssb`` SSB beams has DFT weights that steer it to the zenith
+    angle ``tilt_deg`` (Eq. 7.3-1) and to one of ``n_ssb`` azimuths spread
+    evenly over ``beam_span_deg`` (default: the sector width).  The cell
+    quality follows TS 38.331 clause 5.5.3.3 (``ssb_avg`` =
+    nrofSS-BlocksToAverage, ``ssb_thresh_dbm`` = absThreshSS-BlocksConsolidation;
+    unset: the highest beam).
+
+    Beam management: the gNB moves the serving beam (TCI state) to the best
+    reported SSB beam when it is ``switch_db`` better than the serving beam in
+    a periodic L1-RSRP report (every ``report_s``), ``tci_delay_s`` later.
+
+    Beam failure detection and recovery (``bfd``; TS 38.213 clause 6,
+    TS 38.321 clause 5.17, TS 38.133 clause 8.5): the BFD reference signal is
+    the SSB of the serving beam; a beam failure instance is indicated when its
+    quality, averaged over the evaluation period of TS 38.133 Table 8.5.2.2-1/-2,
+    is below Qout_LR (= protocol.qout_db, 10 % BLER); ``bfi_max`` =
+    beamFailureInstanceMaxCount, ``bfd_timer`` = beamFailureDetectionTimer in
+    indication periods (pbfdN); then random access on the SpCell: contention-free
+    on the best candidate SSB with L1-RSRP above ``rsrp_thresh_ssb_dbm``
+    (rsrp-ThresholdSSB) while ``bfr_timer_s`` (beamFailureRecoveryTimer) runs,
+    otherwise contention-based; one preamble attempt takes ``ra_attempt_s``
+    (two for contention-based access) and succeeds if the chosen beam's SINR is
+    at least Qout; after ``preamble_max`` (preambleTransMax) failed attempts a
+    random-access problem is a radio-link failure (TS 38.331 clause 5.3.10.3).
+    ``rlm_rs`` sets the RLM reference signals: ``"tci"`` the serving beam
+    (TS 38.331 RadioLinkMonitoringConfig: no RS configured), ``"beams"`` the
+    N_RLM best beams of the last report (TS 38.133 Table 8.1.1-2).
+    ``rx_sweep_n`` is the scaling factor N of TS 38.133 (unset: 1 in FR1 and
+    FR3, 8 in FR2-1, 12 in FR2-2).
+    """
+    sectors: int = 3
+    sector_az0_deg: float = 30.0
+    n_ssb: int = 8
+    panel: Tuple[int, int] = (4, 8)
+    tilt_deg: float = 100.0
+    beam_span_deg: Optional[float] = None
+    ssb_avg: Optional[int] = None
+    ssb_thresh_dbm: Optional[float] = None
+    report_s: float = 0.04
+    switch_db: float = 2.0
+    tci_delay_s: float = 0.01
+    rx_sweep_n: Optional[int] = None
+    bfd: bool = True
+    bfi_max: int = 3
+    bfd_timer: int = 4
+    bfr_timer_s: Optional[float] = 0.1
+    rsrp_thresh_ssb_dbm: float = -115.0
+    ra_attempt_s: float = 0.01
+    preamble_max: int = 10
+    rlm_rs: str = "tci"
+
+
+@dataclass
+class LayerConfig:
+    """A further carrier and its cells (optional, since 1.10.0; see ``RadioConfig.layers``).
+
+    Unset values are taken from the scenario's ``radio`` (carrier, link budget,
+    propagation) and ``layout`` (site placement).  ``cosited`` puts the layer on
+    the sites of the first layer with the same LOS states, shadowing and
+    blockers (TR 38.901 clause 7.6.5); otherwise the layer has its own sites
+    (``sites``, ``sites_file`` or ``site_spacing_m`` / ``site_offset_m``) and
+    independent random fields.
+    """
+    name: str = "layer2"
+    carrier_ghz: Optional[float] = None
+    bandwidth_mhz: Optional[float] = None
+    scs_khz: Optional[float] = None
+    tx_power_dbm: Optional[float] = None
+    bs_gain_db: Optional[float] = None
+    ue_gain_db: Optional[float] = None
+    noise_figure_db: Optional[float] = None
+    bs_height_m: Optional[float] = None
+    pathloss: Optional[str] = None
+    cosited: bool = False
+    sites: Optional[Tuple[Tuple[float, float], ...]] = None
+    sites_file: Optional[str] = None
+    site_spacing_m: Optional[float] = None
+    site_offset_m: Optional[float] = None
+    beams: Optional[BeamConfig] = None
+
+
+BFI_MAX_COUNTS = (1, 2, 3, 4, 5, 6, 8, 10)          # beamFailureInstanceMaxCount n1..n10 (TS 38.331)
+BFD_TIMERS = (1, 2, 3, 4, 5, 6, 8, 10)              # beamFailureDetectionTimer pbfd1..pbfd10 (TS 38.331)
+BFR_TIMERS_S = (0.01, 0.02, 0.04, 0.06, 0.08, 0.1, 0.15, 0.2)   # beamFailureRecoveryTimer ms10..ms200
+PREAMBLE_TRANS_MAX = (3, 4, 5, 6, 7, 8, 10, 20, 50, 100, 200)  # preambleTransMax n3..n200 (RACH-ConfigGeneric)
+SCS_KHZ = (15.0, 30.0, 60.0, 120.0, 240.0, 480.0, 960.0)
+
+
+@dataclass
 class RadioConfig:
-    """Carrier, link budget, propagation and the antenna abstraction (TR 38.901)."""
+    """Carrier, link budget, propagation and the antenna abstraction (TR 38.901).
+
+    ``beams`` (since 1.10.0) replaces the antenna abstraction by sectors with
+    SSB beams (:class:`BeamConfig`); ``layers`` (since 1.10.0) adds carriers
+    with their own cells (:class:`LayerConfig`).  With either of them the
+    measurements are SS-RSRP per resource element (the power over the
+    bandwidth minus 10 log10(bandwidth / ``scs_khz``)); ``scs_khz`` unset is
+    30 kHz below 7.125 GHz and 120 kHz above.
+    """
     carrier_ghz: float = 10.0
     bandwidth_mhz: float = 200.0
     tx_power_dbm: float = 35.0          # per site
@@ -131,6 +235,15 @@ class RadioConfig:
     energy_p0_w: float = 56.0
     energy_slope: float = 2.6
     map_res_m: float = 1.0
+    # optional SSB beams and further carriers (since 1.10.0)
+    scs_khz: Optional[float] = None
+    beams: Optional[BeamConfig] = None
+    layers: Optional[Tuple[LayerConfig, ...]] = None
+
+    @property
+    def extended(self) -> bool:
+        """True if beams or further layers are configured (the extended radio model of 1.10.0)."""
+        return self.beams is not None or bool(self.layers)
 
     @property
     def noise_dbm(self) -> float:
@@ -174,6 +287,16 @@ class ProtocolConfig:
     # SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); "lost": it is lost at once
     cmd_during_t310: str = "lost"
     t304_s: Optional[float] = None      # T304: the execution fails only when T304 expires (TS 38.331 5.3.5.8.3)
+    # measurement periods and evaluation periods of TS 38.133 (since 1.10.0; the defaults keep the model of 1.x):
+    # meas_periods "ts38133": every cell's L1 result is the average over its measurement period -- intra-frequency
+    # without gaps (Tables 9.2.5.2-1/-2), inter-frequency within the gaps of pattern gap_pattern (Tables 9.1.2-1,
+    # 9.3.5-1/-2) -- and the L3 filter is adapted to that input rate (TS 38.331 5.5.3.2); "sample": every L1 period
+    meas_periods: str = "sample"
+    ssb_period_s: float = 0.02          # SSB and SMTC periodicity (T_SSB)
+    gap_pattern: int = 0                # gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms)
+    fr2_power_class: int = 3            # FR2 UE power class (sets M_meas of TS 38.133 9.2.5.2 and 9.3.4)
+    # rlm_eval "ts38133": Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 instead of qout_window_s / qin_window_s
+    rlm_eval: str = "fixed"
 
 
 @dataclass
@@ -340,6 +463,12 @@ class Scenario:
         _check(P.rlm_holdoff_s >= 0, "protocol.rlm_holdoff_s", "must be >= 0")
         _check(P.cmd_during_t310 in ("lost", "receive"), "protocol.cmd_during_t310", "must be 'lost' or 'receive'")
         _check(P.t304_s is None or P.t304_s > 0, "protocol.t304_s", "must be positive or null")
+        _check(P.meas_periods in ("sample", "ts38133"), "protocol.meas_periods", "must be 'sample' or 'ts38133'")
+        _check(P.rlm_eval in ("fixed", "ts38133"), "protocol.rlm_eval", "must be 'fixed' or 'ts38133'")
+        _check(P.ssb_period_s > 0, "protocol.ssb_period_s", "must be positive")
+        _check(0 <= P.gap_pattern <= 25, "protocol.gap_pattern", "TS 38.133 Table 9.1.2-1 defines the ids 0-25")
+        _check(1 <= P.fr2_power_class <= 5, "protocol.fr2_power_class", "must be 1-5")
+        self._validate_extended()
         _check(M.users >= 1, "mobility.users", "must be >= 1")
         if M.groups is None:
             from .mobility import PROFILES
@@ -354,12 +483,42 @@ class Scenario:
         _check(Tr.ftp_file_bytes > 0 and Tr.ftp_rate_hz >= 0, "traffic.ftp_file_bytes",
                "file size must be positive and the arrival rate >= 0")
 
+    def _validate_extended(self) -> None:
+        """Checks of the optional beams and layers (since 1.10.0)."""
+        R = self.radio
+        _check(R.scs_khz is None or R.scs_khz in SCS_KHZ, "radio.scs_khz", "must be one of %s" % (SCS_KHZ,))
+        if R.beams is not None:
+            _check_beams(R.beams, R.carrier_ghz, "radio.beams")
+        names = set()
+        for i, ly in enumerate(R.layers or ()):
+            key = "radio.layers[%d]" % i
+            _check(ly.name not in names and ly.name != "base", key + ".name", "must be unique and not 'base'")
+            names.add(ly.name)
+            f = R.carrier_ghz if ly.carrier_ghz is None else ly.carrier_ghz
+            _check(0.5 <= f <= 100.0, key + ".carrier_ghz", "TR 38.901 covers 0.5-100 GHz")
+            pl = ly.pathloss or R.pathloss
+            _check(pl in ("umi_street_canyon", "uma", "rma", "inh_office"), key + ".pathloss",
+                   "must be 'umi_street_canyon', 'uma', 'rma' or 'inh_office'")
+            _check(pl != "rma" or f <= 30.0, key + ".carrier_ghz", "the TR 38.901 RMa model covers 0.5-30 GHz")
+            _check(ly.bandwidth_mhz is None or ly.bandwidth_mhz > 0, key + ".bandwidth_mhz", "must be positive")
+            _check(ly.scs_khz is None or ly.scs_khz in SCS_KHZ, key + ".scs_khz", "must be one of %s" % (SCS_KHZ,))
+            _check(not (ly.cosited and (ly.sites is not None or ly.sites_file or ly.site_spacing_m is not None
+                                        or ly.site_offset_m is not None)),
+                   key + ".cosited", "a co-sited layer takes the sites of the first layer; give no own sites")
+            _check(ly.site_spacing_m is None or ly.site_spacing_m > 0, key + ".site_spacing_m", "must be positive")
+            if ly.beams is not None:
+                _check_beams(ly.beams, f, key + ".beams")
+            if ly.sites_file and ly.sites is None:
+                ly.sites = read_sites(ly.sites_file)
+
 
 #: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`
 LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
                                                     "area_m", "min_site_distance_m"),
-                                         "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db"),
-                                         "protocol": ("cmd_during_t310", "t304_s")}
+                                         "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
+                                                   "beams", "layers"),
+                                         "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
+                                                      "gap_pattern", "fr2_power_class", "rlm_eval")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 
 
@@ -387,6 +546,30 @@ def read_sites(path: Union[str, os.PathLike]) -> Tuple[Tuple[float, float], ...]
 def _check(ok: bool, key: str, msg: str) -> None:
     if not ok:
         raise ConfigError("scenario.%s: %s" % (key, msg))
+
+
+def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
+    """Range checks of a :class:`BeamConfig` on a carrier of ``carrier_ghz``."""
+    from .requirements import ssb_max
+    _check(1 <= b.sectors <= 12, key + ".sectors", "must be 1-12")
+    lmax = ssb_max(carrier_ghz)
+    _check(1 <= b.n_ssb <= lmax, key + ".n_ssb",
+           "must be 1-%d on %.3g GHz (L_max of TS 38.133 Table 8.1.1-2)" % (lmax, carrier_ghz))
+    _check(b.panel[0] >= 1 and b.panel[1] >= 1, key + ".panel", "needs at least 1 x 1 elements")
+    _check(0.0 < b.tilt_deg < 180.0, key + ".tilt_deg", "must be between 0 and 180 degrees")
+    _check(b.beam_span_deg is None or 0.0 < b.beam_span_deg <= 360.0, key + ".beam_span_deg", "must be in (0, 360]")
+    _check(b.ssb_avg is None or 2 <= b.ssb_avg <= b.n_ssb, key + ".ssb_avg", "nrofSS-BlocksToAverage must be 2-n_ssb")
+    _check(b.report_s > 0 and b.tci_delay_s >= 0 and b.switch_db >= 0, key + ".report_s",
+           "report_s must be positive, tci_delay_s and switch_db >= 0")
+    _check(b.rx_sweep_n is None or b.rx_sweep_n >= 1, key + ".rx_sweep_n", "must be >= 1")
+    _check(b.bfi_max in BFI_MAX_COUNTS, key + ".bfi_max", "beamFailureInstanceMaxCount: one of %s" % (BFI_MAX_COUNTS,))
+    _check(b.bfd_timer in BFD_TIMERS, key + ".bfd_timer", "beamFailureDetectionTimer: one of %s" % (BFD_TIMERS,))
+    _check(b.bfr_timer_s is None or any(abs(b.bfr_timer_s - v) < 1e-9 for v in BFR_TIMERS_S), key + ".bfr_timer_s",
+           "beamFailureRecoveryTimer: null or one of %s s" % (BFR_TIMERS_S,))
+    _check(b.preamble_max in PREAMBLE_TRANS_MAX, key + ".preamble_max",
+           "preambleTransMax: one of %s" % (PREAMBLE_TRANS_MAX,))
+    _check(b.ra_attempt_s > 0, key + ".ra_attempt_s", "must be positive")
+    _check(b.rlm_rs in ("tci", "beams"), key + ".rlm_rs", "must be 'tci' or 'beams'")
 
 
 # ---------------------------------------------------------------------------

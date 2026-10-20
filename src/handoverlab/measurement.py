@@ -80,7 +80,7 @@ def ttt_expires_before(entry: np.ndarray, ttt_s, t: float, period_s: float) -> n
 
     A condition that held at every measurement since ``entry`` is reported at
     ``entry + ttt`` even if that falls between two measurement instants.
-    ``ttt_s`` is a scalar or one value per user.
+    ``ttt_s`` is a scalar, one value per user (U,) or (since 1.10.0) one per user and cell (U, M).
     """
     ttt = np.asarray(ttt_s, dtype=float)
     if ttt.ndim == 1:

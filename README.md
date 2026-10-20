@@ -6,10 +6,11 @@ A system-level simulator for studying handover in dense 5G and beyond-5G network
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
 conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid, an open area, along a highway, in an indoor office or across rural cells, with a
-received-power-level radio model from TR 38.901, an L3-filtered measurement chain, a radio-link
-failure model, and an outcome label for every handover attempt.
+received-power-level radio model from TR 38.901 (optionally with SSB beams, beam failure recovery
+and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
+outcome label for every handover attempt.
 
-> **Status: 1.9.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.10.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -46,6 +47,15 @@ IMT-2020 link budgets and the soft LOS state of TR 38.901:
 
 ![Layout of the rural scenario: 11 macro sites on a 1732 m hexagonal grid](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/scenarios/rural-700mhz.svg)
 
+**Beams and several carriers.** Since 1.10.0: sectors with SSB beams (the antenna of TR 38.901),
+beam management and beam failure recovery as in TS 38.321 and TS 38.133, and further carriers with
+inter-frequency measurements in gaps, for example the two-layer dense urban deployment of ITU-R
+M.2412 (4 GHz macro cells, 30 GHz micro cells):
+
+![The 8 SSB beams of one sector against the antenna abstraction of 1.x](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/ssb-beams.png)
+
+![Layout of the two-layer dense urban scenario: 23 macro sites and 207 micro sites](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/scenarios/dense-urban-2layer.svg)
+
 ## What it models
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
@@ -56,6 +66,10 @@ IMT-2020 link budgets and the soft LOS state of TR 38.901:
   building geometry plus the spatially consistent LOS state, hard or soft; spatially correlated shadowing; a
   time-varying component; L1 measurement error; beam gain and load-coupled interference;
   optionally a penetration loss per user (in-car loss of TR 38.901).
+- **Beams and carriers** (options, 1.10.0): sectors with SSB beams from the TR 38.901 antenna
+  model, cell quality from the beams (TS 38.331 5.5.3.3), the serving beam from beam reports, beam
+  failure detection and recovery (TS 38.321 5.17, TS 38.133 8.5), several carriers with the
+  measurement periods and gaps of TS 38.133, Event A5 between carriers.
 - **Mobility**: street-following users with turn probabilities, random waypoints in the open area,
   pedestrian and vehicular speed profiles or your own speed groups.
 - **Traffic**: constant service rates per 5QI class, or a traffic model per user: full buffer,
@@ -110,6 +124,8 @@ handover command and its execution behave as TS 38.331 specifies. Against handov
 measured in commercial 5G networks (SIGCOMM, IMC and MobiCom measurement studies) the profile
 brings the handover failure rate from about six times above the measured range to just above it;
 ping-pong with the Verizon A3 setting and the handover distance in low-band rural cells match.
+Since 1.10.0 the page also covers beams, beam failure recovery, measurement gaps and Event A5, and
+the DAPS and LTM interruptions are checked against TS 38.133 and published 3GPP evaluations.
 
 ## Checked against ns-3
 
@@ -136,6 +152,11 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.10.0**: SSB beams per sector with beam management and beam failure recovery (TS 38.321 5.17,
+  TS 38.133 8.5), several carriers with inter-frequency measurements in gaps and Event A5, the
+  measurement and RLM evaluation periods of TS 38.133, and DAPS and LTM checked against TS 38.133
+  and published 3GPP evaluations. Three sectors per site bring the mid-band handover counts into the
+  range measured in commercial networks; a two-layer deployment alone does not.
 - **1.9.0**: the 3GPP protocol profile (handover command received during T310 and T304 as in
   TS 38.331), a clause-by-clause standard-compliance page, a fresh ns-3 hold-out and a comparison
   with commercial 5G measurements.
@@ -305,9 +326,11 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 15. 1.6.0: conditional LTM.
 16. 1.7.0: indoor and rural scenarios; mobility robustness optimisation.
 17. 1.8.0: the radio model calibrated against 3GPP (TR 38.901 clause 7.8.1).
-18. **1.9.0 (this release)**: the 3GPP protocol profile and the standard-compliance page.
-19. Later (planned, not done): beam management and beam failure recovery (TS 38.321 5.17), optional
-    compiled kernels for the step loop.
+18. 1.9.0: the 3GPP protocol profile and the standard-compliance page.
+19. **1.10.0 (this release)**: SSB beams and beam failure recovery, several carriers with measurement
+    gaps, DAPS and LTM against TS 38.133 and published 3GPP evaluations.
+20. Later (planned, not done): NTN mobility (CHO events D1/T1), optional compiled kernels for the
+    step loop.
 
 ## Citation
 

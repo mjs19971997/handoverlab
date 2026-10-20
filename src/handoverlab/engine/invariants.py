@@ -112,7 +112,7 @@ def check_rule_value(eng, hook, value, t, per_cell=True) -> None:
               % (hook, eng.rule.name, a.shape, shapes[1]))
     if np.isnan(a).any():
         _fail(eng, t, "%s of rule %r returned NaN" % (hook, eng.rule.name))
-    if hook == "time_to_trigger" and (a < 0).any():
+    if hook == "time_to_trigger" and (a < 0).any():   # (U, M) allowed since 1.10.0 (per_cell=True)
         _fail(eng, t, "time_to_trigger of rule %r returned a negative value" % eng.rule.name)
 
 

@@ -78,6 +78,21 @@ def cases() -> Dict[str, Dict[str, Any]]:
                                                          "mobility.profile": "veh30", "run.duration_s": 60.0}),
                           seed=8, rules=[RULES[0], {"rule": "a3_mro", "name": "A3-MRO", "window_s": 5.0,
                                                     "step_db": 1.0}]),
+        # since 1.10.0: SSB beams with beam failure recovery at 28 GHz, two carriers with measurement gaps,
+        # and the TS 38.133 measurement and RLM evaluation periods on one carrier
+        "smoke-beams": dict(scenario=smoke.with_overrides({
+            "name": "smoke-beams", "radio.carrier_ghz": 28.0, "radio.bandwidth_mhz": 400.0,
+            "radio.beams": {"sectors": 3, "n_ssb": 8}, "mobility.users": 10, "mobility.profile": "veh30"}),
+            seed=13, rules=[RULES[0], {"rule": "ltm", "name": "LTM"}]),
+        "smoke-2layer": dict(scenario=smoke.with_overrides({
+            "name": "smoke-2layer", "radio.carrier_ghz": 3.5, "radio.bandwidth_mhz": 100.0,
+            "radio.layers": [{"name": "fr2", "carrier_ghz": 28.0, "bandwidth_mhz": 400.0, "site_spacing_m": 200.0,
+                              "beams": {"sectors": 3, "n_ssb": 8}}],
+            "protocol.meas_periods": "ts38133", "mobility.users": 10}), seed=14,
+            rules=[RULES[0], {"rule": "a3a5", "name": "A3A5", "a5_thresh1_dbm": -95.0, "a5_thresh2_dbm": -100.0}]),
+        "smoke-38133": dict(scenario=smoke.with_overrides({
+            "name": "smoke-38133", "protocol.meas_periods": "ts38133", "protocol.rlm_eval": "ts38133"}),
+            seed=15, rules=RULES[:1]),
     }
 
 

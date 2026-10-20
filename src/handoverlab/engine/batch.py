@@ -75,6 +75,7 @@ class EngineBatch:
     @staticmethod
     def supported(engines: Sequence[Engine]) -> bool:
         return (len(engines) > 1 and not any(e.debug for e in engines)
+                and all(type(e) is Engine for e in engines)          # not the engine of the 1.10.0 options
                 and all(e.world.scenario.traffic.model == "fixed" for e in engines))
 
     def advance(self, ch) -> None:

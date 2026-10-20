@@ -63,17 +63,18 @@ def _ar1(w, r, z):
 class RadioSource:
     """Received power of every site at every user and step."""
 
-    def __init__(self, world, chunk_steps: int = 1000):
+    def __init__(self, world, chunk_steps: int = 1000, layer=None):
         sc = world.scenario
-        self.rmap = world.radio_map
+        self.rmap = world.radio_map if layer is None else layer.rmap
         self.X, self.Y, self.V = world.x, world.y, world.speed
         self.S, self.U = self.X.shape
-        self.M = world.layout.n_sites
-        self.R = R = sc.radio
+        self.M = self.rmap.layout.n_sites
+        self.R = R = sc.radio if layer is None else layer.radio
+        sub = 0 if layer is None else layer.sub
         dt = sc.protocol.step_s
         self.mp = max(1, int(round(sc.protocol.l1_period_s / dt)))
         self.chunk = max(self.mp, (chunk_steps // self.mp) * self.mp)   # whole L1 periods per chunk
-        self.rng_t, self.rng_o, self.rng_m, self.rng_l = streams(world.seed, "radio", 4)
+        self.rng_t, self.rng_o, self.rng_m, self.rng_l = streams(world.seed, "radio", 4, sub)
         self.r_t = float(np.exp(-self.mp * dt / R.time_var_tau_s))     # per L1 period
         self.zt = self.rng_t.standard_normal((self.U, self.M))         # stationary start
         self.own = R.place_share < 1.0
@@ -84,9 +85,12 @@ class RadioSource:
             self.r_l = np.exp(-self.V * dt / R.los_corr_m)
             self.zl = self.rng_l.standard_normal((self.U, self.M))
         self.p0 = R.tx_power_dbm + R.bs_gain_db + R.ue_gain_db
+        self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
         if R.penetration_db or R.penetration_sd_db:     # per-user loss on all links (own stream)
             rng = streams(world.seed, "penetration", 1)[0]
-            self.p0 = self.p0 - (R.penetration_db + R.penetration_sd_db * rng.standard_normal(self.U))[:, None]
+            pen = (R.penetration_db + R.penetration_sd_db * rng.standard_normal(self.U))[:, None]
+            self.p0 = self.p0 - pen
+            self.pen = -pen
 
     def _ar1_users(self, rng, r_u, z, n):
         """AR(1) along time with one coefficient per user -> (n, U, M)."""
@@ -119,6 +123,22 @@ class RadioSource:
 
     def chunks(self) -> Iterator[Chunk]:
         """Yield :class:`Chunk` objects covering the whole run in order."""
+        for k0, n, rs in self._large_scale():
+            nm = -(-n // self.mp)
+            rs += self.p0
+            l1 = rs[::self.mp] + self.R.l1_error_db * self.rng_m.standard_normal((nm, self.U, self.M))
+            yield Chunk(k0, n, rs, np.exp(rs * LN10_10), l1, self.mp)
+
+    def raw_chunks(self) -> Iterator[tuple]:
+        """``(k0, n, gain)`` per chunk: the site gain [dB] of every step, user and site without the transmit
+        power and the antenna gains, with the per-user penetration loss (used by the beam and multi-carrier
+        model of :mod:`handoverlab.channel.extended`; no L1 error is drawn)."""
+        for k0, n, rs in self._large_scale():
+            rs += self.pen
+            yield k0, n, rs
+
+    def _large_scale(self) -> Iterator[tuple]:
+        """Path loss, LOS state, shadowing and time variation of every step, user and site [dB]."""
         R, rmap = self.R, self.rmap
         sites = rmap.layout.sites
         for k0 in range(0, self.S, self.chunk):
@@ -154,6 +174,4 @@ class RadioSource:
                 zt = _ar1(self.rng_t.standard_normal((nm, self.U, self.M)), self.r_t, self.zt)
                 self.zt = zt[-1].copy()
                 rs += R.time_var_db * np.repeat(zt, self.mp, axis=0)[:n]
-            rs += self.p0
-            l1 = rs[::self.mp] + R.l1_error_db * self.rng_m.standard_normal((nm, self.U, self.M))
-            yield Chunk(k0, n, rs, np.exp(rs * LN10_10), l1, self.mp)
+            yield k0, n, rs

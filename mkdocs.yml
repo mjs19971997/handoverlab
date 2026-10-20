@@ -35,6 +35,7 @@ nav:
       - A highway: guides/highway.md
       - Indoor and rural scenarios: guides/indoor-rural.md
       - Mobility robustness optimisation: guides/mro.md
+      - Beams and several carriers: guides/beams-layers.md
       - Scenario cards:
           - smoke: scenarios/smoke.md
           - urban-grid-10ghz: scenarios/urban-grid-10ghz.md
@@ -44,6 +45,8 @@ nav:
           - highway-10ghz: scenarios/highway-10ghz.md
           - indoor-office-4ghz: scenarios/indoor-office-4ghz.md
           - rural-700mhz: scenarios/rural-700mhz.md
+          - urban-grid-28ghz-beams: scenarios/urban-grid-28ghz-beams.md
+          - dense-urban-2layer: scenarios/dense-urban-2layer.md
   - Reference:
       - Command line: reference/cli.md
       - Metric names: reference/metrics.md

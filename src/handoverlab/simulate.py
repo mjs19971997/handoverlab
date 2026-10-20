@@ -13,10 +13,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Union
 
+from .channel.extended import ExtendedSource
 from .channel.source import RadioSource
 from .config import Experiment, Scenario
 from .engine.batch import EngineBatch
 from .engine.core import Engine
+from .engine.extended import ExtEngine, uses_extended
 from .rules import Rule, make_rule, rule_key
 from .world import World, build_world
 
@@ -90,10 +92,12 @@ def run_world(world: World, rules: Sequence[RuleSpec], log_events: Union[bool, s
     """
     t0 = time.perf_counter()
     objs = [_instantiate(s) for s in rules]
-    engines = [Engine(world, r, log_events, debug) for r in objs]
+    ext = uses_extended(world)
+    cls = ExtEngine if ext else Engine
+    engines = [cls(world, r, log_events, debug) for r in objs]
     runners = [EngineBatch(engines)] if batch and EngineBatch.supported(engines) else engines
     t_radio = 0.0
-    it = RadioSource(world, chunk_steps).chunks()
+    it = (ExtendedSource(world, chunk_steps) if world.ext is not None else RadioSource(world, chunk_steps)).chunks()
     while True:
         ta = time.perf_counter()
         ch = next(it, None)

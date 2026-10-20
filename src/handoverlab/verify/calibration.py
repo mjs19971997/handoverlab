@@ -28,6 +28,8 @@ from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
 
+from ..channel.antenna import element_gain_db  # Table 7.3-1, shared with the beam model
+
 C0 = 299792458.0
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "r1_165974.csv")
 PERCENTILES = tuple(range(5, 100, 5))
@@ -68,13 +70,6 @@ N_ELEMENTS = 10                   # (M, N, P) = (10, 1, 1), d_V = 0.5 lambda
 # ---------------------------------------------------------------------------
 # antenna (Table 7.3-1 and Eq. 7.3-1)
 # ---------------------------------------------------------------------------
-def element_gain_db(theta_deg, phi_deg):
-    """Gain of one element: 8 dBi + A(theta, phi) of Table 7.3-1 (3 dB beam widths 65 deg, 30 dB limits)."""
-    av = -np.minimum(12.0 * ((theta_deg - 90.0) / 65.0) ** 2, 30.0)
-    ah = -np.minimum(12.0 * (phi_deg / 65.0) ** 2, 30.0)
-    return 8.0 - np.minimum(-(av + ah), 30.0)
-
-
 def array_gain_db(theta_deg, tilt_deg: float, m: int = N_ELEMENTS):
     """Gain of the vertical array with the weights of Eq. 7.3-1 (d_V = lambda / 2), relative to one element."""
     psi = math.pi * (np.cos(np.radians(theta_deg)) - math.cos(math.radians(tilt_deg)))

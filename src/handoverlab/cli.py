@@ -267,9 +267,10 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--debug", action="store_true", help="check the engine invariants while running (slower)")
     r.add_argument("-q", "--quiet", action="store_true", help="print nothing but errors")
     r.set_defaults(func=_cmd_run)
+    from .verify import GROUPS
     v = sub.add_parser("verify", help="run the verification checks and print a pass/fail report")
     v.add_argument("--only", nargs="+", metavar="GROUP",
-                   help="check groups: pathloss radio invariants equivalences fingerprints (default: all)")
+                   help="check groups: %s (default: all)" % " ".join(GROUPS))
     v.add_argument("--full", action="store_true", help="longer checks (three seeds for the radio statistics)")
     v.add_argument("--ns3", action="store_true",
                    help="compare with the stored ns-3 / 5G-LENA results (several minutes); "

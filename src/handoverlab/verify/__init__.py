@@ -11,6 +11,8 @@ Check groups (all run by default, in this order):
 ``invariants``    built-in rules in debug mode, conservation of counts, determinism, independence of rules
 ``equivalences``  CHO with immediate execution = A3; a plug-in rule that reduces to A3 = A3
 ``fingerprints``  golden event-log fingerprints of short reference runs
+``extended``      beams, several carriers, TS 38.133 periods, DAPS and LTM against TS 38.133 and published
+                  3GPP evaluations (since 1.10.0)
 
 Optional:
 
@@ -26,7 +28,7 @@ from typing import Callable, Optional, Sequence
 
 from .report import FAIL, NOTE, PASS, Check, Report, header
 
-GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints")
+GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended")
 
 
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
@@ -63,6 +65,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "fingerprints" in groups:
         from .golden import fingerprint_checks
         fingerprint_checks(rep)
+    if "extended" in groups:
+        from .extended import extended_checks
+        extended_checks(rep, duration_s=dur)
     if ns3:
         from .ns3 import ns3_checks
         ns3_checks(rep, seeds=tuple(500 + i for i in range(ns3_seeds)), progress=printer)

@@ -6,6 +6,7 @@
 ``DAPS``      Rel-16 DAPS handover triggered by Event A3 (since 1.0.0rc2)
 ``LTM``       Rel-18 L1/L2-triggered mobility with fixed offsets (since 1.0.0rc2)
 ``BanditA3``  Event A3 whose offset is learned per cell by an epsilon-greedy bandit (since 1.0.0rc2)
+``A3A5``      Event A3 within a carrier, Event A5 between carriers (since 1.10.0)
 """
 from __future__ import annotations
 
@@ -324,3 +325,75 @@ class BanditA3(BaselineRule):
 
     def on_link_failure(self, rec):
         self._credit(rec.source, -self.w_failure)
+
+
+class A3A5(BaselineRule):
+    """Event A3 within a carrier and Event A5 towards other carriers (multi-carrier model; since 1.10.0).
+
+    Trigger towards a cell on the serving carrier: Event A3 (TS 38.331 clause 5.5.4.4), neighbour
+    better than the serving cell by ``off_db`` for ``ttt_s``.  Trigger towards a cell on another
+    carrier: Event A5 (clause 5.5.4.6), entering conditions A5-1 ``Mp + Hys < Thresh1`` and A5-2
+    ``Mn + Ofn + Ocn - Hys > Thresh2`` (Ofn = Ocn = 0) held for ``a5_ttt_s``; Mp and Mn are the
+    L3-filtered SS-RSRP per resource element [dBm] of the multi-carrier model.  The thresholds
+    apply towards a carrier of higher frequency; ``a5_down_thresh1_dbm`` / ``a5_down_thresh2_dbm``
+    (unset: the same) towards a lower one, as a network configures A5 per measurement object.
+    ``a3_inter`` also applies A3 towards the other carriers.  Report, preparation and command as
+    :class:`A3`.  On one carrier the rule is :class:`A3`.
+
+    off_db          A3 offset [dB]
+    ttt_s           A3 time-to-trigger [s]
+    a5_thresh1_dbm  a5-Threshold1 (serving) [dBm]
+    a5_thresh2_dbm  a5-Threshold2 (neighbour) [dBm]
+    a5_hys_db       hysteresis of the A5 event [dB]
+    a5_ttt_s        A5 time-to-trigger [s]
+    a3_inter        A3 also towards cells of other carriers
+    a5_down_thresh1_dbm, a5_down_thresh2_dbm  A5 thresholds towards a lower carrier (unset: as above)
+    """
+
+    def __init__(self, off_db: float = 3.0, ttt_s: float = 0.16, a5_thresh1_dbm: float = -110.0,
+                 a5_thresh2_dbm: float = -105.0, a5_hys_db: float = 1.0, a5_ttt_s: float = 0.32,
+                 a3_inter: bool = False, a5_down_thresh1_dbm=None, a5_down_thresh2_dbm=None, name: str = "A3A5"):
+        super().__init__(name)
+        if ttt_s < 0 or a5_ttt_s < 0 or a5_hys_db < 0:
+            raise ValueError("ttt_s, a5_ttt_s and a5_hys_db must be >= 0")
+        self.off_db, self.ttt_s = float(off_db), float(ttt_s)
+        self.a5_thresh1_dbm, self.a5_thresh2_dbm = float(a5_thresh1_dbm), float(a5_thresh2_dbm)
+        self.a5_hys_db, self.a5_ttt_s, self.a3_inter = float(a5_hys_db), float(a5_ttt_s), bool(a3_inter)
+        self.a5_down_thresh1_dbm = self.a5_thresh1_dbm if a5_down_thresh1_dbm is None else float(a5_down_thresh1_dbm)
+        self.a5_down_thresh2_dbm = self.a5_thresh2_dbm if a5_down_thresh2_dbm is None else float(a5_down_thresh2_dbm)
+
+    def params(self):
+        return dict(off_db=self.off_db, ttt_s=self.ttt_s, a5_thresh1_dbm=self.a5_thresh1_dbm,
+                    a5_thresh2_dbm=self.a5_thresh2_dbm, a5_hys_db=self.a5_hys_db, a5_ttt_s=self.a5_ttt_s,
+                    a3_inter=self.a3_inter, a5_down_thresh1_dbm=self.a5_down_thresh1_dbm,
+                    a5_down_thresh2_dbm=self.a5_down_thresh2_dbm)
+
+    def _inter(self, obs):
+        car = self.ctx.cell_carrier
+        if car is None:
+            return None
+        return car[None, :] != car[obs.serving][:, None]
+
+    def a3_offsets(self, obs):
+        return self.off_db
+
+    def time_to_trigger(self, obs):
+        inter = self._inter(obs)
+        if inter is None or not inter.any():
+            return self.ttt_s
+        return np.where(inter, self.a5_ttt_s, self.ttt_s)
+
+    def entering(self, obs, offsets):
+        inter = self._inter(obs)
+        if inter is None:
+            return None
+        car = self.ctx.cell_carrier
+        down = car[None, :] < car[obs.serving][:, None]          # carriers are numbered by frequency
+        th1 = np.where(down, self.a5_down_thresh1_dbm, self.a5_thresh1_dbm)
+        th2 = np.where(down, self.a5_down_thresh2_dbm, self.a5_thresh2_dbm)
+        mp = obs.meas_dbm[np.arange(len(obs.serving)), obs.serving]
+        a3 = obs.gap_db > self.off_db
+        a5 = (mp[:, None] + self.a5_hys_db < th1) & (obs.meas_dbm - self.a5_hys_db > th2)
+        cond = np.where(inter, a5 | (a3 & self.a3_inter), a3)
+        score = np.where(inter, obs.meas_dbm - th2, obs.gap_db - self.off_db)
+        return cond, score

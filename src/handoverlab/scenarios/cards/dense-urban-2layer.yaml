@@ -1,0 +1,72 @@
+# Scenario card (machine-readable).  docs/scenarios/dense-urban-2layer.md is generated from this file.
+name: dense-urban-2layer
+title: Two-layer dense urban deployment of ITU-R M.2412 (4 GHz macro + 30 GHz micro, SSB beams)
+since: 1.10.0
+purpose: >
+  The Dense Urban-eMBB test environment of ITU-R M.2412-0 in its two-layer form (Configuration C):
+  a macro layer at 4 GHz on a hexagonal grid with 200 m between sites and three TRxPs (sectors)
+  per site, and a micro layer at 30 GHz with three micro sites per macro TRxP, each with three
+  TRxPs.  Every TRxP sends 8 SSB beams from a 4 x 8 panel with the element of TR 38.901 Table 7.3-1.
+  Users are the outdoor in-car users of M.2412 (30 km/h).  Measurements follow the periods of
+  TS 38.133 (inter-frequency measurements in gaps), and the rule `a3a5` hands over with Event A3
+  within a layer and Event A5 between layers.  Use it to study multi-layer mobility, beam failures
+  and inter-frequency handovers.
+layout_note: >
+  Open area of 800 m x 700 m (no wrap-around), 23 macro sites (ISD 200 m) and 207 micro sites
+  (drawn once: 3 per macro TRxP, uniform by area in the TRxP's 120-degree wedge between 25 m and
+  115.5 m from the macro site, at least 20 m apart; numpy default_rng(2412)).
+scenario:
+  name: dense-urban-2layer
+  layout: {kind: open_area, area_m: [800.0, 700.0], site_spacing_m: 200.0, sites: [[-400.0, -346.4], [-200.0, -346.4], [0.0, -346.4], [200.0, -346.4], [400.0, -346.4], [-300.0, -173.2], [-100.0, -173.2], [100.0, -173.2], [300.0, -173.2], [-400.0, 0.0], [-200.0, 0.0], [0.0, 0.0], [200.0, 0.0], [400.0, 0.0], [-300.0, 173.2], [-100.0, 173.2], [100.0, 173.2], [300.0, 173.2], [-400.0, 346.4], [-200.0, 346.4], [0.0, 346.4], [200.0, 346.4], [400.0, 346.4]]}
+  radio:
+    carrier_ghz: 4.0
+    bandwidth_mhz: 20.0
+    scs_khz: 30.0
+    tx_power_dbm: 44.0
+    bs_height_m: 25.0
+    pathloss: uma
+    noise_figure_db: 7.0
+    ue_gain_db: 0.0
+    beams: {sectors: 3, sector_az0_deg: 30.0, n_ssb: 8, panel: [4, 8], tilt_deg: 102.0}
+    layers:
+      - name: micro-30ghz
+        carrier_ghz: 30.0
+        bandwidth_mhz: 80.0
+        scs_khz: 120.0
+        tx_power_dbm: 33.0
+        bs_height_m: 10.0
+        pathloss: umi_street_canyon
+        noise_figure_db: 10.0
+        ue_gain_db: 5.0
+        sites: [[-360.3, -355.8], [-338.8, -313.0], [-297.3, -379.7], [-436.5, -336.2], [-494.9, -345.4], [-404.0, -257.2], [-446.3, -423.2], [-333.1, -387.6], [-477.5, -396.8], [-150.1, -372.8], [-181.3, -234.1], [-174.1, -263.0], [-270.6, -299.6], [-265.1, -263.8], [-306.1, -325.5], [-197.4, -446.3], [-151.0, -422.3], [-205.2, -377.1], [61.3, -291.4], [54.7, -354.2], [89.0, -289.0], [-59.0, -310.2], [-30.5, -250.8], [-71.2, -344.4], [-90.9, -413.7], [65.6, -418.1], [26.8, -413.7], [217.6, -267.9], [233.8, -283.0], [273.6, -275.7], [198.3, -232.8], [149.9, -263.0], [144.0, -334.4], [218.3, -390.2], [185.4, -411.6], [200.3, -459.4], [497.8, -332.7], [446.4, -310.5], [416.4, -286.4], [316.8, -358.1], [388.7, -255.5], [306.3, -318.9], [492.8, -400.9], [422.9, -376.8], [452.9, -436.5], [-283.8, -109.6], [-291.7, -132.8], [-221.1, -93.5], [-387.9, -133.7], [-381.9, -109.7], [-316.8, -140.6], [-238.2, -262.1], [-358.9, -265.9], [-299.0, -264.7], [-62.0, -156.6], [-72.3, -178.4], [-9.5, -184.7], [-173.4, -123.5], [-205.3, -193.2], [-178.2, -95.7], [-94.6, -242.3], [-127.7, -192.0], [-61.1, -218.9], [150.7, -129.9], [147.0, -81.2], [210.4, -177.0], [60.6, -66.6], [80.9, -127.9], [84.4, -152.3], [139.5, -205.8], [94.9, -259.4], [69.5, -223.8], [329.8, -149.9], [359.7, -195.1], [387.3, -166.1], [191.1, -192.1], [273.7, -100.5], [292.8, -140.7], [294.2, -212.5], [274.6, -197.7], [366.5, -226.1], [-361.7, -17.4], [-335.3, 63.9], [-304.2, -53.2], [-431.7, 97.7], [-468.9, 54.3], [-485.7, -10.4], [-356.3, -69.7], [-465.2, -53.5], [-386.1, -84.5], [-122.3, 45.9], [-141.2, 12.2], [-182.4, 91.5], [-203.3, 57.7], [-280.7, 46.6], [-230.7, 84.0], [-184.8, -51.7], [-112.4, -70.4], [-248.2, -84.1], [20.0, 79.6], [51.0, 5.8], [100.7, -21.5], [-47.2, 86.1], [-68.9, -28.2], [-109.9, -26.5], [-20.6, -100.1], [37.5, -31.3], [-53.5, -47.0], [248.1, 20.3], [286.2, 59.0], [256.1, 60.4], [147.4, 40.4], [94.9, 33.9], [121.9, 16.9], [141.5, -51.6], [187.0, -94.9], [217.7, -67.8], [410.1, 102.9], [401.5, 38.1], [437.1, -18.8], [332.8, 49.8], [365.7, 43.4], [384.1, 110.8], [460.4, -77.9], [378.3, -111.1], [366.5, -36.2], [-201.2, 139.8], [-215.1, 207.4], [-272.0, 218.6], [-397.1, 233.4], [-345.3, 225.0], [-403.5, 159.4], [-240.2, 122.9], [-278.0, 132.4], [-306.6, 104.1], [-41.3, 165.0], [-21.0, 218.8], [-6.9, 190.5], [-152.8, 183.8], [-141.5, 248.9], [-176.1, 138.4], [-34.5, 108.8], [-67.9, 89.1], [-103.7, 75.6], [198.6, 209.9], [124.8, 217.5], [193.8, 148.1], [91.8, 280.2], [28.9, 209.1], [35.7, 141.8], [61.1, 140.0], [58.5, 110.4], [78.8, 72.7], [323.2, 246.3], [351.8, 185.6], [399.9, 169.4], [189.4, 177.9], [225.7, 146.3], [275.9, 182.3], [249.9, 116.7], [265.6, 79.7], [360.2, 123.2], [-302.0, 366.8], [-291.4, 315.6], [-292.7, 341.3], [-504.2, 321.4], [-409.4, 401.0], [-491.5, 344.7], [-490.0, 289.9], [-335.3, 272.0], [-322.6, 294.7], [-176.1, 391.5], [-102.5, 392.9], [-115.1, 298.5], [-252.7, 384.0], [-246.6, 426.6], [-239.2, 404.3], [-138.8, 293.8], [-205.9, 293.3], [-241.0, 279.9], [63.4, 338.0], [46.4, 383.4], [83.7, 393.2], [-48.4, 423.1], [-55.9, 389.3], [-65.2, 358.4], [-75.0, 265.2], [58.0, 260.5], [-15.3, 284.1], [265.3, 431.8], [205.9, 428.7], [206.9, 401.4], [143.6, 357.6], [101.6, 320.0], [170.4, 426.6], [259.9, 300.0], [227.5, 300.4], [208.0, 319.3], [430.4, 397.2], [459.5, 325.1], [495.8, 336.1], [301.4, 395.5], [363.2, 360.9], [385.1, 457.9], [368.2, 266.8], [436.7, 276.4], [342.6, 267.6]]
+        beams: {sectors: 3, sector_az0_deg: 30.0, n_ssb: 8, panel: [4, 8], tilt_deg: 100.0}
+  protocol: {meas_periods: ts38133, rlm_eval: ts38133, ssb_period_s: 0.02, gap_pattern: 0}
+  mobility:
+    users: 20
+    groups: [{share: 1.0, v_min: 8.33, v_max: 8.33, lateral_m: [0.0, 0.0]}]
+  run: {duration_s: 120.0, warmup_s: 20.0}
+sources:
+  layout.kind: "ITU-R M.2412-0 clause 8.3 (no topographical details; regular hexagonal macro grid)"
+  layout.site_spacing_m: "ITU-R M.2412-0 Table 5b (macro layer ISD 200 m)"
+  layout.sites: "hexagonal macro grid with ISD 200 m in the area (ITU-R M.2412-0 clause 8.3)"
+  layout.area_m: "assumption (800 m x 700 m, about 23 macro sites)"
+  radio.scs_khz: "assumption (30 kHz at 4 GHz)"
+  radio.carrier_ghz: "ITU-R M.2412-0 Table 5b, Configuration C (macro layer 4 GHz)"
+  radio.bandwidth_mhz: "ITU-R M.2412-0 Table 5b (20 MHz TDD at 4 GHz)"
+  radio.tx_power_dbm: "ITU-R M.2412-0 Table 5b (macro 4 GHz: 44 dBm for 20 MHz)"
+  radio.bs_height_m: "ITU-R M.2412-0 Table 5b (25 m for macro sites)"
+  radio.noise_figure_db: "ITU-R M.2412-0 Table 5b (UE noise figure 7 dB at 4 GHz)"
+  radio.ue_gain_db: "ITU-R M.2412-0 Table 5b (UE antenna element gain 0 dBi at 4 GHz)"
+  radio.beams: "M.2412 clause 8.3.2 (three TRxPs per macro site); element of TR 38.901 Table 7.3-1 (8 dBi, M.2412 BS element gain 8 dBi); panel size, 8 SSB beams (L_max at 4 GHz) and tilt are assumptions"
+  radio.layers: "M.2412 clause 8.3.2 and Table 5b: micro layer at 30 GHz, 80 MHz, 33 dBm, 10 m, UE noise figure 10 dB, UE element gain 5 dBi; 3 micro sites per macro TRxP (placement method and three TRxPs per micro site: assumptions, as M.2412 leaves them to the proponent)"
+  radio.pathloss: "TR 38.901 UMa (macro) and UMi street canyon (micro), as M.2412 Annex 1 uses for Dense Urban"
+  protocol.meas_periods: "TS 38.133 Tables 9.2.5.2-1/-2 and 9.3.5-1/-2 (gap pattern 0 of Table 9.1.2-1)"
+  protocol.rlm_eval: "TS 38.133 Tables 8.1.2.2-1/-2"
+  mobility.groups: "ITU-R M.2412-0 Table 5b: outdoor (in-car) users at 30 km/h; the 80 % indoor users are not simulated"
+limitations:
+  - "No wrap-around: users near the edge of the area see fewer interferers than in M.2412."
+  - "No fast fading and no UE beamforming; one hypothetical beam per SSB with fixed DFT weights."
+  - "Only the outdoor in-car users of M.2412 are simulated (the 80 % indoor users and building penetration are not)."
+  - "The micro-site positions are one draw; other draws give other statistics."
+references:
+  - "ITU-R M.2412-0 (2017) clause 8.3.2 and Table 5b (local copy std3gpp/pdf/R-REP-M.2412-2017-PDF-E.pdf)."

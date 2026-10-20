@@ -7,6 +7,62 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-20
+
+### Added
+
+- SSB beams, beam management and beam failure recovery (roadmap item 18), as the option
+  `radio.beams`: sectors per site, each a panel with the element of TR 38.901 Table 7.3-1 and DFT
+  weights (Eq. 7.3-1) sending up to L_max SSB beams; beam-level L1-RSRP and the cell quality of
+  TS 38.331 5.5.3.3; the serving beam (TCI state) from periodic beam reports; beam failure
+  detection (all BFD-RS below Qout_LR over the evaluation period of TS 38.133 Tables 8.5.2.2-1/-2,
+  indications every max(2 ms, T_SSB), BFI_COUNTER with beamFailureInstanceMaxCount and
+  beamFailureDetectionTimer, TS 38.321 5.17) and recovery by random access (contention-free on a
+  candidate above rsrp-ThresholdSSB while beamFailureRecoveryTimer runs, else contention-based;
+  preambleTransMax failed attempts = radio-link failure, TS 38.331 5.3.10.3); radio-link monitoring
+  on the serving beam or on the N_RLM best beams (up to 8 in FR2, TS 38.133 Table 8.1.1-2). Beam
+  failure recovery and T310 run side by side (the coupling is not specified).
+- Several carriers (roadmap item 19), as the option `radio.layers`: further layers with their own
+  sites or co-sited with the first layer (same LOS states, shadowing and blockers, TR 38.901
+  7.6.5), interference only within a carrier, SS-RSRP per resource element; the measurement
+  periods of TS 38.133 as the option `protocol.meas_periods: ts38133` (intra-frequency Tables
+  9.2.5.2-1/-2, inter-frequency within the gaps of `protocol.gap_pattern`, Tables 9.1.2-1 and
+  9.3.5-1/-2, L3 filter adapted to the input rate, no data during a gap); the RLM evaluation
+  periods of TS 38.133 Tables 8.1.2.2-1/-2 as `protocol.rlm_eval: ts38133`; the rule `a3a5`
+  (Event A3 within a carrier, Event A5 towards another, thresholds per direction).
+- External validation of DAPS and LTM (roadmap item 10): `handoverlab.requirements` (TS 38.133
+  formulas, including D_LTM of 6.3.1 and the DAPS interruptions of 6.1.3) and checks of the
+  interruption values against TS 38.133 and against published 3GPP evaluations (RAN1 R1-2007151,
+  RAN2 R2-2207806, R2-2209256, R2-2206982, R2-2208200, R2-1907308, R2-1901361, TR 36.881).
+- New metrics `beam_switches_pm`, `beam_failures_pm`, `beam_recoveries_pm`,
+  `beam_recovery_failures_pm`, `beam_recovery_s_pm`, `inter_frequency_handovers_pm`, `gap_share`
+  (zero without the options); `RuleContext.cell_carrier`; the rule hook `BaselineRule.entering`
+  (an event of the rule's own) and time-to-trigger per user and cell.
+- Scenario cards `urban-grid-28ghz-beams` (FR2 small cells with beams) and `dense-urban-2layer`
+  (ITU-R M.2412 Dense Urban-eMBB, 4 GHz macro + 30 GHz micro); the guide "Beams and several
+  carriers"; the figure `docs/images/ssb-beams.png` (`tools/make_beam_figure.py`).
+- `verify` group `extended` (antenna, cell quality and TS 38.133 formulas against hand values; the
+  new engine without options equals the engine of 1.x; DAPS and LTM against TS 38.133 and the
+  published evaluations); golden fingerprints `smoke-beams`, `smoke-2layer`, `smoke-38133`.
+
+### Results (plans fixed before the runs; every number in docs/standard-compliance.md)
+
+- DAPS and LTM: the LTM interruption (20 ms) equals TS 38.133 6.3.1 for a known cell and TCI state
+  with RACH-less execution, the DAPS interruption (0 ms) is within the 2-3 ms of TS 38.133 6.1.3,
+  and all values lie in the bands around the published 3GPP evaluations; the L3 execution
+  interruption of 40 ms is below every published value (45.5-120 ms), i.e. optimistic.
+- Three sectors per site (instead of one cell per site) bring the mid-band handover counts of the
+  1.9.0 comparison with commercial networks into the measured range (walking 2.44 handovers per
+  UE-minute, measured 4.84, band from 2.42; driving 13.4 s between handovers, measured 9.2 s),
+  while the ping-pong of the AT&T A3 setting (4.6 %, measured 15.5 %) and the failures per
+  handover (0 %, measured 0.04-1.5 %) fall out of their bands.
+- A two-layer ITU-R M.2412 deployment does not explain the counts: with the operators' A5
+  settings the users alternate between the layers or hand over too often when driving (1.0 s and
+  3.8 s between handovers); the macro layer with three sectors alone is inside the band (7.2 s
+  driving, 18.7 s walking).
+
+Without the new options every result and every fingerprint of 1.9.0 is unchanged.
+
 ## [1.9.0] - 2026-10-19
 
 ### Added
@@ -566,7 +622,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/mjs19971997/handoverlab/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/mjs19971997/handoverlab/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/mjs19971997/handoverlab/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/mjs19971997/handoverlab/compare/v1.6.0...v1.7.0

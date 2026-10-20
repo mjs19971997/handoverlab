@@ -105,6 +105,14 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "mobility.groups": "profile",
     "run.duration_s": "numerical setting",
     "run.warmup_s": "numerical setting",
+    "radio.scs_khz": "unset: 30 kHz up to 7.125 GHz, 120 kHz above (assumption)",
+    "radio.beams": "off by default (antenna abstraction); TR 38.901 clause 7.3 when set",
+    "radio.layers": "off by default (one carrier)",
+    "protocol.meas_periods": "sample: one L1 sample per L1 period (the model of 1.x)",
+    "protocol.ssb_period_s": "assumption (20 ms SSB and SMTC periodicity)",
+    "protocol.gap_pattern": "TS 38.133 Table 9.1.2-1 (gap pattern 0: MGL 6 ms, MGRP 40 ms)",
+    "protocol.fr2_power_class": "assumption (FR2 power class 3, handheld UE)",
+    "protocol.rlm_eval": "fixed: qout_window_s and qin_window_s (the model of 1.x)",
 }
 
 
@@ -190,7 +198,9 @@ def _fmt(v: Any) -> str:
 
 
 _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "radio.soft_los_d_m",
-             "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s")
+             "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s",
+             "radio.scs_khz", "radio.beams", "radio.layers", "protocol.meas_periods", "protocol.ssb_period_s",
+             "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval")
 
 
 def card_markdown(name: str, figure: str = None) -> str:
@@ -213,13 +223,26 @@ def card_markdown(name: str, figure: str = None) -> str:
     for key in _KEYS_1_7:                           # keys of 1.7.0 and later: shown only where a card sets them
         if key in flat and flat[key] == default.get(key):
             del flat[key]
+    import dataclasses
+
+    from ..config import BeamConfig
+    bdef = _flat({"radio": {"beams": dataclasses.asdict(BeamConfig())}})   # defaults of the beam keys (1.10.0)
     for key, value in flat.items():
         if key == "name":
             continue
         v = _fmt(value)
+        if key in bdef and key not in default:
+            if _fmt(value) == _fmt(bdef[key]):
+                L.append("| `%s` | %s | default of the beam model (user guide) |" % (key, v))
+                continue
+            default[key] = bdef[key]
         if value != default.get(key):
             v = "**%s**" % v
-        L.append("| `%s` | %s | %s |" % (key, v, sources.get(key, "")))
+        src, k = sources.get(key), key
+        while src is None and "." in k:                 # nested keys (beams, layers): the source of the parent
+            k = k.rsplit(".", 1)[0]
+            src = sources.get(k)
+        L.append("| `%s` | %s | %s |" % (key, v, src or ""))
     L += ["", "## Known limitations", ""]
     L += ["- %s" % x.strip() for x in card.get("limitations", [])]
     L += ["", "## Reference results", ""]

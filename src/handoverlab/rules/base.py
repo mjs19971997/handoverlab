@@ -73,6 +73,7 @@ class RuleContext:
     seed: int
     rng: np.random.Generator                # private random stream of the rule
     scenario: Any
+    cell_carrier: Optional[np.ndarray] = None  # (M,) carrier index of every cell, multi-carrier model (since 1.10.0)
 
 
 @dataclass
@@ -155,8 +156,17 @@ class BaselineRule(Rule):
         raise NotImplementedError
 
     def time_to_trigger(self, obs: Observation) -> Union[float, np.ndarray]:
-        """Time-to-trigger [s]: a scalar or an array (U,)."""
+        """Time-to-trigger [s]: a scalar, an array (U,) or (since 1.10.0) an array (U, M)."""
         raise NotImplementedError
+
+    def entering(self, obs: Observation, offsets) -> Optional[tuple]:
+        """Own entering condition (since 1.10.0): ``(condition, score)``, both (U, M), or None for Event A3.
+
+        ``condition`` says where the event's entering condition holds (the serving cell and users that are
+        not connected are excluded by the engine); among the cells whose time-to-trigger expires, the one with
+        the highest ``score`` becomes the target.  The default (None) is Event A3 with ``offsets``.
+        """
+        return None
 
 
 class ConditionalRule(Rule):

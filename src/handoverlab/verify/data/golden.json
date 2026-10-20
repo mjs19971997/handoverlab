@@ -329,6 +329,72 @@
     "n_failures": 5,
     "n_preparations": 0
    }
+  ],
+  "smoke-beams": [
+   {
+    "rule": "A3",
+    "fingerprint": "a2d5ac00b14bfd2509bc5ba59a61e4412f3b99c765acbe72f6c4efe33fe70f87",
+    "n_events": 112,
+    "sinr_db": 14.177571316927022,
+    "n_attempts": 107,
+    "n_handovers": 99,
+    "n_unnecessary": 23,
+    "n_pingpong": 1,
+    "n_failures": 17,
+    "n_preparations": 0
+   },
+   {
+    "rule": "LTM",
+    "fingerprint": "687891bdff2a2209742e481e538b80b56a2d3d871b4c401710d7c350e3a458bc",
+    "n_events": 137,
+    "sinr_db": 16.330720902948237,
+    "n_attempts": 135,
+    "n_handovers": 132,
+    "n_unnecessary": 50,
+    "n_pingpong": 13,
+    "n_failures": 8,
+    "n_preparations": 217
+   }
+  ],
+  "smoke-2layer": [
+   {
+    "rule": "A3",
+    "fingerprint": "99d3c3924b3f90d12e2867fbaeaf810dbb465f7dcc301e0186c8be322d35d678",
+    "n_events": 47,
+    "sinr_db": 26.499356989792272,
+    "n_attempts": 47,
+    "n_handovers": 46,
+    "n_unnecessary": 13,
+    "n_pingpong": 4,
+    "n_failures": 1,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3A5",
+    "fingerprint": "2733639254b5fb72abef0b8160d18bda6bb6fe4db85f863cc80b33f8371a02a1",
+    "n_events": 42,
+    "sinr_db": 26.251715209961397,
+    "n_attempts": 42,
+    "n_handovers": 41,
+    "n_unnecessary": 9,
+    "n_pingpong": 3,
+    "n_failures": 1,
+    "n_preparations": 0
+   }
+  ],
+  "smoke-38133": [
+   {
+    "rule": "A3",
+    "fingerprint": "11a5a7b821040a6ce59162616c8bf48aecf3dbbba4e430e917f88bbb8426e847",
+    "n_events": 92,
+    "sinr_db": 25.8140602325041,
+    "n_attempts": 92,
+    "n_handovers": 89,
+    "n_unnecessary": 31,
+    "n_pingpong": 5,
+    "n_failures": 3,
+    "n_preparations": 0
+   }
   ]
  }
 }
