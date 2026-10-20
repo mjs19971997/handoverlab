@@ -108,3 +108,15 @@ def test_old_highway_card_is_deprecated():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         hl.builtin_scenario("highway-tr37885-4ghz")                    # the new cards do not warn
+
+
+def test_verify_group_highway_passes():
+    """The checks of ``handoverlab verify --only highway``, with the settings of the group."""
+    from handoverlab.verify.highway import highway_checks, rma_los_db
+    from handoverlab.verify.report import Report
+    rep = Report(printer=None)
+    highway_checks(rep)
+    assert rep.ok, [c.name for c in rep.failed]
+    assert len([c for c in rep.checks if c.group == "highway"]) == 8
+    pl, dbp = rma_los_db(np.array([100.0, 6000.0]), 35.0, 1.6, 4.0)
+    assert np.isclose(dbp, 2 * math.pi * 35.0 * 1.6 * 4e9 / 3e8) and pl[1] > pl[0]

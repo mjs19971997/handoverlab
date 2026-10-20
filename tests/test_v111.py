@@ -85,3 +85,19 @@ def test_numba_backend_gives_the_golden_fingerprints():
         c = cases()[name]
         res = hl.simulate(c["scenario"].with_overrides({"run.backend": "numba"}), c["rules"], seeds=[c["seed"]])
         assert [r.fingerprint for r in res] == [w["fingerprint"] for w in ref[name]], name
+
+
+def test_kernel_logic_without_numba(monkeypatch):
+    """The kernel run as plain Python (no compiler) through both step loops gives the golden fingerprints."""
+    from handoverlab.engine import _kernels
+    monkeypatch.setattr(_kernels, "rlm_step", _kernels._rlm_step)
+    monkeypatch.setattr(_kernels, "available", lambda: True)
+    ref = load()["cases"]
+    c = cases()["smoke"]
+    sc = c["scenario"].with_overrides({"run.backend": "numba", "run.duration_s": 30.0})
+    batched = hl.simulate(sc, c["rules"], seeds=[c["seed"]])
+    assert [r.fingerprint for r in batched] == [w["fingerprint"] for w in ref["smoke"]]
+    from handoverlab.simulate import run_world
+    from handoverlab.world import build_world
+    one = run_world(build_world(sc, c["seed"]), c["rules"][:1], batch=False)[0]
+    assert one.fingerprint == ref["smoke"][0]["fingerprint"]
