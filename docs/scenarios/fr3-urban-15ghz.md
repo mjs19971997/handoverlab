@@ -5,7 +5,7 @@ Available since version 1.0.0rc2. Use it as `scenario: fr3-urban-15ghz` in a con
 
 ## Purpose
 
-The `urban-grid-10ghz` world moved to 15 GHz, the middle of the upper mid-band (FR3, 7.125 to 24.25 GHz) that 3GPP studies for 5G-Advanced and beyond: the same 3 x 3-block grid with small cells every 100 m, the TR 38.901 UMi street-canyon model with building LOS and place-tied shadowing, a 400 MHz carrier and an array of the same physical size as at 10 GHz, so that its beam gain is 20 log10(15/10) = 3.5 dB higher.  Path loss grows by about as much, the noise by 3 dB (twice the bandwidth), so the signal-to-noise ratio is about 3 dB lower.  Use it next to `urban-grid-10ghz` to see how a rule's trade-off between failures and unnecessary handovers moves with the carrier; everything else stays the same.
+The `urban-grid-10ghz` world moved to 15 GHz, the middle of the upper mid-band (7 to 24 GHz, often called FR3) that 3GPP studies for 5G-Advanced and beyond: the same 3 x 3-block grid with small cells every 100 m, the TR 38.901 UMi street-canyon model with building LOS and place-tied shadowing, a 400 MHz carrier and an array of the same physical size as at 10 GHz, so that its beam gain is 20 log10(15/10) = 3.5 dB higher.  Path loss grows by about as much, the noise by 3 dB (twice the bandwidth), so the signal-to-noise ratio is about 3 dB lower.  Use it next to `urban-grid-10ghz` to see how a rule's trade-off between failures and unnecessary handovers moves with the carrier; everything else stays the same.
 
 ## Layout
 
@@ -23,18 +23,18 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.blocks` | [3, 3] | TR 37.885 Table A-1 (minimum 3 x 3 blocks) |
 | `layout.pitch_m` | [433, 250] | TR 37.885 Annex A (433 m x 250 m) |
 | `layout.street_width_m` | 20 | TR 37.885 Annex A (20 m) |
-| `layout.site_spacing_m` | 100 | assumption (dense small cells along the streets) |
+| `layout.site_spacing_m` | 100 | assumption (dense small cells along the streets; TR 37.885 Table 6.1.3-2 has 500 m macro sites in the urban grid) |
 | `layout.site_offset_m` | 9 | assumption (sites on the pavement) |
 | `layout.sites` | none | regular placement along the streets |
-| `radio.carrier_ghz` | **15** | FR3 (7.125-24.25 GHz) of the Rel-19 7-24 GHz channel-model study (TR 38.901 V19); 15 GHz is an assumption |
+| `radio.carrier_ghz` | **15** | the 7-24 GHz range of the Rel-19 study on channel modelling enhancements, now in TR 38.901 V19.5.0 (Tables 7.4.1-1 and 7.4.2-1 unchanged for UMi); 15 GHz is an assumption |
 | `radio.bandwidth_mhz` | **400** | assumption (400 MHz channel in the upper mid-band) |
-| `radio.tx_power_dbm` | 35 | assumption (small cell) |
+| `radio.tx_power_dbm` | 35 | assumption (small cell; TR 37.885 Table 6.1.1-2 has 43 dBm for its macro sites) |
 | `radio.bs_gain_db` | **23.5** | assumption (array of the same aperture as at 10 GHz: +20 log10(15/10) dB) |
 | `radio.ue_gain_db` | 0 | assumption |
 | `radio.noise_figure_db` | 7 | assumption (typical UE noise figure) |
 | `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | 10 | TR 38.901 Table 7.4.1-1 (UMi: 10 m) |
-| `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
+| `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
 | `radio.pathloss` | umi_street_canyon | TR 38.901 Table 7.4.1-1 |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
@@ -87,13 +87,15 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | 40 | assumption |
-| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban: 60 km/h); see the user guide |
+| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban option A: 60 km/h); the profile veh16 spreads the speed over 52-63 km/h (assumption); see the user guide |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | 120 | numerical setting |
 | `run.warmup_s` | 20 | numerical setting |
 
 ## Known limitations
 
+- Small cells on UMi along the streets: TR 37.885 itself has 500 m macro sites with UMa in the urban grid (Tables 6.1.3-2 and 6.2.1-2); only the road geometry and the turning probabilities are TR 37.885's.
+- Sites stand 9 m from the street centre line, so users pass closer than 10 m, below the UMi range 10 m <= d2D of TR 38.901 Table 7.4.1-1.
 - Received-power level only: no fast fading, no link-level physical layer, one beam gain and one isolation factor.
 - TR 38.901 UMi parameters are used at 15 GHz; the model's validity in the 7-24 GHz range was re-examined in Rel-19, and frequency-dependent material penetration or foliage loss is not modelled.
 - The failure model is not calibrated in absolute terms; read failure rates relative to each other and to `urban-grid-10ghz`.

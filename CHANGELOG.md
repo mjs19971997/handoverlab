@@ -7,6 +7,81 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-20
+
+### Added
+
+- The highway of TR 37.885 V15.3.0 as specified for the base-station-to-vehicle link (roadmap item
+  11): `layout.wrap` (wrap-around of Table A-1: a vehicle keeps lane and direction and re-enters at
+  the other end; distances and angles to the nearest image of every site; the place-tied shadowing is
+  periodic along the road), `layout.highway_sites` (`one_side`: TR 36.885 A.1.3 option 1;
+  `hex19`: 19 hexagonal sites with the road through the centre site along the cluster translation,
+  option 2), `radio.los_model: los` (LOS on every link, Table 6.2.1-2), the speed profiles `v140`
+  and `v70` (option A). All off by default.
+- Scenario cards `highway-tr37885-4ghz` (below 6 GHz: 2 sites 35 m from the road, 1732 m apart,
+  35 m masts, RMa LOS at 4 GHz, 20 MHz, 49 dBm, NF 9 dB) and `highway-tr37885-30ghz` (above 6 GHz:
+  19 sites x 3 sectors, ISD 500 m, 25 m masts, UMa LOS at 30 GHz, 200 MHz, 43 dBm, NF 13 dB, SSB
+  beams of the 4 x 8 panel tilted to 102 degrees); 140 km/h; every value with its clause.
+- `verify` group `highway`: the geometry and link budget of both cards against the TRs, continuity
+  of the received power at the wrap-around, the coupling gain to the strongest site against an
+  independent computation (percentiles 5-95 within 0.5 dB) and LOS-only links.
+- `verify --only learning` (optional, about 20 minutes): `a3_bandit` against an exhaustive search
+  over its arms, with three criteria fixed before the run. `BanditA3` keeps a record of its credited
+  outcomes and finished epochs (`outcomes`, `epochs`); its decisions are unchanged.
+- The rule `dqn` (roadmap item 15): Event A3 whose offset a deep Q-network chooses per user, with
+  replay buffer and target network, training and test modes, weights saved and loaded
+  (`handoverlab.rules.dqn.train`); PyTorch is optional (`pip install handoverlab[torch]`),
+  `import handoverlab` does not need it, and `handoverlab rules` names the missing package.
+- `run.backend: numba` (roadmap item 16): a compiled kernel of the step loop (serving SINR,
+  Qout / Qin filters, T310) with bit-identical results, optional (`pip install handoverlab[fast]`);
+  the backend is not part of the job IDs. The NumPy path stays the reference.
+- Per-layer shadowing keys of `radio.layers` (`shadow_los_db`, `shadow_nlos_db`,
+  `shadow_decorr_m`, `los_corr_m`; unset: those of `radio`), left out of `to_dict` while unset.
+- `scenario_names(deprecated=False)`; `Layout.offsets`, `Layout.distances`, `Layout.wrap_x`,
+  `Layout.nearest_image`; `layout.highway_hex`.
+- CI job with the optional extras (Numba, PyTorch CPU).
+
+### Changed
+
+- Scenario cards corrected against the texts (their results change; their job IDs change with them):
+  `dense-urban-2layer` (UMa shadowing 4 / 6 dB and 50 m on the macro layer and UMi 4 / 7.82 dB and
+  13 m on the micro layer, TR 38.901 Tables 7.4.1-1 and 7.5-6; car penetration loss 9 dB, 5 dB,
+  M.2412-0 Annex 1 clause 3.3; minimum BS-UT distance 35 m, Table 7.2-1) and
+  `urban-grid-28ghz-beams` (UE noise figure 10 dB, M.2412-0 Table 5b). Citations corrected on
+  `indoor-office-4ghz`, `urban-grid-28ghz-beams`, `fr3-urban-15ghz` and in the default sources;
+  the assumptions of the urban-grid cards (small cells on UMi, 52-63 km/h, no 10 m minimum
+  distance) are stated on the cards.
+
+### Fixed
+
+- Baseline and DAPS handover attempts now carry the rule's `memory_key` into
+  `OutcomeRecord.key`, as the rule interface describes; until 1.10.0 only conditional handover
+  passed it on (baseline attempts came back with -1). No built-in rule uses the key, so no result
+  changes.
+
+### Deprecated
+
+- The scenario card `highway-10ghz`: it combined the roadside offset of TR 36.885 option 1 with
+  the spacing of option 2, used 10 GHz and had neither the LOS-only links nor the wrap-around of
+  TR 37.885. It loads with a `HandoverLabDeprecationWarning`, is no longer listed, and is removed
+  in 2.0.0.
+
+### Results (plans fixed before the runs)
+
+- Highway: all eight checks pass; the coupling gain agrees with the independent computation within
+  +0.42 dB (4 GHz card) and -0.35 dB (30 GHz card); the largest jump at the wrap-around is
+  0.05-0.09 dB.
+- Bandit: the exhaustive search finds the largest arm (5 dB) best, with the reward still rising;
+  criterion B1 (at least 0.6 of the second-half epochs on the best arm or a neighbour) **failed**
+  with 0.57 (chance 0.4); B2 and B3 passed (0.503 against 0.471, 0.543 against 0.452). Reported as
+  is; the rule was not changed.
+- Numba: all 30 golden runs bit-identical; engine time 0.66 (reference job, batched), 0.85 (one
+  engine) and 0.90 (8 rules on smoke) of the NumPy time, less than the factor of two to three hoped for.
+- TR 38.901 V19.5.0 checked against V17.0.0: the path loss, LOS probabilities and shadowing used
+  here are unchanged.
+
+Old golden fingerprints are unchanged; new ones for the two highway cards.
+
 ## [1.10.0] - 2026-10-20
 
 ### Added
@@ -622,7 +697,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/mjs19971997/handoverlab/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/mjs19971997/handoverlab/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/mjs19971997/handoverlab/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/mjs19971997/handoverlab/compare/v1.7.0...v1.8.0

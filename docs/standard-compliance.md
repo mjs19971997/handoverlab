@@ -1,13 +1,14 @@
 # Standard compliance
 
-**Summary (1.10.0).** This page lists, clause by clause, the 3GPP and ITU-R rules that govern
+**Summary (1.11.0).** This page lists, clause by clause, the 3GPP and ITU-R rules that govern
 handover in 5G and beyond-5G systems, and how HandoverLab models each of them: as the standard
 specifies it (**follows**), with a stated abstraction (**abstraction**), or not yet (**not modelled**,
 with the roadmap item). The clauses were read from the official texts (TS 38.331 V17.18.0 and
 V18.11.0, TS 38.133 V17.23.0 and V18.15.0, TS 38.300 V17.17.0, V18.11.0 and V19.4.0, TS 38.321
 V17.15.0, V18.10.0 and V19.4.0, TS 38.322 V17.4.0, TS 38.213 V18.9.0, TS 38.215 V18.5.0,
-TS 38.423 V18.9.0, TS 37.340 V18.7.0, TS 38.104 V18.15.0, TR 38.901 V17.0.0, TR 36.839 V11.1.0,
-TR 38.913 V19.0.0, TR 38.914 V20.1.0, ITU-R M.2410-0 and M.2412-0). The page ends with the
+TS 38.423 V18.9.0, TS 37.340 V18.7.0, TS 38.104 V18.15.0, TR 38.901 V17.0.0 and V19.5.0,
+TR 37.885 V15.3.0, TR 36.885 V14.0.0, TR 36.839 V11.1.0, TR 38.913 V19.0.0, TR 38.914 V20.1.0,
+ITU-R M.2410-0 and M.2412-0). The page ends with the
 comparison against ns-3 / 5G-LENA, against handover statistics measured in commercial 5G networks
 and, since 1.10.0, against the DAPS and LTM requirements of TS 38.133 and published 3GPP
 evaluations.
@@ -26,6 +27,32 @@ of TS 38.133 (`protocol.meas_periods: ts38133`) and its RLM evaluation periods
 (`protocol.rlm_eval: ts38133`); they are also off by default, and without them every result and
 fingerprint of 1.9.0 is unchanged (`handoverlab verify` checks that the engine of the new options
 gives the same event log as the engine of 1.x when no option is set).
+
+Since 1.11.0 the highway follows TR 37.885 (wrap-around, LOS-only links, the two site layouts of
+TR 36.885; options `layout.wrap`, `layout.highway_sites`, `radio.los_model`), and every scenario card
+was checked against the texts (next section).
+
+## Scenario cards against the texts (1.11.0)
+
+Every value of every built-in card that names a source, and every default it relies on, was looked
+up in the text of the source (TR 38.901 V17.0.0, TR 37.885 V15.3.0, TR 36.885 V14.0.0, ITU-R
+M.2412-0). Outcome:
+
+| Card | Finding | Action |
+|---|---|---|
+| `highway-10ghz` | 35 m roadside offset of TR 36.885 A.1.3 option 1 combined with the 500 m spacing of option 2; 10 GHz (TR 37.885: 2 or 4 GHz below 6 GHz, 30 GHz above); LOS from a probability (Table 6.2.1-2: LOS only); no wrap-around (Table A-1) | deprecated (removed in 2.0.0); replaced by `highway-tr37885-4ghz` (option 1) and `highway-tr37885-30ghz` (option 2) |
+| `dense-urban-2layer` | the UMa macro layer had the UMi shadowing (7.82 dB NLOS, 10 m); the in-car users had no car penetration loss (M.2412-0 Annex 1 clause 3.3: 9 dB, 5 dB); no minimum BS-UT distance | corrected: UMa 4 / 6 dB and 50 m, UMi 4 / 7.82 dB and 13 m per layer (TR 38.901 Tables 7.4.1-1, 7.5-6), 9 / 5 dB car loss, 35 m (Table 7.2-1) |
+| `urban-grid-28ghz-beams` | UE noise figure 7 dB (M.2412-0 Table 5b at 30 GHz: 10 dB) | corrected to 10 dB |
+| `indoor-office-4ghz` | citations of the bandwidth and of the 12 sites (M.2412-0 Table 5a, clause 8.3.1); UE height 1 m of TR 38.901 with the link budget of M.2412 (1.5 m) | citations corrected; the mixed source stated |
+| urban-grid cards (`urban-grid-10ghz`, `fr3-urban-15ghz`, `smoke`, `urban-grid-28ghz-beams`) | TR 37.885 has 500 m macro sites with UMa in the urban grid (ours: small cells on UMi); speeds 52-63 km/h around the 60 km/h of option A; users closer than the 10 m minimum distance of UMi | stated on the cards as assumptions (the golden runs use these cards; exact 60 km/h and the minimum distance are planned for 2.0.0) |
+| `fr3-urban-15ghz` | "FR3 (7.125-24.25 GHz)" is not a range of TR 38.901, which studies "7-24 GHz" in Release 19 | wording corrected |
+
+TR 38.901 V19.5.0 (Release 19, with the 7-24 GHz study) was compared with V17.0.0: the path loss of
+RMa, UMa, UMi and InH (Table 7.4.1-1), the LOS probabilities (Table 7.4.2-1) and the shadowing rows
+and correlation distances of Table 7.5-6 are unchanged; Release 19 changed small-scale spreads, which
+HandoverLab does not model, and added the SMa scenario. One small deviation remains: notes 1 and 5
+of Table 7.4.1-1 take c = 3.0e8 m/s in the breakpoint distances, HandoverLab the exact speed of light
+(0.07 % longer breakpoints); the correction changes results and is planned for 2.0.0.
 
 ## Measurements and triggering
 

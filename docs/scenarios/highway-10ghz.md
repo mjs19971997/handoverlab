@@ -1,5 +1,11 @@
 # Scenario card: `highway-10ghz`
 
+!!! warning "Deprecated since 1.11.0, removed in 2.0.0"
+    This card combines the 35 m roadside offset of TR 36.885 clause A.1.3 option 1 with the 500 m
+    spacing of option 2, uses 10 GHz, which TR 37.885 does not, and has neither the LOS-only links
+    nor the wrap-around of TR 37.885. Use [`highway-tr37885-4ghz`](highway-tr37885-4ghz.md) or
+    [`highway-tr37885-30ghz`](highway-tr37885-30ghz.md); see the [highway guide](../guides/highway.md).
+
 *The TR 37.885 highway with roadside sites at 10 GHz*  
 Available since version 1.0.0rc3. Use it as `scenario: highway-10ghz` in a configuration file or `hl.builtin_scenario("highway-10ghz")` in Python.
 

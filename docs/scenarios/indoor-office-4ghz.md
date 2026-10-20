@@ -23,12 +23,12 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.blocks` | [3, 3] | TR 37.885 Table A-1 (minimum 3 x 3 blocks) |
 | `layout.pitch_m` | [433, 250] | TR 37.885 Annex A (433 m x 250 m) |
 | `layout.street_width_m` | 20 | TR 37.885 Annex A (20 m) |
-| `layout.site_spacing_m` | **20** | TR 38.901 Table 7.2-2 (ISD 20 m, 12 sites) |
+| `layout.site_spacing_m` | **20** | TR 38.901 Table 7.2-2 (ISD 20 m); 12 sites: ITU-R M.2412-0 clause 8.3.1 |
 | `layout.site_offset_m` | 9 | assumption (sites on the pavement) |
 | `layout.sites` | none | regular placement along the streets |
 | `layout.area_m` | **[120, 50]** | TR 38.901 Table 7.2-2 (120 m x 50 m) |
 | `radio.carrier_ghz` | **4** | ITU-R M.2412-0 Table 5a (Indoor Hotspot-eMBB, configuration A: 4 GHz) |
-| `radio.bandwidth_mhz` | **20** | ITU-R M.2412-0 Table 5a (24 dBm for 20 MHz) |
+| `radio.bandwidth_mhz` | **20** | ITU-R M.2412-0 Table 5a (simulation bandwidth 20 MHz for TDD) |
 | `radio.tx_power_dbm` | **24** | ITU-R M.2412-0 Table 5a (24 dBm for 20 MHz) |
 | `radio.bs_gain_db` | **14** | assumption: 5 dBi element (ITU-R M.2412-0 Table 5a) plus an 8-element beam (9 dB) |
 | `radio.ue_gain_db` | 0 | assumption |
@@ -96,6 +96,7 @@ Values in **bold** differ from the HandoverLab defaults.
 
 ## Known limitations
 
+- Mixed sources: the UE height is the 1 m of TR 38.901 Table 7.2-2, the link budget that of ITU-R M.2412-0 Table 5a, which has 1.5 m.
 - No walls, doors or floors: the soft LOS state follows the InH LOS probability as a process along each user's path, and the place-tied shadowing field stands for the rest. One floor only. With the hard LOS state (radio.soft_los: false) A3 failed about 8 times as often in a check run (0.16 against 0.02 per user-minute, 3 seeds).
 - One shadowing decorrelation distance: TR 38.901 gives 10 m for LOS and 6 m for NLOS links; here 10 m.
 - Random waypoints across the whole hall; real users walk along corridors and stop at desks.

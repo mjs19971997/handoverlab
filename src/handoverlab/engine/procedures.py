@@ -174,13 +174,18 @@ class BaselineProcedure(Procedure):
         ready = ttt_expires_before(te, ttt, obs.t, eng.mdt)
         per_user_ttt = isinstance(ttt, np.ndarray) and np.ndim(ttt) == 1
         per_cell_ttt = isinstance(ttt, np.ndarray) and np.ndim(ttt) == 2
-        for u in np.nonzero(ready.any(1) & ~self.pend)[0]:
+        users = np.nonzero(ready.any(1) & ~self.pend)[0]
+        keys = rule.memory_key(obs) if len(users) else None   # since 1.11.0 also for baseline handovers
+        if eng.debug and keys is not None:
+            check_rule_value(eng, "memory_key", keys, obs.t, per_cell=False)
+        for u in users:
             o = off[u] if isinstance(off, np.ndarray) else off
             score = obs.gap_db[u] - o if own is None else own[1][u]
             tgt = int(np.argmax(np.where(ready[u], score, -INF)))
             tt = ttt[u, tgt] if per_cell_ttt else ttt[u] if per_user_ttt else ttt
             t_rep = max(obs.t, te[u, tgt] + tt)
-            eng.new_flight(u, tgt, t_rep, -1, 0, o[tgt] if isinstance(o, np.ndarray) else o)
+            eng.new_flight(u, tgt, t_rep, int(keys[u]) if keys is not None else -1, 0,
+                           o[tgt] if isinstance(o, np.ndarray) else o)
             if eng.trace_log is not None:
                 eng.trace_event(t_rep, u, "report", eng.serv[u], tgt, o[tgt] if isinstance(o, np.ndarray) else o)
             self.pend[u] = True

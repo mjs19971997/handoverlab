@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="643" viewBox="0 0 640 643">
+<rect x="0" y="0" width="640" height="619" fill="#f4f4f0" stroke="#999"/>
+<rect x="0.0" y="305.8" width="640.0" height="7.0" fill="#8a8a80"/>
+<circle cx="50.5" cy="192.6" r="3" fill="#c0392b"/>
+<circle cx="168.4" cy="105.1" r="3" fill="#c0392b"/>
+<circle cx="286.3" cy="17.6" r="3" fill="#c0392b"/>
+<circle cx="67.4" cy="338.5" r="3" fill="#c0392b"/>
+<circle cx="185.3" cy="251.0" r="3" fill="#c0392b"/>
+<circle cx="303.2" cy="163.5" r="3" fill="#c0392b"/>
+<circle cx="421.1" cy="76.0" r="3" fill="#c0392b"/>
+<circle cx="84.2" cy="484.4" r="3" fill="#c0392b"/>
+<circle cx="202.1" cy="396.8" r="3" fill="#c0392b"/>
+<circle cx="320.0" cy="309.3" r="3" fill="#c0392b"/>
+<circle cx="437.9" cy="221.8" r="3" fill="#c0392b"/>
+<circle cx="555.8" cy="134.3" r="3" fill="#c0392b"/>
+<circle cx="218.9" cy="542.7" r="3" fill="#c0392b"/>
+<circle cx="336.8" cy="455.2" r="3" fill="#c0392b"/>
+<circle cx="454.7" cy="367.7" r="3" fill="#c0392b"/>
+<circle cx="572.6" cy="280.2" r="3" fill="#c0392b"/>
+<circle cx="353.7" cy="601.0" r="3" fill="#c0392b"/>
+<circle cx="471.6" cy="513.5" r="3" fill="#c0392b"/>
+<circle cx="589.5" cy="426.0" r="3" fill="#c0392b"/>
+<text x="4" y="636" font-family="sans-serif" font-size="12" fill="#333">highway-tr37885-30ghz: 19 sites, 2179 m x 2107 m (grey: road, red: sites)</text>
+</svg>

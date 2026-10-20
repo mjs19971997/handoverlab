@@ -22,12 +22,17 @@ handoverlab scenarios
 ```
 
 ```text
+dense-urban-2layer Two-layer dense urban deployment of ITU-R M.2412 (4 GHz macro + 30 GHz micro, SSB beams)
 fr3-urban-15ghz    The TR 37.885 urban grid in the upper mid-band (FR3) at 15 GHz
-highway-10ghz      The TR 37.885 highway with roadside sites at 10 GHz
+highway-tr37885-30ghz The TR 37.885 highway above 6 GHz (hexagonal layout, 30 GHz, SSB beams)
+highway-tr37885-4ghz The TR 37.885 highway below 6 GHz (baseline layout, 4 GHz)
+indoor-office-4ghz The TR 38.901 indoor office with ceiling sites at 4 GHz
 ns3-urban-3.5ghz   Reference scenario of the comparison with ns-3 / 5G-LENA
 open-area-10ghz    Open area with hexagonal sites, nothing tied to place
+rural-700mhz       Rural macro cells at 700 MHz
 smoke              Small street grid that runs in seconds
 urban-grid-10ghz   Dense small cells in the TR 37.885 urban grid at 10 GHz
+urban-grid-28ghz-beams Small cells with SSB beams and beam failure recovery in the TR 37.885 urban grid at 28 GHz (FR2)
 ```
 
 `smoke` is a 2 x 2-block street grid with sites every 150 m and 20 users for 30 s. It runs in

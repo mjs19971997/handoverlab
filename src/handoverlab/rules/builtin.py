@@ -254,6 +254,10 @@ class BanditA3(BaselineRule):
     w_failure      penalty of an early or late handover or a link failure
 
     With a single arm the rule is :class:`A3` with that offset.
+
+    Since 1.11.0 the rule keeps a record of what it learned (it does not change
+    any decision): ``outcomes`` lists ``(t, cell, arm, reward)`` of every credited
+    outcome and ``epochs`` lists ``(t, cell, arm)`` of every finished epoch.
     """
     learns = True
 
@@ -281,6 +285,8 @@ class BanditA3(BaselineRule):
         self.arm = np.zeros(M, dtype=int)          # arm played now (first arm first)
         self._sum = np.zeros(M)
         self._n = np.zeros(M, dtype=int)
+        self.outcomes, self.epochs = [], []
+        self._t = 0.0
 
     def reward(self, label: int) -> float:
         """Reward of an outcome label."""
@@ -293,11 +299,13 @@ class BanditA3(BaselineRule):
         return 0.0
 
     def _credit(self, cell: int, r: float) -> None:
+        self.outcomes.append((self._t, int(cell), int(self.arm[cell]), float(r)))
         self._sum[cell] += r
         self._n[cell] += 1
         if self._n[cell] < self.epoch:
             return
         a = self.arm[cell]
+        self.epochs.append((self._t, int(cell), int(a)))
         self.plays[cell, a] += 1
         self.value[cell, a] += (self._sum[cell] / self._n[cell] - self.value[cell, a]) / self.plays[cell, a]
         self._sum[cell], self._n[cell] = 0.0, 0
@@ -321,9 +329,11 @@ class BanditA3(BaselineRule):
         return self.ttt_s
 
     def on_outcome(self, rec):
+        self._t = getattr(rec, "t", self._t)            # records built by hand may have no time
         self._credit(rec.source, self.reward(rec.label))
 
     def on_link_failure(self, rec):
+        self._t = getattr(rec, "t", self._t)            # records built by hand may have no time
         self._credit(rec.source, -self.w_failure)
 
 

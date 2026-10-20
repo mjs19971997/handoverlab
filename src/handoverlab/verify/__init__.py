@@ -13,9 +13,13 @@ Check groups (all run by default, in this order):
 ``fingerprints``  golden event-log fingerprints of short reference runs
 ``extended``      beams, several carriers, TS 38.133 periods, DAPS and LTM against TS 38.133 and published
                   3GPP evaluations (since 1.10.0)
+``highway``       the TR 37.885 highway cards: geometry, wrap-around, coupling gain against an independent
+                  computation, LOS-only links (since 1.11.0)
 
 Optional:
 
+``learning``      the learning rule a3_bandit against an exhaustive search over its arms (``--only learning``;
+                  about 20 minutes; since 1.11.0)
 ``ns3``           reference comparison with stored ns-3 / 5G-LENA results (``--ns3``; minutes)
 ``stored``        recompute (a sample of) a stored result file and compare fingerprints (``--results FILE``)
 
@@ -28,7 +32,8 @@ from typing import Callable, Optional, Sequence
 
 from .report import FAIL, NOTE, PASS, Check, Report, header
 
-GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended")
+GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended", "highway")
+OPTIONAL_GROUPS = ("learning",)
 
 
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
@@ -40,9 +45,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     engine checks instead of one seed and 30 s.
     """
     groups = list(GROUPS if groups is None else groups)
-    unknown = [g for g in groups if g not in GROUPS]
+    unknown = [g for g in groups if g not in GROUPS + OPTIONAL_GROUPS]
     if unknown:
-        raise ValueError("unknown check group %r; known: %s" % (unknown[0], ", ".join(GROUPS)))
+        raise ValueError("unknown check group %r; known: %s" % (unknown[0], ", ".join(GROUPS + OPTIONAL_GROUPS)))
     rep = Report(printer=printer)
     if printer:
         printer(header())
@@ -68,6 +73,12 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "extended" in groups:
         from .extended import extended_checks
         extended_checks(rep, duration_s=dur)
+    if "highway" in groups:
+        from .highway import highway_checks
+        highway_checks(rep)
+    if "learning" in groups:
+        from .learning import learning_checks
+        learning_checks(rep)
     if ns3:
         from .ns3 import ns3_checks
         ns3_checks(rep, seeds=tuple(500 + i for i in range(ns3_seeds)), progress=printer)
@@ -81,4 +92,4 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     return rep
 
 
-__all__ = ["GROUPS", "run_verify", "Report", "Check", "PASS", "FAIL", "NOTE"]
+__all__ = ["GROUPS", "OPTIONAL_GROUPS", "run_verify", "Report", "Check", "PASS", "FAIL", "NOTE"]

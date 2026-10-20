@@ -23,7 +23,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.blocks` | **[2, 2]** | TR 37.885 Table A-1 (minimum 3 x 3 blocks) |
 | `layout.pitch_m` | [433, 250] | TR 37.885 Annex A (433 m x 250 m) |
 | `layout.street_width_m` | 20 | TR 37.885 Annex A (20 m) |
-| `layout.site_spacing_m` | 100 | assumption (dense small cells along the streets) |
+| `layout.site_spacing_m` | 100 | assumption (dense small cells along the streets; TR 37.885 Table 6.1.3-2 has 500 m macro sites in the urban grid) |
 | `layout.site_offset_m` | 9 | assumption (sites on the pavement) |
 | `layout.sites` | **7 entries** | the ns-3 study (seven sites) |
 | `radio.carrier_ghz` | **3.5** | the ns-3 study (3.5 GHz, 10 MHz) |
@@ -34,7 +34,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.noise_figure_db` | **5** | the ns-3 study (5 dB) |
 | `radio.isolation` | **1** | no beam isolation (omnidirectional antennas) |
 | `radio.bs_height_m` | 10 | TR 38.901 Table 7.4.1-1 (UMi: 10 m) |
-| `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
+| `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
 | `radio.pathloss` | umi_street_canyon | TR 38.901 Table 7.4.1-1 |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |

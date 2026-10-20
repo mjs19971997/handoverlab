@@ -1,17 +1,28 @@
 # How to study handover on a highway
 
-Since 1.0.0rc3 HandoverLab has a third layout next to the street grid and the open area: the
-straight multi-lane road of the TR 37.885 highway case, with roadside sites and lane-keeping
-vehicles at 70 to 140 km/h. The built-in scenario [`highway-10ghz`](../scenarios/highway-10ghz.md)
-is a ready set-up: 2000 m of road, 3 + 3 lanes of 4 m, four sites every 500 m, 35 m beyond the
-road edge, the TR 38.901 UMa model with 25 m masts.
+HandoverLab has the straight multi-lane road of the TR 37.885 highway case next to the street grid,
+the open area and the indoor hall. Since 1.11.0 two built-in scenarios follow the highway
+assumptions of TR 37.885 V15.3.0 for the link between base station and vehicle:
 
-## 1. Run the built-in scenario
+| Card | TR 37.885 case | Sites | Carrier, link | Speed |
+|---|---|---|---|---|
+| [`highway-tr37885-4ghz`](../scenarios/highway-tr37885-4ghz.md) | below 6 GHz (baseline) | 2 sites on one side, 35 m away, 1732 m apart, 35 m masts (TR 36.885 A.1.3, option 1) | 4 GHz, 20 MHz, 49 dBm, RMa LOS | 140 km/h |
+| [`highway-tr37885-30ghz`](../scenarios/highway-tr37885-30ghz.md) | above 6 GHz | 19 hexagonal sites x 3 sectors, ISD 500 m, 25 m masts (option 2), SSB beams of the 4 x 8 panel | 30 GHz, 200 MHz, 43 dBm, UMa LOS | 140 km/h |
+
+Both have 3 + 3 lanes of 4 m, wrap-around (TR 37.885 Table A-1) and LOS on every base-station-to-
+vehicle link (TR 37.885 clause 6.2.1 and Table 6.2.1-2). Every value and its source is on the card
+pages; `handoverlab verify --only highway` checks them (section 4).
+
+The card `highway-10ghz` of 1.0.0rc3 to 1.10.0 is **deprecated** (it warns when loaded and goes in
+2.0.0): it combined the 35 m roadside offset of option 1 with the 500 m spacing of option 2, used
+10 GHz, which TR 37.885 does not, and had neither the LOS-only links nor the wrap-around.
+
+## 1. Run a built-in scenario
 
 ```yaml
 # highway.yaml
 schema: 1
-scenario: highway-10ghz
+scenario: highway-tr37885-4ghz
 seeds: [1, 2, 3]
 rules:
   - {rule: a3, off_db: 3.0, ttt_s: 0.16}
@@ -22,50 +33,59 @@ output: results/highway.csv
 
 ```bash
 handoverlab run highway.yaml
-handoverlab scenarios highway-10ghz     # the scenario card with every parameter and its source
+handoverlab scenarios highway-tr37885-4ghz     # the scenario card with every parameter and its source
 ```
 
-## 2. Change the road, the sites and the speeds
+The 30 GHz card has 57 cells with 8 beams each and 158 vehicles; a run takes several minutes per
+simulated minute. Shorten it with `mobility.users` and `run.duration_s` while you set up a study.
 
-Every part of the layout is a key of `layout`; the speeds come from `mobility`:
+## 2. The keys behind the cards
 
-```yaml
-scenario:
-  base: highway-10ghz
-  layout: {lanes: 2, lane_width_m: 3.5, road_length_m: 3000.0, site_spacing_m: 300.0, site_offset_m: 10.0}
-  mobility:
-    users: 60
-    groups:
-      - {share: 0.7, v_min: 25.0, v_max: 33.0, lateral_m: [0.0, 0.5]}   # cars, 90-120 km/h
-      - {share: 0.3, v_min: 19.4, v_max: 22.2, lateral_m: [0.0, 0.3]}   # lorries, 70-80 km/h
-```
+| Key | Values | Meaning |
+|---|---|---|
+| `layout.wrap` | `false` (default), `true` | wrap-around of TR 37.885 Table A-1: a vehicle keeps its lane and direction and re-enters at the other end; distances and angles go to the nearest image of every site; the place-tied shadowing is periodic along the road |
+| `layout.highway_sites` | `roadside` (default), `one_side`, `hex19` | sites alternately on both sides; all on one side (TR 36.885 Figure A.1.3-2); or the 19-site hexagonal layout with the road through the centre site along the cluster translation (Figure A.1.3-3; road length `sqrt(19) x site_spacing_m`) |
+| `radio.los_model` | `probability` (default), `los` | LOS state from the LOS probability of the path-loss model, or LOS on every link (TR 37.885 Table 6.2.1-2); `los` is not available on the street grid |
+| `mobility.profile` | `v140`, `v70` | every vehicle at 140 or 70 km/h (TR 37.885 clause 6.1.2, option A) |
 
-- `site_offset_m` is measured from the road edge (the outermost lane line), not from the centre
-  line as on the street grid. For your own site plan give `layout.sites` or a CSV file in
-  `layout.sites_file` (columns `x`, `y`; the road runs along the x axis, centred on the origin).
-- The named profiles `hwy` (70-140 km/h, uniform), `hwy70` (63-77 km/h) and `hwy140`
-  (126-140 km/h) cover the two highway speeds of TR 37.885 and the range between them.
-- `lateral_m` is the displacement from the lane centre; it is clipped to half a lane, so a vehicle
-  never leaves its lane.
+With `wrap` the road length must be a whole number of site spacings (for `roadside` and
+`one_side`), so that the sites repeat with the road. The older profiles `hwy` (70-140 km/h,
+uniform), `hwy70` and `hwy140` remain.
 
-To compare speeds or site spacings in one study, make them conditions:
+To compare speeds in one study, make them conditions:
 
 ```yaml
-scenario: {base: highway-10ghz}
+scenario: {base: highway-tr37885-4ghz}
 conditions:
-  mobility.profile: [hwy70, hwy140]
-  layout.site_spacing_m: [300.0, 500.0]
+  mobility.profile: [v70, v140]
 ```
 
-## 3. What to expect and what to check
+## 3. What to expect
 
-- The sites follow a line, so a vehicle sees at most two strong cells at a time and every handover
-  goes to the next site along the road. Fast vehicles stay only a few seconds in the overlap zone:
-  expect more `too_late_pm` with long time-to-trigger values.
-- The time of stay in a cell is about `site_spacing_m / speed`: at 140 km/h and 500 m about 13 s.
-  Keep `run.duration_s` long enough for several handovers per vehicle (the default 120 s gives
-  about eight after the warm-up at 140 km/h).
-- At the end of the road a vehicle turns into the same lane of the other direction instead of a
-  wrap-around; handovers at the outermost sites therefore include turning vehicles. For metrics
-  that should exclude them, use a longer road than the area of interest.
+- Below 6 GHz the sites are 1732 m apart: at 140 km/h a vehicle crosses a cell in about 45 s, so a
+  run of 120 s gives about two handovers per vehicle after the warm-up (check run: A3 with 3 dB and
+  160 ms, 1.8 handovers per user-minute, no failures).
+- Above 6 GHz the road runs through the sectors of the hexagonal grid, past and under sites; with
+  beams and 140 km/h there are many more handovers and beam switches (check run: A3, 15 handovers
+  and 0.85 failures per user-minute in 30 s).
+- The links are LOS, so the received power changes only through distance, shadowing and the beams;
+  `radio.time_var_db` (moving blockers) is 0 on both cards.
 - As everywhere, compare failure rates between rules and conditions, not as absolute values.
+
+## 4. What `verify --only highway` checks
+
+1. The geometry and link budget of both cards equal the values of TR 37.885, TR 36.885 and
+   TR 38.901 (lanes, lane width, wrap-around, spacing, offset, carrier, bandwidth, power, noise
+   figure, heights, path-loss model, LOS-only links, shadowing, panel, tilt, speed).
+2. With wrap-around the received power of every site is continuous where a vehicle re-enters the
+   road (largest jump 0.05-0.09 dB, below the ordinary steps).
+3. The coupling gain to the strongest site (percentiles 5-95) agrees within 0.5 dB with an
+   independent computation from the TR geometry (the hexagonal sites and their images built with
+   the functions of the calibration module, in the frame of the grid), the TR 38.901 path loss and
+   Gaussian shadowing (largest differences +0.42 dB and -0.35 dB).
+4. Every link has the LOS path loss.
+
+TR 37.885 publishes no calibration of the base-station-to-vehicle link (its calibration work is on
+the sidelink), so check 3 confirms that the TR assumptions are implemented, not a company result.
+The limitations of each card (Poisson placement of the vehicles, one panel per sector, effective
+environment height) are on its page.

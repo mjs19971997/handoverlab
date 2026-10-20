@@ -57,6 +57,20 @@ from .procedures import CONNECTED, EXECUTING, REESTABLISHING, make_procedure
 LN10_10 = np.log(10.0) / 10.0
 
 
+def rlm_kernel(engine):
+    """The compiled step kernel if ``run.backend`` is ``"numba"`` and it covers the engine's monitoring, else None.
+
+    It covers N310 = N311 = 1 without the monitoring load option (``protocol.lm_load``); other settings and
+    debug mode use the NumPy path.
+    """
+    sc = engine.world.scenario
+    P = sc.protocol
+    if getattr(sc.run, "backend", "numpy") != "numba" or engine.lm or P.n310 != 1 or P.n311 != 1:
+        return None
+    from ._kernels import rlm_step
+    return rlm_step
+
+
 class Engine:
     """Simulation of one rule.  Feed the radio chunks in order, then call :meth:`finish`.
 
@@ -416,6 +430,10 @@ class Engine:
         qo, qi = self.qo, self.qi
         simple = P.n310 == 1 and P.n311 == 1
         cnz = np.count_nonzero
+        kern = None if self.debug else rlm_kernel(self)
+        if kern is not None:                               # 2-D views for the kernel (one engine = one row)
+            v = (state[None], qo[None], qi[None], run[None], self.t310[None], self.k310[None], self.rlm_t0[None])
+            t310_lim = P.t310_s - EPS
         for i in range(ch.n):
             k = ch.k0 + i
             t = k * dt
@@ -433,6 +451,18 @@ class Engine:
                         lc = ln[u, c]
                         self._attach(u, c, lc / (tot[u] - self.rc[c] * lc + noise), t)
             serv = self.serv
+            if kern is not None:                           # compiled kernel (run.backend: numba), same values
+                sl = np.empty((1, self.U))
+                ex = np.empty((1, self.U), dtype=bool)
+                if kern(ln, tot[None], self.rc[serv][None], serv[None], v[0], v[1], v[2], v[3], v[4], v[5], v[6], sl,
+                        ex, t, k, noise, ao, ai, qout, qin, t310_lim, P.rlm_holdoff_s, EPS, CONNECTED):
+                    for u in np.nonzero(ex[0])[0]:
+                        self.fail(u, t, "rlf")
+                self.sl_now = sl[0]
+                self.proc.step(t)
+                if i % self.mp == 0:
+                    self._measure(ch, i // self.mp, k, t, ln, tot)
+                continue
             ls = ln[ar, serv]
             sinr = ls / (tot - self.rc[serv] * ls + noise)
             con = state == CONNECTED

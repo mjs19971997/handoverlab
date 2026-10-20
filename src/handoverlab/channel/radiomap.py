@@ -38,12 +38,23 @@ class GaussianField:
 
     Correlation exp(-(d / d_corr)^2); the fields of different sites share a
     common component so that their mutual correlation is ``site_corr``.
+
+    With a wrap-around period of the layout (since 1.11.0) the raster spans
+    exactly one period in x and the field is periodic in x: the filter wraps
+    around and the interpolation takes the neighbours across the seam.
     """
 
     def __init__(self, rng, layout: Layout, n_sites: int, d_corr: float, res: float, site_corr: float):
-        self.res = res
-        self.x0, self.y0 = layout.xmin - 2 * res, layout.ymin - 2 * res
-        self.nx = int((layout.xmax - layout.xmin) / res) + 6
+        self.period = layout.period_x
+        if self.period:
+            self.nx = max(2, int(round(self.period / res)))
+            res = self.period / self.nx                        # a whole number of pixels per period
+            self.res = res
+            self.x0, self.y0 = layout.xmin, layout.ymin - 2 * res
+        else:
+            self.res = res
+            self.x0, self.y0 = layout.xmin - 2 * res, layout.ymin - 2 * res
+            self.nx = int((layout.xmax - layout.xmin) / res) + 6
         self.ny = int((layout.ymax - layout.ymin) / res) + 6
         s_pix = (d_corr / 2.0) / res
         ca, cb = np.sqrt(site_corr), np.sqrt(1.0 - site_corr)
@@ -59,6 +70,17 @@ class GaussianField:
         self.f = np.ascontiguousarray(f.transpose(1, 2, 0))              # (ny, nx, M) for fast lookups
         self._flat = self.f.reshape(-1, n_sites)
 
+    def _periodic(self, x, y):
+        """Values (P, M) at points with the field periodic in x."""
+        gx = np.mod((np.asarray(x, dtype=float) - self.x0) / self.res, self.nx)
+        gy = np.clip((np.asarray(y, dtype=float) - self.y0) / self.res, 0.0, self.ny - 1.001)
+        ix, iy = np.minimum(gx.astype(int), self.nx - 1), gy.astype(int)
+        jx = (ix + 1) % self.nx
+        tx, ty = (gx - ix).astype(np.float32)[:, None], (gy - iy).astype(np.float32)[:, None]
+        f = self.f
+        return (f[iy, ix] * (1 - tx) * (1 - ty) + f[iy, jx] * tx * (1 - ty) + f[iy + 1, ix] * (1 - tx) * ty
+                + f[iy + 1, jx] * tx * ty)
+
     def _weights(self, x, y):
         gx = np.clip((x - self.x0) / self.res, 0.0, self.nx - 1.001)
         gy = np.clip((y - self.y0) / self.res, 0.0, self.ny - 1.001)
@@ -71,6 +93,8 @@ class GaussianField:
         Evaluated as ``f00 (1-tx)(1-ty) + f10 tx (1-ty) + f01 (1-tx) ty + f11 tx ty``
         from left to right, with the products in that order.
         """
+        if self.period:
+            return self._periodic(x, y)
         k, tx, ty = self._weights(x, y)
         tx, ty = tx[:, None], ty[:, None]
         ux, uy = 1 - tx, 1 - ty
@@ -87,6 +111,8 @@ class GaussianField:
 
     def at_pairs(self, x, y, p, m) -> np.ndarray:
         """Same values as ``at(x, y)[p, m]`` for the point/site pairs ``(p, m)`` only."""
+        if self.period:
+            return self._periodic(np.asarray(x)[p], np.asarray(y)[p])[np.arange(len(p)), m]
         k, tx, ty = self._weights(x, y)
         k, tx, ty = k[p], tx[p], ty[p]
         ux, uy = 1 - tx, 1 - ty
@@ -121,7 +147,10 @@ class RadioMap:
         nnx = int((layout.xmax - layout.xmin + 2 * pad) / self.nres) + 2
         nny = int((layout.ymax - layout.ymin + 2 * pad) / self.nres) + 2
         NX, NY = np.meshgrid(self.x0 + np.arange(nnx) * self.nres, self.y0 + np.arange(nny) * self.nres)
-        nearest = cKDTree(layout.sites).query(np.c_[NX.ravel(), NY.ravel()])[1]
+        if layout.period_x:                                    # nearest image of every site (wrap-around)
+            nearest = np.argmin(layout.distances(NX.ravel(), NY.ravel()), axis=1)
+        else:
+            nearest = cKDTree(layout.sites).query(np.c_[NX.ravel(), NY.ravel()])[1]
         self.best_nominal = nearest.reshape(nny, nnx).astype(np.int16)
 
         mask = layout.street_mask(XX, YY, margin=2.0 * res)

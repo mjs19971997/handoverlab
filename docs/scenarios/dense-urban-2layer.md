@@ -27,6 +27,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.site_offset_m` | 9 | assumption (sites on the pavement) |
 | `layout.sites` | **23 entries** | hexagonal macro grid with ISD 200 m in the area (ITU-R M.2412-0 clause 8.3) |
 | `layout.area_m` | **[800, 700]** | assumption (800 m x 700 m, about 23 macro sites) |
+| `layout.min_site_distance_m` | **35** | TR 38.901 Table 7.2-1 (UMa: minimum BS-UT distance 35 m; applied to the start and waypoints, macro sites only) |
 | `radio.carrier_ghz` | **4** | ITU-R M.2412-0 Table 5b, Configuration C (macro layer 4 GHz) |
 | `radio.bandwidth_mhz` | **20** | ITU-R M.2412-0 Table 5b (20 MHz TDD at 4 GHz) |
 | `radio.tx_power_dbm` | **44** | ITU-R M.2412-0 Table 5b (macro 4 GHz: 44 dBm for 20 MHz) |
@@ -35,20 +36,20 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.noise_figure_db` | 7 | ITU-R M.2412-0 Table 5b (UE noise figure 7 dB at 4 GHz) |
 | `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | **25** | ITU-R M.2412-0 Table 5b (25 m for macro sites) |
-| `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
-| `radio.pathloss` | **uma** | TR 38.901 UMa (macro) and UMi street canyon (micro), as M.2412 Annex 1 uses for Dense Urban |
-| `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
-| `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
-| `radio.shadow_decorr_m` | 10 | TR 38.901 Table 7.5-6 (UMi: 10 m LOS, 13 m NLOS) |
+| `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
+| `radio.pathloss` | **uma** | TR 38.901 UMa (macro) and UMi street canyon (micro), as ITU-R M.2412-0 Annex 1 Table A1-1 uses for Dense Urban |
+| `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMa LOS: 4 dB); micro layer UMi LOS: 4 dB |
+| `radio.shadow_nlos_db` | **6** | TR 38.901 Table 7.4.1-1 (UMa NLOS: 6 dB); micro layer UMi NLOS: 7.82 dB |
+| `radio.shadow_decorr_m` | **50** | TR 38.901 Table 7.5-6 Part-1 (UMa NLOS: 50 m; micro layer UMi NLOS: 13 m) |
 | `radio.shadow_site_corr` | 0.5 | assumption (correlation between sites) |
 | `radio.place_share` | 1 | assumption (blockage tied to place) |
 | `radio.clutter_los` | true | TR 38.901 clause 7.6.3.3 (spatially consistent LOS state) |
-| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m) |
+| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state: UMa and UMi 50 m) |
 | `radio.time_var_db` | 1.5 | assumption (moving blockers) |
 | `radio.time_var_tau_s` | 1 | assumption |
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
-| `radio.penetration_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car |
-| `radio.penetration_sd_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car |
+| `radio.penetration_db` | **9** | ITU-R M.2412-0 Annex 1 clause 3.3 and TR 38.901 clause 7.4.3.2 (in-car users: 9 dB) |
+| `radio.penetration_sd_db` | **5** | ITU-R M.2412-0 Annex 1 clause 3.3 and TR 38.901 clause 7.4.3.2 (5 dB, per user) |
 | `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011): 56 W |
 | `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011): 2.6 |
 | `radio.map_res_m` | 1 | numerical setting |
@@ -112,7 +113,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | **20** | assumption |
-| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban: 60 km/h); see the user guide |
+| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban option A: 60 km/h); the profile veh16 spreads the speed over 52-63 km/h (assumption); see the user guide |
 | `mobility.groups` | **1 entries** | ITU-R M.2412-0 Table 5b: outdoor (in-car) users at 30 km/h; the 80 % indoor users are not simulated |
 | `run.duration_s` | 120 | numerical setting |
 | `run.warmup_s` | 20 | numerical setting |
@@ -123,6 +124,9 @@ Values in **bold** differ from the HandoverLab defaults.
 - No fast fading and no UE beamforming; one hypothetical beam per SSB with fixed DFT weights.
 - Only the outdoor in-car users of M.2412 are simulated (the 80 % indoor users and building penetration are not).
 - The micro-site positions are one draw; other draws give other statistics.
+- One shadowing decorrelation distance per layer, that of the NLOS links (TR 38.901 Table 7.5-6 Part-1: UMa LOS 37 m, UMi LOS 10 m).
+- The minimum distance of 35 m holds for the macro sites; the 10 m of UMi (TR 38.901 Table 7.2-1) to the micro sites is not enforced.
+- Changed in 1.11.0: until 1.10.0 the macro layer had the UMi shadowing (7.82 dB NLOS, 10 m) and the in-car users no car penetration loss.
 
 ## Reference results
 

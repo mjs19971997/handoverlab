@@ -33,7 +33,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "layout.blocks": "TR 37.885 Table A-1 (minimum 3 x 3 blocks)",
     "layout.pitch_m": "TR 37.885 Annex A (433 m x 250 m)",
     "layout.street_width_m": "TR 37.885 Annex A (20 m)",
-    "layout.site_spacing_m": "assumption (dense small cells along the streets)",
+    "layout.site_spacing_m": "assumption (dense small cells along the streets; TR 37.885 Table 6.1.3-2 has "
+                              "500 m macro sites in the urban grid)",
     "layout.site_offset_m": "assumption (sites on the pavement)",
     "layout.sites": "regular placement along the streets",
     "layout.lanes": "TR 37.885 Table A-1 (highway: 3 lanes per direction)",
@@ -42,13 +43,13 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "layout.sites_file": "none (sites from the layout)",
     "radio.carrier_ghz": "assumption (upper mid-band, 7-24 GHz)",
     "radio.bandwidth_mhz": "assumption",
-    "radio.tx_power_dbm": "assumption (small cell)",
+    "radio.tx_power_dbm": "assumption (small cell; TR 37.885 Table 6.1.1-2 has 43 dBm for its macro sites)",
     "radio.bs_gain_db": "assumption (beam gain, no beam management)",
     "radio.ue_gain_db": "assumption",
     "radio.noise_figure_db": "assumption (typical UE noise figure)",
     "radio.isolation": "assumption (mean-to-peak gain of an interfering data beam)",
     "radio.bs_height_m": "TR 38.901 Table 7.4.1-1 (UMi: 10 m)",
-    "radio.ue_height_m": "TR 38.901 Table 7.4.1-1 (1.5 m)",
+    "radio.ue_height_m": "ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1",
     "radio.pathloss": "TR 38.901 Table 7.4.1-1",
     "radio.shadow_los_db": "TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB)",
     "radio.shadow_nlos_db": "TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB)",
@@ -101,7 +102,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "traffic.rate_scale": "assumption",
     "traffic.label_load": "assumption (all cells transmit for the label)",
     "mobility.users": "assumption",
-    "mobility.profile": "TR 37.885 clause 6.1.2 (urban: 60 km/h); see the user guide",
+    "mobility.profile": "TR 37.885 clause 6.1.2 (urban option A: 60 km/h); the profile veh16 spreads the speed "
+                        "over 52-63 km/h (assumption); see the user guide",
     "mobility.groups": "profile",
     "run.duration_s": "numerical setting",
     "run.warmup_s": "numerical setting",
@@ -116,18 +118,32 @@ DEFAULT_SOURCES: Dict[str, str] = {
 }
 
 
+#: deprecated built-in scenarios: name -> (deprecated since, removed in, replacement, reason)
+DEPRECATED: Dict[str, tuple] = {
+    "highway-10ghz": ("1.11", "2.0", "'highway-tr37885-30ghz' or 'highway-tr37885-4ghz'",
+                      "it combines the 35 m roadside offset of TR 36.885 option 1 with the 500 m spacing of option 2, "
+                      "uses 10 GHz, which TR 37.885 does not, and has neither the LOS-only links nor the wrap-around "
+                      "of TR 37.885"),
+}
+
+
 def _read(name: str) -> Dict[str, Any]:
     import yaml
     path = os.path.join(_DIR, name + ".yaml")
     if not os.path.exists(path):
         raise ConfigError("unknown built-in scenario %r; known: %s" % (name, ", ".join(scenario_names())))
+    if name in DEPRECATED:
+        from ..stability import deprecated
+        since, removed, instead, why = DEPRECATED[name]
+        deprecated("the built-in scenario %r (%s)" % (name, why), since=since, removed_in=removed, instead=instead)
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
-def scenario_names() -> List[str]:
-    """Names of the built-in scenarios."""
-    return sorted(f[:-5] for f in os.listdir(_DIR) if f.endswith(".yaml"))
+def scenario_names(deprecated: bool = False) -> List[str]:
+    """Names of the built-in scenarios; deprecated ones (:data:`DEPRECATED`) only with ``deprecated=True``."""
+    names = sorted(f[:-5] for f in os.listdir(_DIR) if f.endswith(".yaml"))
+    return names if deprecated else [n for n in names if n not in DEPRECATED]
 
 
 def scenario_card(name: str) -> Dict[str, Any]:
@@ -255,15 +271,20 @@ def layout_svg(scenario: Scenario, width_px: int = 640) -> str:
     """A plain SVG drawing of the layout of ``scenario``: buildings, streets and sites."""
     from ..layout import make_layout
     lay = make_layout(scenario.layout)
-    w, h = lay.xmax - lay.xmin, lay.ymax - lay.ymin
+    fx0, fx1, fy0, fy1 = lay.xmin, lay.xmax, lay.ymin, lay.ymax
+    if lay.images is not None:                      # sites far from the road (hexagonal highway): show them all
+        pad = 60.0
+        fx0, fx1 = min(fx0, lay.sites[:, 0].min() - pad), max(fx1, lay.sites[:, 0].max() + pad)
+        fy0, fy1 = min(fy0, lay.sites[:, 1].min() - pad), max(fy1, lay.sites[:, 1].max() + pad)
+    w, h = fx1 - fx0, fy1 - fy0
     s = width_px / w
     H = h * s
 
     def X(x):
-        return (x - lay.xmin) * s
+        return (x - fx0) * s
 
     def Y(y):
-        return H - (y - lay.ymin) * s
+        return H - (y - fy0) * s
 
     out = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">'
            % (width_px, round(H) + 24, width_px, round(H) + 24),
@@ -273,10 +294,14 @@ def layout_svg(scenario: Scenario, width_px: int = 640) -> str:
                    % (X(x0), Y(y1), (x1 - x0) * s, (y1 - y0) * s))
     if lay.kind == "highway":
         half = len(lay.ys) / 2.0 * lay.street_width
-        out.append('<rect x="0" y="%.1f" width="%d" height="%.1f" fill="#b9b9b0"/>'
-                   % (Y(half), width_px, 2.0 * half * s))
-        out.append('<line x1="0" y1="%.1f" x2="%d" y2="%.1f" stroke="#f4f4f0" stroke-width="1"/>'
-                   % (Y(0.0), width_px, Y(0.0)))
+        if lay.images is None:
+            out.append('<rect x="0" y="%.1f" width="%d" height="%.1f" fill="#b9b9b0"/>'
+                       % (Y(half), width_px, 2.0 * half * s))
+            out.append('<line x1="0" y1="%.1f" x2="%d" y2="%.1f" stroke="#f4f4f0" stroke-width="1"/>'
+                       % (Y(0.0), width_px, Y(0.0)))
+        else:                                       # the simulated road with its wrap-around period
+            out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#8a8a80"/>'
+                       % (X(lay.xmin), Y(half), (lay.xmax - lay.xmin) * s, max(2.0 * half * s, 2.0)))
     for x, y in lay.sites:
         out.append('<circle cx="%.1f" cy="%.1f" r="3" fill="#c0392b"/>' % (X(x), Y(y)))
     out.append('<text x="4" y="%d" font-family="sans-serif" font-size="12" fill="#333">%s: %d sites, %.0f m x %.0f m'

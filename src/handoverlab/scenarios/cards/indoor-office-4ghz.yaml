@@ -25,9 +25,9 @@ scenario:
 sources:
   layout.kind: "TR 38.901 Table 7.2-2 and Figure 7.2-1 (indoor office)"
   layout.area_m: "TR 38.901 Table 7.2-2 (120 m x 50 m)"
-  layout.site_spacing_m: "TR 38.901 Table 7.2-2 (ISD 20 m, 12 sites)"
+  layout.site_spacing_m: "TR 38.901 Table 7.2-2 (ISD 20 m); 12 sites: ITU-R M.2412-0 clause 8.3.1"
   radio.carrier_ghz: "ITU-R M.2412-0 Table 5a (Indoor Hotspot-eMBB, configuration A: 4 GHz)"
-  radio.bandwidth_mhz: "ITU-R M.2412-0 Table 5a (24 dBm for 20 MHz)"
+  radio.bandwidth_mhz: "ITU-R M.2412-0 Table 5a (simulation bandwidth 20 MHz for TDD)"
   radio.tx_power_dbm: "ITU-R M.2412-0 Table 5a (24 dBm for 20 MHz)"
   radio.bs_gain_db: "assumption: 5 dBi element (ITU-R M.2412-0 Table 5a) plus an 8-element beam (9 dB)"
   radio.noise_figure_db: "ITU-R M.2412-0 Table 5a (UE noise figure at 4 GHz: 7 dB, the default)"
@@ -41,6 +41,7 @@ sources:
   radio.soft_los: "TR 38.901 clause 7.6.3.3 (optional soft LOS state, meant to avoid hard LOS/NLOS transitions in mobility simulations)"
   mobility.profile: "TR 38.901 Table 7.2-2 and ITU-R M.2412-0 Table 5a (3 km/h); +-10 % spread is an assumption"
 limitations:
+  - "Mixed sources: the UE height is the 1 m of TR 38.901 Table 7.2-2, the link budget that of ITU-R M.2412-0 Table 5a, which has 1.5 m."
   - "No walls, doors or floors: the soft LOS state follows the InH LOS probability as a process along each user's path, and the place-tied shadowing field stands for the rest. One floor only. With the hard LOS state (radio.soft_los: false) A3 failed about 8 times as often in a check run (0.16 against 0.02 per user-minute, 3 seeds)."
   - "One shadowing decorrelation distance: TR 38.901 gives 10 m for LOS and 6 m for NLOS links; here 10 m."
   - "Random waypoints across the whole hall; real users walk along corridors and stop at desks."

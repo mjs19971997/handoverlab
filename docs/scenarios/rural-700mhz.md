@@ -36,7 +36,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.noise_figure_db` | 7 | ITU-R M.2412-0 Table 5c (UE noise figure: 7 dB, the default) |
 | `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | **35** | TR 38.901 Tables 7.2-3 and 7.4.1-1 (RMa: 35 m) |
-| `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
+| `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
 | `radio.pathloss` | **rma** | TR 38.901 Table 7.4.1-1 (RMa, W = 20 m, h = 5 m); LOS probability, Table 7.4.2-1 |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (RMa LOS below the breakpoint: 4 dB) |
 | `radio.shadow_nlos_db` | **8** | TR 38.901 Table 7.4.1-1 (RMa NLOS: 8 dB) |

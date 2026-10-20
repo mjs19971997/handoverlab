@@ -93,6 +93,13 @@ def cases() -> Dict[str, Dict[str, Any]]:
         "smoke-38133": dict(scenario=smoke.with_overrides({
             "name": "smoke-38133", "protocol.meas_periods": "ts38133", "protocol.rlm_eval": "ts38133"}),
             seed=15, rules=RULES[:1]),
+        # since 1.11.0: the TR 37.885 highway cards (wrap-around, LOS-only links, hexagonal layout with beams)
+        "hwy-4ghz": dict(scenario=builtin_scenario("highway-tr37885-4ghz").with_overrides({
+            "name": "hwy-4ghz", "run.duration_s": 30.0, "run.warmup_s": 5.0, "mobility.users": 40}),
+            seed=16, rules=RULES[::2]),
+        "hwy-30ghz": dict(scenario=builtin_scenario("highway-tr37885-30ghz").with_overrides({
+            "name": "hwy-30ghz", "run.duration_s": 6.0, "run.warmup_s": 1.0, "mobility.users": 10}),
+            seed=17, rules=RULES[:1]),
     }
 
 

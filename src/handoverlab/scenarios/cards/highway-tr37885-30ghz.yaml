@@ -1,0 +1,61 @@
+# Scenario card (machine-readable).  docs/scenarios/highway-tr37885-30ghz.md is generated from this file.
+name: highway-tr37885-30ghz
+title: The TR 37.885 highway above 6 GHz (hexagonal layout, 30 GHz, SSB beams)
+since: 1.11.0
+purpose: >
+  The highway case of the 3GPP NR V2X evaluation (TR 37.885) as specified above 6 GHz, for the
+  base-station-to-vehicle link: a road of 3 + 3 lanes through a hexagonal layout of 19 macro sites
+  with 3 sectors each and an inter-site distance of 500 m, with wrap-around (TR 36.885 clause A.1.3,
+  option 2, which TR 37.885 uses above 6 GHz), the UMa LOS path loss at 30 GHz, SSB beams of the
+  4 x 8 panel and every vehicle at 140 km/h.  Use it for millimetre-wave handover and beam
+  management at high speed under the 3GPP highway assumptions.
+layout_note: >
+  The 19 sites of two rings around a centre site, turned so that the road (24 m wide) runs along x
+  through the centre site in the direction of the cluster translation (23.4 degrees in the frame of
+  the hexagonal grid), as in TR 36.885 Figure A.1.3-3.  The road is sqrt(19) x 500 m = 2179 m long
+  and wraps around; distances are taken to the nearest of the seven images of every site.
+scenario:
+  name: highway-tr37885-30ghz
+  layout: {kind: highway, lanes: 3, lane_width_m: 4.0, road_length_m: 2179.45, site_spacing_m: 500.0,
+           highway_sites: hex19, wrap: true}
+  radio: {carrier_ghz: 30.0, bandwidth_mhz: 200.0, tx_power_dbm: 43.0, ue_gain_db: 11.0, noise_figure_db: 13.0,
+          bs_height_m: 25.0, ue_height_m: 1.6, pathloss: uma, los_model: los, shadow_los_db: 4.0,
+          shadow_decorr_m: 37.0, time_var_db: 0.0, map_res_m: 2.0,
+          beams: {sectors: 3, sector_az0_deg: 6.587, n_ssb: 8, panel: [4, 8], tilt_deg: 102.0}}
+  mobility: {users: 158, profile: v140}
+  run: {duration_s: 60.0, warmup_s: 10.0}
+sources:
+  layout.kind: "TR 37.885 Annex A, Table A-1 (highway: 3 lanes in each direction, 4 m lane width, length >= 2000 m, wrap-around)"
+  layout.highway_sites: "TR 37.885 Table 6.1.3-2 (above 6 GHz: BS placement as in Figure A.1.3-3 of TR 36.885) and TR 36.885 clause A.1.3, option 2 (wrap around of 19 x 3 hexagonal cells with 500 m ISD)"
+  layout.site_spacing_m: "TR 37.885 Table 6.1.3-2 (above 6 GHz, inter macro: 500 m)"
+  layout.road_length_m: "the length of the 19-site cluster translation, sqrt(19) x 500 m, after which the road of TR 36.885 Figure A.1.3-3 repeats"
+  layout.wrap: "TR 37.885 Table A-1 (wrap around should be applied)"
+  radio.carrier_ghz: "TR 37.885 Table 6.1.1-2 (highway, macro to/from vehicle: 30 GHz)"
+  radio.bandwidth_mhz: "TR 37.885 Table 6.1.1-2 (simulation bandwidth 200 MHz, DL+UL)"
+  radio.tx_power_dbm: "TR 37.885 Table 6.1.1-2 (macro BS: 43 dBm; EIRP at most 78 dBm)"
+  radio.beams.panel: "TR 37.885 Table 6.1.4-3 (30 GHz: (M, N, P, Mg, Ng) = (4, 8, 2, 2, 2)); one panel of one polarisation per sector is modelled"
+  radio.beams.tilt_deg: "TR 37.885 Table 6.1.4-3 (antenna tilt 102 degrees for 500 m ISD)"
+  radio.beams.sectors: "TR 36.885 clause A.1.3, option 2 (19 x 3 hexagonal cells)"
+  radio.beams.sector_az0_deg: "TR 38.901 Table 7.8-1 (3 sectors per cell site: 30, 150 and 270 degrees), turned by -23.413 degrees with the layout"
+  radio.beams.n_ssb: "assumption (8 SSB beams per sector; TS 38.213 clause 4.1, Case D at 120 kHz, has 64 candidate SS/PBCH blocks in FR2)"
+  radio.ue_gain_db: "assumption: vehicle type 2, option 1, one rooftop panel of (1, 4, 2, 1, 4) of TR 37.885 Table 6.1.4-9 with 5 dBi elements (Table 6.1.4-8): 5 + 10 log10(4) dB"
+  radio.noise_figure_db: "TR 37.885 Table 6.1.1-2 (UE receiver noise figure 13 dB baseline)"
+  radio.bs_height_m: "TR 37.885 Table 6.1.4-1 (highway: 25 m for ISD 500 m)"
+  radio.ue_height_m: "TR 37.885 clause 6.1.2 (vehicle type 2: antenna height 1.6 m)"
+  radio.pathloss: "TR 37.885 Table 6.2.1-2 (highway, above 6 GHz, V2B/B2V: TR 38.901 UMa LOS); oxygen absorption, TR 38.901 Table 7.6.1-1, is 0 dB/km up to 52 GHz"
+  radio.los_model: "TR 37.885 clause 6.2.1 (LOS propagation type is used for V2B and B2R links in the highway scenario)"
+  radio.shadow_los_db: "TR 37.885 clause 6.2.2 and TR 38.901 Table 7.4.1-1 (UMa LOS: 4 dB)"
+  radio.shadow_decorr_m: "TR 38.901 Table 7.5-6 Part-1 (UMa LOS: 37 m)"
+  radio.time_var_db: "set to 0: TR 37.885 has no blockage of the B2V link in the highway (LOS only)"
+  mobility.users: "TR 37.885 clause 6.1.2: about 82.8 m per vehicle at 140 km/h (gap with mean speed x 2 s behind a 5 m vehicle), so 2179 m / 82.8 m x 6 lanes = 158"
+  mobility.profile: "TR 37.885 clause 6.1.2, highway option A (all vehicles type 2, 140 km/h baseline)"
+limitations:
+  - "One panel of one polarisation per sector with DFT beams (the beam model of handoverlab 1.10.0), not the 2 x 2 panels with two polarisations of TR 37.885 Table 6.1.4-3."
+  - "Vehicles are placed independently and uniformly along their lane (a Poisson process), without the minimum gap of 2 m; their number is fixed at the mean, not drawn."
+  - "The place-tied shadowing field is periodic along the road only (vehicles stay on the road); it is half correlated between sites (shadow_site_corr 0.5, an assumption)."
+  - "The road passes under the centre site (TR 36.885 Figure A.1.3-3): within 10 m of it the UMa LOS formula, specified for 10 m <= d2D, is used below that bound (with d3D it stays finite; about 0.8 dB less loss at d2D = 0 than at 10 m)."
+  - "TR 37.885 clause 6.2.1 sets the effective environment height hE to 0.25 m for these links; the simulator's UMa uses hE = 1 m. Only the breakpoint distance depends on it (5.8 km instead of 13.4 km), and both lie beyond every distance on this road, so the path loss is the same."
+  - "Received-power level only: no fast fading, no Doppler, no sidelink."
+  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+references:
+  - "Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V17.0.0; geometry, wrap-around and the coupling loss of the link are checked by handoverlab verify (group highway)."

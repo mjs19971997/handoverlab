@@ -65,6 +65,63 @@ for e in res.events[-10:]:
 In a study, give its parameters a grid like any other rule; the equal-budget tuning and the paired
 tests treat it the same way (see the [tuning tutorial](../tutorials/tuning-study.md)).
 
+## 3a. Does the bandit find the best offset? (checked in 1.11.0)
+
+`handoverlab verify --only learning` (about 20 minutes) compares `a3_bandit` with an exhaustive
+search over its own arms: every arm is run as a fixed A3 offset (a one-arm bandit, which gives the
+same event log as `a3`), and the bandit's own reward per outcome is measured for each. The set-up
+and three criteria were written down before the first run: the `smoke` card for 900 s, seeds 1-3,
+the rule's default parameters.
+
+| | 1 dB | 2 dB | 3 dB | 4 dB | 5 dB |
+|---|---|---|---|---|---|
+| reward per outcome as a fixed offset | 0.286 | 0.385 | 0.471 | 0.546 | 0.618 |
+
+| Criterion | Result |
+|---|---|
+| B1: second half of the epochs on the best arm or a neighbour, at least 0.6 | **failed**: 0.57 (chance level 0.4) |
+| B2: reward over the whole run at least the median fixed arm (0.471) | passed: 0.503 |
+| B3: reward in the second half at least best - 0.5 (best - worst) (0.452) | passed: 0.543 |
+
+The bandit learns in the right direction, more slowly than the criterion asked for: in 900 s each of the 26
+cells completes only about 10 epochs of 10 outcomes, and exploration (10 %) and the first round over
+all arms take a part of them. The best fixed offset is the largest arm and the reward still rises
+there, so on this card the default arms end too early; choose `arms_db` that reach beyond the
+optimum you expect. The rule's parameters were not changed after the run.
+
+## 3b. A deep Q-network: `dqn` (since 1.11.0, optional PyTorch)
+
+`pip install handoverlab[torch]` installs PyTorch; without it the rule is listed by
+`handoverlab rules` with the note "needs PyTorch" and refuses to be built, and the rest of
+HandoverLab works as before. The rule is Event A3 whose offset a Q-network picks per user:
+
+- **state** from what the network observes: serving L3 RSRP, the three best neighbour differences
+  and the reported speed;
+- **action** the A3 offset (one of `offsets_db`) used until the user's next handover or failure;
+- **reward** as for `a3_bandit` (useful +1, unnecessary `-w_unnecessary`, early, late or a link
+  failure `-w_failure`), arriving when the outcome is known;
+- **learning** Q-learning with a replay buffer and a target network, epsilon-greedy while training.
+
+Train on seeds that never appear among the test seeds, save the weights, then test:
+
+```python
+import handoverlab as hl
+from handoverlab.rules.dqn import train
+
+sc = hl.builtin_scenario("smoke").with_overrides({"run.duration_s": 120.0})
+train(sc, seeds=[101, 102, 103], path="dqn_smoke.pt")          # learns, carries the network over the seeds
+res = hl.simulate(sc, [{"rule": "a3", "off_db": 3.0, "ttt_s": 0.16},
+                       {"rule": "dqn", "mode": "test", "weights": "dqn_smoke.pt"}], seeds=[1, 2, 3])
+```
+
+CPU only, deterministic algorithms, one thread per pass and seeds from `ctx.rng`: two runs on one
+machine and PyTorch version give identical event logs. Other hardware or versions may give other
+numbers, so there is no golden fingerprint for this rule; the test suite checks the contract and the
+repeatability instead. The rule is an example of how to plug a neural network into the rule
+interface, not a tuned method: in a check run (two training seeds of 120 s, two test seeds) it had
+fewer unnecessary handovers than A3 with 3 dB and 160 ms (1.70 and 1.17 against 2.37 and 1.57 per
+user-minute) and on one seed more failures (0.05 against 0).
+
 ## 4. Write your own learning rule
 
 A learning rule sets `learns = True` and implements `on_outcome` (and, if it wants, `on_link_failure`):
@@ -112,8 +169,9 @@ Rules for learning rules:
   Python's global random state.
 - Use only the `Observation` and the records (`OutcomeRecord`, `FailureRecord`); a rule never sees
   the true SINR, the buildings or the cell load.
-- `memory_key(obs)` lets a conditional rule tag each preparation; the key comes back in
-  `OutcomeRecord.key`.
+- `memory_key(obs)` lets a rule tag each attempt; the key comes back in `OutcomeRecord.key`. Until
+  1.10.0 only conditional handover passed it on (baseline attempts came back with `-1`); since 1.11.0
+  baseline and DAPS attempts carry it too.
 
 Check it with the contract kit before using it in a study:
 

@@ -107,7 +107,7 @@ class RadioSource:
         the weights LOS_soft^2 and 1 - LOS_soft^2 (TR 38.901 Eq. 7.6-18 and 7.6-19).
         """
         R, rmap = self.R, self.rmap
-        d2 = np.hypot(x[:, None] - sites[None, :, 0], y[:, None] - sites[None, :, 1])
+        d2 = rmap.layout.distances(x, y, sites)
         g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
         self.zl = g[-1].copy()
         z = ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
@@ -148,19 +148,22 @@ class RadioSource:
             y = self.Y[k0:k1].ravel()
             shape = (n, self.U, self.M)
             sig = None
-            if not rmap.is_grid and R.soft_los:
+            if not rmap.is_grid and R.soft_los and R.los_model != "los":
                 rs = self._soft_open(x, y, sites, n, shape)
             elif rmap.is_grid:
                 rs = rmap.lookup(x, y).astype(np.float64).reshape(shape)
                 if self.own:
                     s_los = R.shadow_los_db if R.shadow_los_far_db is None else los_shadow_sd(
-                        np.hypot(x[:, None] - sites[None, :, 0], y[:, None] - sites[None, :, 1]), R)
+                        rmap.layout.distances(x, y, sites), R)
                     sig = np.where(rmap.los_at(x, y), s_los, R.shadow_nlos_db).reshape(shape)
             else:
-                d2 = np.hypot(x[:, None] - sites[None, :, 0], y[:, None] - sites[None, :, 1])
-                g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
-                self.zl = g[-1].copy()
-                los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9))
+                d2 = rmap.layout.distances(x, y, sites)
+                if R.los_model == "los":                  # every link LOS (TR 37.885 Table 6.2.1-2; since 1.11.0)
+                    los = np.ones(d2.shape, dtype=bool)
+                else:
+                    g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
+                    self.zl = g[-1].copy()
+                    los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9))
                 rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m).reshape(shape)
                 sig = np.where(los, los_shadow_sd(d2, R), R.shadow_nlos_db).reshape(shape)
                 if rmap.has_field:

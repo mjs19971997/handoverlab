@@ -12,6 +12,12 @@ from handoverlab.seeds import streams
 SHORT = {"run.duration_s": 30.0, "run.warmup_s": 5.0, "mobility.users": 8}
 
 
+def _old():
+    """The deprecated card of 1.0.0rc3-1.10.0 (roadside sites, no wrap-around); it warns since 1.11.0."""
+    with pytest.warns(FutureWarning, match="deprecated"):
+        return hl.builtin_scenario("highway-10ghz")
+
+
 def test_highway_geometry():
     lay = highway(length=2000.0, lanes=3, lane_width=4.0, site_spacing=500.0, site_offset=35.0)
     assert lay.kind == "highway" and not lay.is_grid and len(lay.buildings) == 0
@@ -25,7 +31,7 @@ def test_highway_geometry():
 
 
 def _world(overrides=None, seed=3):
-    sc = hl.builtin_scenario("highway-10ghz").with_overrides(dict(SHORT, **(overrides or {})))
+    sc = _old().with_overrides(dict(SHORT, **(overrides or {})))
     lay = make_layout(sc.layout)
     rng = streams(seed, "world", 3)[0]
     return sc, lay, trajectories(lay, sc.mobility, sc.run.duration_s, sc.protocol.step_s, rng)
@@ -56,7 +62,7 @@ def test_highway_profiles_and_groups():
     assert {"hwy", "hwy70", "hwy140"} <= set(PROFILES)
     _, _, (_, _, v, _) = _world({"mobility.profile": "hwy70"})
     assert np.all(np.abs(v * 3.6 - 70) <= 7 + 1e-9)
-    sc = hl.builtin_scenario("highway-10ghz").with_overrides(
+    sc = _old().with_overrides(
         dict(SHORT, **{"mobility.groups": [{"share": 1.0, "v_min": 25.0, "v_max": 25.0, "lateral_m": [0, 9]}]}))
     lay = make_layout(sc.layout)
     x, y, v, _ = trajectories(lay, sc.mobility, 30.0, sc.protocol.step_s, np.random.default_rng(1))
@@ -65,7 +71,7 @@ def test_highway_profiles_and_groups():
 
 
 def test_highway_runs_with_invariants():
-    sc = hl.builtin_scenario("highway-10ghz").with_overrides(SHORT)
+    sc = _old().with_overrides(SHORT)
     res = hl.simulate(sc, [{"rule": "a3"}, {"rule": "cho"}], seeds=[1], debug=True)
     again = hl.simulate(sc, [{"rule": "a3"}, {"rule": "cho"}], seeds=[1])
     assert [r.metrics for r in res] == [r.metrics for r in again]

@@ -23,6 +23,7 @@ sources:
   radio.map_res_m: "numerical setting (coarser map for speed)"
   run.duration_s: "numerical setting (short run)"
 limitations:
+  - "Small cells on UMi along the streets, users passing closer than the 10 m minimum distance of TR 38.901 Table 7.2-1, and speeds of 52-63 km/h around TR 37.885's 60 km/h, as in urban-grid-10ghz."
   - "Below the minimum area of TR 37.885 Table A-1; users near the edge see fewer neighbours."
   - "About 10 UE-minutes per seed: rates have a large sampling error; use it for checks, not for results."
   - "The coarser 2 m radio map smooths the LOS edges a little compared with the 1 m default."

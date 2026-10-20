@@ -31,7 +31,7 @@ from typing import List, Sequence
 import numpy as np
 
 from ..measurement import EPS
-from .core import Engine
+from .core import Engine, rlm_kernel
 from .procedures import CONNECTED, EXECUTING
 
 
@@ -99,6 +99,9 @@ class EngineBatch:
         rcs = self.rcs
         lm, rc_lm = e0.lm, self.rc_lm
         tl = np.empty_like(tot) if lm else None
+        kern = rlm_kernel(e0)
+        t310_lim = P.t310_s - EPS
+        rlm_t0 = self.rlm_t0
         for i in range(ch.n):
             k = ch.k0 + i
             t = k * dt
@@ -123,6 +126,26 @@ class EngineBatch:
                     rcs = None
             if rcs is None:
                 rcs = np.take_along_axis(rc, serv, axis=1)
+            if kern is not None:                       # compiled kernel (run.backend: numba), same values
+                sl = np.empty_like(tot)
+                ex = np.empty(tot.shape, dtype=bool)
+                if kern(ln, tot, rcs, serv, state, qo, qi, run, t310, k310, rlm_t0, sl, ex, t, k, noise, ao, ai,
+                        qout, qin, t310_lim, P.rlm_holdoff_s, EPS, CONNECTED):
+                    for j, u in zip(*np.nonzero(ex)):
+                        E[j].fail(u, t, "rlf")
+                for j, e in enumerate(E):
+                    e.sl_now = sl[j]
+                    e.proc.step(t)
+                if i % mp == 0:
+                    jm = i // mp
+                    counted = False
+                    for e in E:
+                        counted = e._measure_rule(ch, jm, k, t, ln)
+                    self._load(ln, counted)
+                    for e in E:
+                        e.nmeas += 1
+                    rcs = None
+                continue
             ls = ln[ar, serv]
             sinr = ls / (tot - rcs * ls + noise)
             con = state == CONNECTED

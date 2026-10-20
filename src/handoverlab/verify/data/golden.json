@@ -395,6 +395,46 @@
     "n_failures": 3,
     "n_preparations": 0
    }
+  ],
+  "hwy-4ghz": [
+   {
+    "rule": "A3",
+    "fingerprint": "59f7b8d19d2978df40ca6c41068f170fac21fcf6b4e8e4cb328cc15fb617a8f4",
+    "n_events": 23,
+    "sinr_db": 17.40395774369289,
+    "n_attempts": 23,
+    "n_handovers": 23,
+    "n_unnecessary": 0,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "8d736fb7b3b1a24f2e6dad36d3cb1fd3855830c21e0662907a01769ee672b249",
+    "n_events": 23,
+    "sinr_db": 17.444653107854204,
+    "n_attempts": 23,
+    "n_handovers": 23,
+    "n_unnecessary": 0,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 62
+   }
+  ],
+  "hwy-30ghz": [
+   {
+    "rule": "A3",
+    "fingerprint": "f0ad4cefbbbeb3c257e8191bb420395651502f7f490ab70aa8ecde1f74998c1c",
+    "n_events": 15,
+    "sinr_db": 9.222220941026672,
+    "n_attempts": 15,
+    "n_handovers": 14,
+    "n_unnecessary": 6,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 0
+   }
   ]
  }
 }

@@ -108,11 +108,37 @@ that two budgets select) is not simulated again, and from worker processes (one 
 For example, the ns-3 reference case with both load variants of the validation section (8 jobs of
 24 rules x 150 s) took 1 min 53 s with four workers.
 
+## Changes in 1.11.0: an optional compiled kernel
+
+`run.backend: numba` (`pip install handoverlab[fast]`) runs the element-wise work of every step in
+one compiled loop (`handoverlab.engine._kernels`): the serving SINR, the Qout / Qin filters and the
+start, stop and expiry of T310, for N310 = N311 = 1 without the monitoring-load option. The
+interference sums (matrix products) and the logarithms stay in NumPy, because a loop does not
+reproduce their summation order and vectorised functions bit for bit. Each value is computed with
+the same operations in the same order as in NumPy, without fast-math, so the event logs are
+identical: all 30 golden runs give the same fingerprints with both backends (`tests/test_v111.py`
+checks four of them whenever Numba is installed). The NumPy path stays the reference and the default;
+other settings, debug mode and the engine of the beam and carrier options use it.
+
+Engine time (median of three runs after the kernel is compiled; Numba 0.68, NumPy 2.4, one process
+on the same modest virtual machine):
+
+| Job | NumPy | Numba | Ratio |
+|---|---|---|---|
+| Reference job (2 rules, 40 users, 76 cells, 60 s), batched | 15.3 s | 10.0 s | 0.66 |
+| Reference job, one engine at a time | 12.1 s | 10.3 s | 0.85 |
+| Stressed `smoke`, 8 rules on one world, batched | 7.9 s | 7.1 s | 0.90 |
+
+The gain is 10-34 %, not the factor of two to three hoped for in the plan: after batching, most of
+the remaining time is spent in the rules' decisions at measurement instants, in the load model and
+in the matrix products, which the kernel does not touch. Timings on this machine vary by 10-20 %
+between runs (the NumPy batched and one-by-one times above are in the opposite order of the 0.3.0a1
+table), so read the ratios as approximate.
+
 ## Next steps
 
-- An optional compiled kernel for the step loop and the condition checks (Numba), kept behind a
-  switch with the NumPy path as the reference, accepted only if the golden fingerprints are
-  unchanged.
+- Compiled kernels for the measurement instants (A3 entry times, the prepared set of conditional
+  handover) behind the same switch, again accepted only with unchanged golden fingerprints.
 - Batching parts of the measurement instants that are the same for every rule of a family (the
   A3 entry conditions and time-to-trigger of rules that differ only in their parameters).
 - The world build (about 17 s for the default grid) dominates short jobs; the radio map could be

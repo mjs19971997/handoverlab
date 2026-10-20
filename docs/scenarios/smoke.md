@@ -28,13 +28,13 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.sites` | none | regular placement along the streets |
 | `radio.carrier_ghz` | 10 | assumption (upper mid-band, 7-24 GHz) |
 | `radio.bandwidth_mhz` | 200 | assumption |
-| `radio.tx_power_dbm` | 35 | assumption (small cell) |
+| `radio.tx_power_dbm` | 35 | assumption (small cell; TR 37.885 Table 6.1.1-2 has 43 dBm for its macro sites) |
 | `radio.bs_gain_db` | 20 | assumption (beam gain, no beam management) |
 | `radio.ue_gain_db` | 0 | assumption |
 | `radio.noise_figure_db` | 7 | assumption (typical UE noise figure) |
 | `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | 10 | TR 38.901 Table 7.4.1-1 (UMi: 10 m) |
-| `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
+| `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
 | `radio.pathloss` | umi_street_canyon | TR 38.901 Table 7.4.1-1 |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
@@ -87,13 +87,14 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | **20** | assumption |
-| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban: 60 km/h); see the user guide |
+| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban option A: 60 km/h); the profile veh16 spreads the speed over 52-63 km/h (assumption); see the user guide |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | **30** | numerical setting (short run) |
 | `run.warmup_s` | **5** | numerical setting |
 
 ## Known limitations
 
+- Small cells on UMi along the streets, users passing closer than the 10 m minimum distance of TR 38.901 Table 7.2-1, and speeds of 52-63 km/h around TR 37.885's 60 km/h, as in urban-grid-10ghz.
 - Below the minimum area of TR 37.885 Table A-1; users near the edge see fewer neighbours.
 - About 10 UE-minutes per seed: rates have a large sampling error; use it for checks, not for results.
 - The coarser 2 m radio map smooths the LOS edges a little compared with the 1 m default.

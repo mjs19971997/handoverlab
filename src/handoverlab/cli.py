@@ -236,7 +236,11 @@ def _cmd_rules(args) -> int:
     for key in available_rules():
         cls = get_rule_class(key)
         doc = (cls.__doc__ or "").strip().splitlines()
-        print("%-10s %-12s %s" % (key, cls.family, doc[0] if doc else ""))
+        extra = ""
+        installed = getattr(cls, "installed", None)
+        if installed is not None and not installed():          # an optional dependency is missing
+            extra = "  [needs %s]" % getattr(cls, "requires", "an optional package")
+        print("%-10s %-12s %s%s" % (key, cls.family, doc[0] if doc else "", extra))
     return 0
 
 
@@ -267,10 +271,11 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--debug", action="store_true", help="check the engine invariants while running (slower)")
     r.add_argument("-q", "--quiet", action="store_true", help="print nothing but errors")
     r.set_defaults(func=_cmd_run)
-    from .verify import GROUPS
+    from .verify import GROUPS, OPTIONAL_GROUPS
     v = sub.add_parser("verify", help="run the verification checks and print a pass/fail report")
     v.add_argument("--only", nargs="+", metavar="GROUP",
-                   help="check groups: %s (default: all)" % " ".join(GROUPS))
+                   help="check groups: %s (default: all of them); on request only: %s"
+                   % (" ".join(GROUPS), " ".join(OPTIONAL_GROUPS)))
     v.add_argument("--full", action="store_true", help="longer checks (three seeds for the radio statistics)")
     v.add_argument("--ns3", action="store_true",
                    help="compare with the stored ns-3 / 5G-LENA results (several minutes); "

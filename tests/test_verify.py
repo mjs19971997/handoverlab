@@ -5,7 +5,7 @@ import json
 import pytest
 
 from handoverlab.cli import main
-from handoverlab.verify import GROUPS, Report, run_verify
+from handoverlab.verify import GROUPS, OPTIONAL_GROUPS, Report, run_verify
 from handoverlab.verify import golden, ns3
 from handoverlab.verify.engine_checks import equivalence_checks, invariant_checks
 from handoverlab.verify.radio import radio_statistics
@@ -105,7 +105,9 @@ def test_ns3_compare_and_holdout_logic(monkeypatch):
 
 
 def test_groups_listed():
-    assert GROUPS == ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended")
+    assert GROUPS == ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended",
+                      "highway")
+    assert OPTIONAL_GROUPS == ("learning",)
 
 
 def test_ns3_scenario_overrides():

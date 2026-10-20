@@ -149,7 +149,8 @@ parameter with its source, known limitations and the reference results it was ch
 | [`open-area-10ghz`](scenarios/open-area-10ghz.md) | same rectangle without buildings, hexagonal sites, nothing tied to place |
 | [`ns3-urban-3.5ghz`](scenarios/ns3-urban-3.5ghz.md) | the set-up of the comparison with ns-3 / 5G-LENA: seven sites, 3.5 GHz, light load |
 | [`fr3-urban-15ghz`](scenarios/fr3-urban-15ghz.md) | the default grid in the upper mid-band (FR3): 15 GHz, 400 MHz, 3.5 dB more beam gain (since 1.0.0rc2) |
-| [`highway-10ghz`](scenarios/highway-10ghz.md) | the TR 37.885 highway: 2000 m, 3 + 3 lanes, roadside sites every 500 m, vehicles at 70-140 km/h (since 1.0.0rc3) |
+| [`highway-tr37885-4ghz`](scenarios/highway-tr37885-4ghz.md) | the TR 37.885 highway below 6 GHz: 3 + 3 lanes with wrap-around, sites on one side 1732 m apart (TR 36.885 option 1), RMa LOS at 4 GHz, every vehicle at 140 km/h (since 1.11.0) |
+| [`highway-tr37885-30ghz`](scenarios/highway-tr37885-30ghz.md) | the TR 37.885 highway above 6 GHz: the road through 19 hexagonal sites x 3 sectors, ISD 500 m (option 2), UMa LOS at 30 GHz, SSB beams, 140 km/h (since 1.11.0) |
 | [`indoor-office-4ghz`](scenarios/indoor-office-4ghz.md) | the TR 38.901 indoor office: 120 m x 50 m hall, 12 ceiling sites 20 m apart, InH path loss at 4 GHz, pedestrians at 3 km/h (since 1.7.0) |
 | [`rural-700mhz`](scenarios/rural-700mhz.md) | rural macro cells: 11 sites 35 m high, 1732 m apart, RMa path loss at 700 MHz, vehicles at 120 km/h (since 1.7.0) |
 | [`urban-grid-28ghz-beams`](scenarios/urban-grid-28ghz-beams.md) | the urban grid at 28 GHz (FR2) with three sectors per site, 8 SSB beams per sector, beam management and beam failure recovery (since 1.10.0) |
@@ -157,7 +158,9 @@ parameter with its source, known limitations and the reference results it was ch
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
-`handoverlab scenarios` lists them and `handoverlab scenarios smoke` prints a card.
+`handoverlab scenarios` lists them and `handoverlab scenarios smoke` prints a card. The card
+`highway-10ghz` (1.0.0rc3 to 1.10.0) is deprecated: it still loads, with a warning, and is removed in
+2.0.0 (see the [highway guide](guides/highway.md)).
 
 ## 3. Configuration
 
@@ -196,6 +199,8 @@ output: results/metrics.csv
 | | `sites_file` | none | CSV file with columns `x`, `y` that fills `sites` (since 1.0.0rc3) |
 | | `area_m` | none | open area and indoor: width and height of the rectangle [m]; unset: the grid size (open area), 120 x 50 (indoor) (since 1.7.0) |
 | | `min_site_distance_m` | `0` | open area and indoor: minimum distance of a user's start and waypoints from every site [m] (since 1.7.0; RMa: 35) |
+| | `wrap` | `false` | highway: wrap-around of TR 37.885 Table A-1 (since 1.11.0; see the [highway guide](guides/highway.md)) |
+| | `highway_sites` | `roadside` | highway: `roadside`, `one_side` (TR 36.885 option 1) or `hex19` (19 hexagonal sites, option 2) (since 1.11.0) |
 | `radio` | `carrier_ghz` | `10` | carrier frequency (0.5-100 GHz) |
 | | `bandwidth_mhz` | `200` | carrier bandwidth |
 | | `tx_power_dbm` | `35` | transmit power per site |
@@ -211,6 +216,7 @@ output: results/metrics.csv
 | | `place_share` | `1` | share of shadowing variance tied to place (rest moves with the user) |
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
+| | `los_model` | `probability` | `los`: every link LOS (TR 37.885 Table 6.2.1-2, highway); not on the street grid (since 1.11.0) |
 | | `soft_los`, `soft_los_d_m` | `false`, `20` | optional (1.7.0): soft LOS state of TR 38.901 clause 7.6.3.3 instead of a hard switch (see below) |
 | | `time_var_db`, `time_var_tau_s` | `1.5`, `1` | time-varying component (moving blockers) |
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
@@ -219,7 +225,7 @@ output: results/metrics.csv
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
 | | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)) |
-| | `layers` | none | optional (1.10.0): further carriers with their own cells, e.g. a 28 GHz small-cell layer under a 3.5 GHz macro layer |
+| | `layers` | none | optional (1.10.0): further carriers with their own cells, e.g. a 28 GHz small-cell layer under a 3.5 GHz macro layer; since 1.11.0 a layer may set its own `shadow_los_db`, `shadow_nlos_db`, `shadow_decorr_m` and `los_corr_m` |
 | `protocol` | `step_s` | `0.01` | simulation step |
 | | `l1_period_s` | `0.04` | L1 sample period (multiple of `step_s`) |
 | | `l3_k` | `4` | L3 filter coefficient k (TS 38.331) |
@@ -250,9 +256,10 @@ output: results/metrics.csv
 | | `period_s`, `packet_bytes` | `0.02`, `100` | `periodic`: one packet every period |
 | | `ftp_file_bytes`, `ftp_rate_hz` | `500000`, `0.1` | `ftp3`: file size (TR 36.814 FTP model 3) and file arrivals per user and second |
 | `mobility` | `users` | `40` | number of users |
-| | `profile` | `veh16` | `ped`, `veh8`, `veh16`, `veh30`, `mix`, `c8`, `c16`, `c30`; highway: `hwy`, `hwy70`, `hwy140` |
+| | `profile` | `veh16` | `ped`, `veh8`, `veh16`, `veh30`, `mix`, `c8`, `c16`, `c30`; highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h, since 1.11.0) |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
+| | `backend` | `numpy` | `numba`: compiled kernel of the step loop, bit-identical results, needs `pip install handoverlab[fast]` (since 1.11.0; see [performance](performance.md)); not part of the job IDs |
 
 In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a changed copy.
 `Scenario.to_dict()` leaves out the keys added after 1.0.0rc2 while they have their default value,
@@ -270,6 +277,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 | `cltm` | cltm | as `ltm` without `cmd_delay_s`: `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `exec_s` (0.02), `recovery` (true), `name` |
 | `a3_bandit` | baseline | `arms_db` ([1, 2, 3, 4, 5]), `ttt_s` (0.16), `epsilon` (0.1), `epoch` (10), `w_unnecessary` (1.0), `w_failure` (2.0), `name` |
 | `a3a5` | baseline | `off_db` (3.0), `ttt_s` (0.16), `a5_thresh1_dbm` (-110), `a5_thresh2_dbm` (-105), `a5_hys_db` (1.0), `a5_ttt_s` (0.32), `a3_inter` (false), `a5_down_thresh1_dbm`, `a5_down_thresh2_dbm` (none: as above), `name` (since 1.10.0): Event A3 within a carrier, Event A5 towards other carriers |
+| `dqn` | baseline | `offsets_db` ([0, 1, 2, 3, 4, 5]), `ttt_s` (0.16), `mode` ("train" or "test"), `weights` (none), `hidden` (32), `lr` (0.001), `gamma` (0.9), `epsilon` (0.1), `batch` (32), `buffer` (5000), `train_every` (4), `target_every` (100), `w_unnecessary` (1.0), `w_failure` (2.0), `name` (since 1.11.0; needs `pip install handoverlab[torch]`; see the [learning-rule guide](guides/learning-rule.md)) |
 | `a3_mro` | baseline | `off_db` (3.0), `ttt_s` (0.16), `step_db` (0.5), `window_s` (10.0), `min_db` (-4.0), `max_db` (4.0), `min_events` (1), `count_pingpong` (true), `pingpong_s` (none: `protocol.pingpong_s`), `count_unnecessary` (false), `name` (since 1.7.0) |
 
 `daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`

@@ -18,7 +18,8 @@ Highway
     on the origin: ``lanes`` lanes of ``lane_width`` metres per direction
     (eastbound south of the centre line, westbound north of it), no buildings.
     Roadside sites stand every ``site_spacing`` metres, ``site_offset`` metres
-    beyond the road edge, alternately on the two sides.  ``ys`` holds the lane
+    beyond the road edge, alternately on the two sides, or (``one_side``, since
+    1.11.0) all on the north side as in TR 36.885 Figure A.1.3-2 (option 1).  ``ys`` holds the lane
     centre lines and ``street_width`` the lane width.
 
 Indoor (since 1.7.0)
@@ -47,6 +48,8 @@ class Layout:
     xmax: float
     ymin: float
     ymax: float
+    period_x: Optional[float] = None   # wrap-around period along x [m] (highway with wrap, since 1.11.0)
+    images: Optional[np.ndarray] = None  # (K, 2) translations of a 2D wrap-around (hexagonal highway, 1.11.0)
 
     @property
     def n_sites(self) -> int:
@@ -55,6 +58,47 @@ class Layout:
     @property
     def is_grid(self) -> bool:
         return self.kind == "street_grid"
+
+    def offsets(self, x, y, sites: Optional[np.ndarray] = None):
+        """Offsets ``(dx, dy)`` of points from every site, shape ``x.shape + (M,)`` [m].
+
+        With a wrap-around period the offset in x is taken to the nearest image of the site.
+        """
+        s = self.sites if sites is None else sites
+        dx = np.asarray(x, dtype=float)[..., None] - s[:, 0]
+        dy = np.asarray(y, dtype=float)[..., None] - s[:, 1]
+        return self.nearest_image(dx, dy)
+
+    def nearest_image(self, dx, dy):
+        """Offsets ``(dx, dy)`` from a site replaced by those from its nearest image under the wrap-around.
+
+        With :attr:`images` (the cluster and its six images of a 19-site hexagonal layout) the image
+        with the smallest distance is taken; with only :attr:`period_x` the offset in x is folded.
+        """
+        if self.images is not None:
+            bx, by = np.array(dx, dtype=float), np.array(dy, dtype=float)
+            best = np.hypot(bx, by)
+            for tx, ty in self.images:
+                cx, cy = dx - tx, dy - ty
+                d = np.hypot(cx, cy)
+                sel = d < best
+                bx[sel], by[sel], best[sel] = cx[sel], cy[sel], d[sel]
+            return bx, by
+        if self.period_x:
+            dx = dx - self.period_x * np.round(dx / self.period_x)
+        return dx, dy
+
+    def distances(self, x, y, sites: Optional[np.ndarray] = None) -> np.ndarray:
+        """2D distances of points from every site, shape ``x.shape + (M,)`` [m] (see :meth:`offsets`)."""
+        dx, dy = self.offsets(x, y, sites)
+        return np.hypot(dx, dy)
+
+    def wrap_x(self, x) -> np.ndarray:
+        """x folded into ``[xmin, xmax)`` with a wrap-around period; unchanged without one."""
+        x = np.asarray(x, dtype=float)
+        if not self.period_x:
+            return x
+        return self.xmin + np.mod(x - self.xmin, self.period_x)
 
     def street_mask(self, x, y, margin: float = 0.0) -> np.ndarray:
         """True where a point lies in a street (grid) or anywhere (open area)."""
@@ -133,7 +177,7 @@ def open_area(size: Tuple[float, float] = (1319.0, 770.0), site_spacing: float =
 
 def highway(length: float = 2000.0, lanes: int = 3, lane_width: float = 4.0, site_spacing: float = 500.0,
             site_offset: float = 35.0, sites: Optional[Sequence[Sequence[float]]] = None,
-            margin: float = 10.0) -> Layout:
+            margin: float = 10.0, wrap: bool = False, one_side: bool = False) -> Layout:
     """Straight road with ``lanes`` lanes per direction, centred on the origin, and roadside sites."""
     n = int(lanes)
     half = n * lane_width                                       # half width of the road
@@ -141,13 +185,45 @@ def highway(length: float = 2000.0, lanes: int = 3, lane_width: float = 4.0, sit
     ys = np.concatenate([-lane_y[::-1], lane_y])                # lane centre lines, south to north
     if sites is None:
         xs_ = _along(length, site_spacing)
-        side = np.where(np.arange(len(xs_)) % 2 == 0, -1.0, 1.0)
+        side = np.ones(len(xs_)) if one_side else np.where(np.arange(len(xs_)) % 2 == 0, -1.0, 1.0)
         site_arr = np.c_[xs_, side * (half + site_offset)]
     else:
         site_arr = np.asarray(sites, dtype=float).reshape(-1, 2)
     ext = max(half, float(np.abs(site_arr[:, 1]).max())) + margin
     return Layout("highway", site_arr, np.zeros((0, 4)), np.array([]), ys, float(lane_width),
-                  -length / 2.0, length / 2.0, -ext, ext)
+                  -length / 2.0, length / 2.0, -ext, ext, float(length) if wrap else None)
+
+
+def highway_hex(isd: float = 500.0, lanes: int = 3, lane_width: float = 4.0, margin: float = 10.0) -> Layout:
+    """Highway through a 19-site hexagonal layout with wrap-around (TR 36.885 clause A.1.3, option 2; since 1.11.0).
+
+    The sites of two rings around a centre site (inter-site distance ``isd``) are turned so that the road
+    runs along the x axis in the direction of the cluster translation ``isd * (4, sqrt(3))``, through the
+    centre site at the origin.  The road length is the length of that translation, ``sqrt(19) * isd``
+    (2179 m for 500 m), and the road wraps around with it; every distance from a user to a site is taken
+    to the nearest of the site's seven images (the cluster and its six neighbours).  The figure of
+    TR 36.885 (Figure A.1.3-3) draws this arrangement; TR 37.885 Table 6.1.3-2 uses it above 6 GHz.
+    """
+    n = int(lanes)
+    half = n * lane_width
+    lane_y = (np.arange(n) + 0.5) * lane_width
+    ys = np.concatenate([-lane_y[::-1], lane_y])
+    pts = np.array([(i + j / 2.0, j * np.sqrt(3.0) / 2.0) for i in range(-2, 3) for j in range(-2, 3)
+                    if max(abs(i), abs(j), abs(i + j)) <= 2]) * isd
+    t = isd * np.array([4.0, np.sqrt(3.0)])
+    a = -np.arctan2(t[1], t[0])                                 # turn the translation onto the x axis
+    rot = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+    sites = pts @ rot.T
+    imgs = np.array([rot @ (np.array([[np.cos(b), -np.sin(b)], [np.sin(b), np.cos(b)]]) @ t)
+                     for b in np.radians(np.arange(0, 360, 60))])
+    length = float(np.hypot(t[0], t[1]))
+    ext = half + margin
+    return Layout("highway", sites, np.zeros((0, 4)), np.array([]), ys, float(lane_width),
+                  -length / 2.0, length / 2.0, -ext, ext, length, imgs)
+
+
+#: rotation [deg] of the hexagonal highway layout: the road direction in the frame of the hexagonal grid
+HEX_ROAD_DEG = float(np.degrees(np.arctan2(np.sqrt(3.0), 4.0)))
 
 
 def indoor(size: Tuple[float, float] = (120.0, 50.0), site_spacing: float = 20.0,
@@ -177,8 +253,10 @@ def make_layout(cfg) -> Layout:
     if cfg.kind == "indoor":
         return indoor(cfg.area_m or INDOOR_SIZE_M, cfg.site_spacing_m, cfg.sites)
     if cfg.kind == "highway":
+        if cfg.highway_sites == "hex19":
+            return highway_hex(cfg.site_spacing_m, cfg.lanes, cfg.lane_width_m)
         return highway(cfg.road_length_m, cfg.lanes, cfg.lane_width_m, cfg.site_spacing_m, cfg.site_offset_m,
-                       cfg.sites)
+                       cfg.sites, wrap=cfg.wrap, one_side=cfg.highway_sites == "one_side")
     raise ValueError("unknown layout kind %r" % cfg.kind)
 
 

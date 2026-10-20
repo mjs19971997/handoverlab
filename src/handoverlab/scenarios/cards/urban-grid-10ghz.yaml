@@ -18,6 +18,9 @@ scenario:
   mobility: {users: 40, profile: veh16}
   run: {duration_s: 120.0, warmup_s: 20.0}
 limitations:
+  - "Small cells on UMi along the streets: TR 37.885 itself has 500 m macro sites with UMa in the urban grid (Tables 6.1.3-2 and 6.2.1-2); only the road geometry and the turning probabilities are TR 37.885's."
+  - "Sites stand 9 m from the street centre line, so users pass closer than 10 m, below the UMi range 10 m <= d2D of TR 38.901 Table 7.4.1-1 (minimum BS-UT distance 10 m in Table 7.2-1)."
+  - "Speeds spread over 52-63 km/h (profile veh16) around the 60 km/h of TR 37.885 clause 6.1.2, where all vehicles in a lane have one speed."
   - "Received-power level only: no fast fading, no link-level physical layer, one beam gain and one isolation factor."
   - "TR 38.901 UMi parameters are used at 10 GHz; the model's validity in the 7-24 GHz range was re-examined in Rel-19."
   - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."

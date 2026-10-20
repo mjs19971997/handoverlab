@@ -33,6 +33,9 @@ PROFILES: Dict[str, List[SpeedGroup]] = {
     "hwy": [SpeedGroup(1.0, 70.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],    # 70-140 km/h
     "hwy70": [SpeedGroup(1.0, 63.0 / 3.6, 77.0 / 3.6, (0.0, 0.5))],   # about 70 km/h
     "hwy140": [SpeedGroup(1.0, 126.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],  # up to 140 km/h
+    # TR 37.885 clause 6.1.2, highway option A (since 1.11.0): every vehicle at 140 km/h (baseline) or 70 km/h
+    "v140": [SpeedGroup(1.0, 140.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],
+    "v70": [SpeedGroup(1.0, 70.0 / 3.6, 70.0 / 3.6, (0.0, 0.5))],
     # indoor and rural (since 1.7.0): TR 38.901 Table 7.2-2 (indoor office: 3 km/h); rural users in cars at
     # 120 km/h (TR 38.913 rural evaluation; TR 38.901 Table 7.2-3 gives the users as 50 % indoor, 50 % in car)
     "ped3": [SpeedGroup(1.0, 2.7 / 3.6, 3.3 / 3.6, (0.0, 0.0))],      # about 3 km/h
@@ -172,6 +175,18 @@ def trajectories(layout, mobility, duration_s: float, step_s: float, rng, min_di
     for u in range(U):
         if layout.is_grid:
             T, Xb, Yb, Hb = grid_waypoints(layout, v[u], duration_s + step_s, rng)
+        elif layout.kind == "highway" and layout.period_x:
+            # wrap-around (since 1.11.0): the vehicle keeps its lane and direction and re-enters at the other end
+            ys = layout.ys
+            n = len(ys) // 2
+            lane = int(rng.integers(n))
+            h = int(rng.choice([0, 2]))
+            x0 = rng.uniform(layout.xmin, layout.xmax)
+            sgn = 1.0 if h == 0 else -1.0
+            X[:, u] = layout.wrap_x(x0 + sgn * v[u] * t + off[u, 0])
+            Y[:, u] = (ys[n - 1 - lane] if h == 0 else ys[n + lane]) + off[u, 1]
+            TH[:, u] = 0.0 if h == 0 else np.pi
+            continue
         elif layout.kind == "highway":
             T, Xb, Yb, Hb = highway_waypoints(layout, v[u], duration_s + step_s, rng)
         elif layout.kind == "indoor":

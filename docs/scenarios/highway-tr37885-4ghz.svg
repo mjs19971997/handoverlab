@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="45" viewBox="0 0 640 45">
+<rect x="0" y="0" width="640" height="21" fill="#f4f4f0" stroke="#999"/>
+<rect x="0" y="8.3" width="640" height="4.4" fill="#b9b9b0"/>
+<line x1="0" y1="10.5" x2="640" y2="10.5" stroke="#f4f4f0" stroke-width="1"/>
+<circle cx="160.0" cy="1.8" r="3" fill="#c0392b"/>
+<circle cx="480.0" cy="1.8" r="3" fill="#c0392b"/>
+<text x="4" y="38" font-family="sans-serif" font-size="12" fill="#333">highway-tr37885-4ghz: 2 sites, 3464 m x 114 m (grey: road, red: sites)</text>
+</svg>

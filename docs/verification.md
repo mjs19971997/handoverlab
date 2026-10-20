@@ -28,6 +28,9 @@ writes the report with the versions of Python, NumPy and SciPy and the platform.
 | Equivalences | CHO with immediate execution = A3 (three settings); a plug-in rule that reduces to A3 = A3 | `verify` group `equivalences` |
 | Golden fingerprints | SHA-256 of the event logs of short reference runs (several scenarios, up to three rules each) | `verify` group `fingerprints`, `tests/test_verify.py` |
 | Regression against bh6 | ten cases, 36 runs: every metric and (for the wide sample) every event log identical to the prototype from which HandoverLab was ported | `tests/test_regression_bh6*.py` |
+| TR 37.885 highway (1.11.0) | geometry and link budget of the two highway cards against TR 37.885, TR 36.885 and TR 38.901; continuity of the received power at the wrap-around; coupling gain to the strongest site against an independent computation (percentiles 5-95 within 0.5 dB); LOS on every link | `verify` group `highway`, `tests/test_highway_tr37885.py` |
+| Learning rule (1.11.0) | `a3_bandit` against an exhaustive search over its arms, three criteria fixed before the run (one failed: see the [learning-rule guide](guides/learning-rule.md)) | `verify --only learning` (about 20 minutes) |
+| Compiled kernel (1.11.0) | the golden fingerprints with `run.backend: numba` | `tests/test_v111.py` (with Numba installed) |
 | Reference case | ns-3 / 5G-LENA, 24 A3 settings on four conditions | `verify --ns3` |
 | Rule contract | any rule plug-in: construction, parameters, debug run, determinism, global random state, independence, optional equivalence | `handoverlab.testing.check_rule` |
 

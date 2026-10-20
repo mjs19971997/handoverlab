@@ -28,13 +28,13 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.sites` | none | regular placement along the streets |
 | `radio.carrier_ghz` | 10 | assumption (upper mid-band, 7-24 GHz) |
 | `radio.bandwidth_mhz` | 200 | assumption |
-| `radio.tx_power_dbm` | 35 | assumption (small cell) |
+| `radio.tx_power_dbm` | 35 | assumption (small cell; TR 37.885 Table 6.1.1-2 has 43 dBm for its macro sites) |
 | `radio.bs_gain_db` | 20 | assumption (beam gain, no beam management) |
 | `radio.ue_gain_db` | 0 | assumption |
 | `radio.noise_figure_db` | 7 | assumption (typical UE noise figure) |
 | `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | 10 | TR 38.901 Table 7.4.1-1 (UMi: 10 m) |
-| `radio.ue_height_m` | 1.5 | TR 38.901 Table 7.4.1-1 (1.5 m) |
+| `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
 | `radio.pathloss` | umi_street_canyon | TR 38.901 Table 7.4.1-1 |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
@@ -94,6 +94,7 @@ Values in **bold** differ from the HandoverLab defaults.
 
 ## Known limitations
 
+- No minimum distance to the sites: users may pass closer than the 10 m of TR 38.901 Table 7.2-1 (UMi).
 - The LOS state follows the TR 38.901 LOS probability with the UMi street-canyon formula although there are no streets; it stands for scattered obstacles.
 - Random-waypoint users cross the area in straight lines; their density is higher in the middle.
 - Same received-power-level abstraction and uncalibrated failure model as the street grid.

@@ -87,7 +87,8 @@ class Layer:
 
 def _layer_radio(base: RadioConfig, ly) -> RadioConfig:
     over = {k: getattr(ly, k) for k in ("carrier_ghz", "bandwidth_mhz", "tx_power_dbm", "bs_gain_db", "ue_gain_db",
-                                        "noise_figure_db", "bs_height_m", "pathloss") if getattr(ly, k) is not None}
+                                        "noise_figure_db", "bs_height_m", "pathloss", "shadow_los_db", "shadow_nlos_db",
+                                        "shadow_decorr_m", "los_corr_m") if getattr(ly, k, None) is not None}
     return dataclasses.replace(base, beams=ly.beams, layers=None, scs_khz=ly.scs_khz, **over)
 
 
@@ -172,6 +173,8 @@ class ExtendedRadio:
         """Zenith angle and azimuth from the boresight [deg] of points (x, y) seen from ``cells`` (same shape)."""
         sp = self.cell_pos[cells]
         dx, dy = x - sp[..., 0], y - sp[..., 1]
+        if self.base_layout.period_x:                        # nearest image of the site (wrap-around, since 1.11.0)
+            dx, dy = self.base_layout.nearest_image(dx, dy)
         d2 = np.maximum(np.hypot(dx, dy), 1.0)
         theta = 90.0 + np.degrees(np.arctan2(self.hb[cells] - self.hu, d2))
         phi = wrap_deg(np.degrees(np.arctan2(dy, dx)) - self.cell_az[cells])
@@ -234,7 +237,10 @@ class ExtendedRadio:
         if L.sectors == 1:
             return site
         sp = L.layout.sites[site]
-        az = np.degrees(np.arctan2(np.asarray(y) - sp[..., 1], np.asarray(x) - sp[..., 0]))
+        dx, dy = np.asarray(x) - sp[..., 0], np.asarray(y) - sp[..., 1]
+        if self.base_layout.period_x:
+            dx, dy = self.base_layout.nearest_image(dx, dy)
+        az = np.degrees(np.arctan2(dy, dx))
         d = np.abs(wrap_deg(az[..., None] - L.boresight))
         return site * L.sectors + np.argmin(d, axis=-1)
 

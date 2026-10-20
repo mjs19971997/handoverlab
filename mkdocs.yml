@@ -42,7 +42,9 @@ nav:
           - open-area-10ghz: scenarios/open-area-10ghz.md
           - ns3-urban-3.5ghz: scenarios/ns3-urban-3.5ghz.md
           - fr3-urban-15ghz: scenarios/fr3-urban-15ghz.md
-          - highway-10ghz: scenarios/highway-10ghz.md
+          - highway-tr37885-4ghz: scenarios/highway-tr37885-4ghz.md
+          - highway-tr37885-30ghz: scenarios/highway-tr37885-30ghz.md
+          - highway-10ghz (deprecated): scenarios/highway-10ghz.md
           - indoor-office-4ghz: scenarios/indoor-office-4ghz.md
           - rural-700mhz: scenarios/rural-700mhz.md
           - urban-grid-28ghz-beams: scenarios/urban-grid-28ghz-beams.md

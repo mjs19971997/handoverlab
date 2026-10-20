@@ -21,3 +21,13 @@ The checks of `handoverlab verify`.
     options:
       show_root_heading: true
       members_order: source
+
+::: handoverlab.verify.highway
+    options:
+      show_root_heading: true
+      members_order: source
+
+::: handoverlab.verify.learning
+    options:
+      show_root_heading: true
+      members_order: source

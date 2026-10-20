@@ -10,7 +10,7 @@ received-power-level radio model from TR 38.901 (optionally with SSB beams, beam
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 1.10.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.11.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -59,9 +59,10 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
 ## What it models
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
-  pitch, 20 m streets) with sites on the pavement, an open area with a hexagonal site grid, a
-  highway, the TR 38.901 indoor office, rural macro cells, explicit site lists, and built-in
-  scenario cards (`handoverlab scenarios`).
+  pitch, 20 m streets) with sites on the pavement, an open area with a hexagonal site grid, the
+  TR 37.885 highway (since 1.11.0 with wrap-around, LOS-only links and both site layouts of
+  TR 36.885, below and above 6 GHz), the TR 38.901 indoor office, rural macro cells, explicit site
+  lists, and built-in scenario cards (`handoverlab scenarios`).
 - **Channel**: TR 38.901 UMi street canyon, UMa, RMa and InH-Office path loss (LOS/NLOS); line of sight from the
   building geometry plus the spatially consistent LOS state, hard or soft; spatially correlated shadowing; a
   time-varying component; L1 measurement error; beam gain and load-coupled interference;
@@ -80,7 +81,9 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
 - **Handover procedures**: baseline handover (report, preparation, command, execution), Rel-16
   conditional handover (up to 8 prepared candidates) and DAPS handover, Rel-18 L1/L2-triggered
   mobility and conditional LTM from the Rel-19 work, behind a small rule interface. Rules that learn from outcomes are supported, among them
-  mobility robustness optimisation of a cell individual offset per cell pair (`a3_mro`).
+  mobility robustness optimisation of a cell individual offset per cell pair (`a3_mro`), an
+  epsilon-greedy bandit (`a3_bandit`, checked against an exhaustive search) and a deep Q-network
+  (`dqn`, optional PyTorch).
 - **Failure model**: Qout/Qin with windows, N310/N311/T310, lost commands and configurations,
   execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), with options for
   the link monitoring (own interferer load, restart on a new cell, ideal random access).
@@ -89,7 +92,8 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
   signalling (RRC messages, commands), L1 measurements of the device and network energy (EARTH
   model).
 - **Reproducibility**: one world per seed shared by all compared rules (paired comparison); the
-  engine draws no random numbers; golden event-log fingerprints guard every change.
+  engine draws no random numbers; golden event-log fingerprints guard every change. An optional
+  compiled kernel (`run.backend: numba`) gives the same event logs bit for bit.
 
 ## Built for beyond-5G
 
@@ -152,6 +156,12 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.11.0**: the TR 37.885 highway as specified (wrap-around, LOS-only base-station-to-vehicle
+  links, sites on one side 1732 m apart below 6 GHz, 19 hexagonal sites with 3 sectors above), checked
+  against an independent computation; every scenario card audited against TR 38.901 (also against
+  V19.5.0), TR 37.885, TR 36.885 and ITU-R M.2412, with two cards corrected and the old highway card
+  deprecated; `a3_bandit` against an exhaustive search (two of three criteria met, reported as is);
+  the rule `dqn` with optional PyTorch; an optional Numba kernel with identical results.
 - **1.10.0**: SSB beams per sector with beam management and beam failure recovery (TS 38.321 5.17,
   TS 38.133 8.5), several carriers with inter-frequency measurements in gaps and Event A5, the
   measurement and RLM evaluation periods of TS 38.133, and DAPS and LTM checked against TS 38.133
@@ -327,10 +337,12 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 16. 1.7.0: indoor and rural scenarios; mobility robustness optimisation.
 17. 1.8.0: the radio model calibrated against 3GPP (TR 38.901 clause 7.8.1).
 18. 1.9.0: the 3GPP protocol profile and the standard-compliance page.
-19. **1.10.0 (this release)**: SSB beams and beam failure recovery, several carriers with measurement
-    gaps, DAPS and LTM against TS 38.133 and published 3GPP evaluations.
-20. Later (planned, not done): NTN mobility (CHO events D1/T1), optional compiled kernels for the
-    step loop.
+19. 1.10.0: SSB beams and beam failure recovery, several carriers with measurement gaps, DAPS
+    and LTM against TS 38.133 and published 3GPP evaluations.
+20. **1.11.0 (this release)**: the TR 37.885 highway, the card audit, the bandit against an
+    exhaustive search, the `dqn` rule and the optional Numba kernel.
+21. Later (planned, not done): radio maps from ray tracing or measurements, NTN mobility (CHO
+    events D1/T1).
 
 ## Citation
 

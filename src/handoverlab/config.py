@@ -69,6 +69,13 @@ class LayoutConfig:
     from every site in ``open_area`` and ``indoor`` (TR 38.901 Table 7.2-3,
     RMa: 35 m); the straight legs between them may pass closer.
 
+    ``wrap`` (since 1.11.0, highway only) applies the wrap-around of TR 37.885
+    Table A-1: a vehicle keeps its lane and direction and re-enters the road
+    at the other end, and every distance and angle between a user and a site
+    is taken to the nearest image of the site along the road (period
+    ``road_length_m``); the place-tied shadowing field is periodic along the
+    road.  Without it (the default) a vehicle turns at the end of the road.
+
     ``sites_file`` (since 1.0.0rc3) names a CSV file with the columns ``x`` and
     ``y`` [m]; it is read when the scenario is loaded and fills ``sites``.
     """
@@ -85,6 +92,8 @@ class LayoutConfig:
     sites_file: Optional[str] = None
     area_m: Optional[Tuple[float, float]] = None
     min_site_distance_m: float = 0.0
+    wrap: bool = False
+    highway_sites: str = "roadside"
 
     @property
     def size_m(self) -> Tuple[float, float]:
@@ -174,6 +183,12 @@ class LayerConfig:
     noise_figure_db: Optional[float] = None
     bs_height_m: Optional[float] = None
     pathloss: Optional[str] = None
+    # shadowing and LOS-state correlation of the layer (since 1.11.0; unset: those of ``radio``), so that a
+    # macro layer on UMa and a micro layer on UMi each get the values of TR 38.901 Tables 7.4.1-1, 7.5-6, 7.6.3.1-2
+    shadow_los_db: Optional[float] = None
+    shadow_nlos_db: Optional[float] = None
+    shadow_decorr_m: Optional[float] = None
+    los_corr_m: Optional[float] = None
     cosited: bool = False
     sites: Optional[Tuple[Tuple[float, float], ...]] = None
     sites_file: Optional[str] = None
@@ -223,6 +238,10 @@ class RadioConfig:
     # LOS_soft = 1/2 + arctan(sqrt(soft_los_d_m / lambda) (G + F(d))) / pi, instead of a hard switch
     soft_los: bool = False
     soft_los_d_m: float = 20.0
+    # LOS state (since 1.11.0): "probability" draws it from the LOS probability of the path loss model
+    # (TR 38.901 Table 7.4.2-1; on the street grid on top of the buildings), "los" makes every link LOS
+    # (TR 37.885 Table 6.2.1-2: the base-station-to-vehicle links of the highway are LOS only)
+    los_model: str = "probability"
     time_var_db: float = 1.5            # time-varying component (moving blockers)
     time_var_tau_s: float = 1.0
     l1_error_db: float = 1.0            # error of one L1 RSRP sample
@@ -361,8 +380,15 @@ class MobilityConfig:
 
 @dataclass
 class RunConfig:
+    """Length of a run and (since 1.11.0) the ``backend`` of the step loop.
+
+    ``backend`` ``"numpy"`` (the default and the reference) or ``"numba"``: a compiled kernel for the
+    radio-link monitoring of every step (:mod:`handoverlab.engine._kernels`; needs ``pip install
+    handoverlab[fast]``).  Both give bit-identical results, so the backend is not part of the job IDs.
+    """
     duration_s: float = 120.0
     warmup_s: float = 20.0              # initial part not counted in the metrics
+    backend: str = "numpy"
 
 
 @dataclass
@@ -391,6 +417,11 @@ class Scenario:
                 for k in keys:
                     if d[section].get(k) == default[k]:
                         del d[section][k]
+            d["run"].pop("backend", None)                 # results do not depend on it (since 1.11.0)
+            for ly in d["radio"].get("layers") or ():     # layer keys of 1.11.0 and later, while unset
+                for k in LAYER_LATE_KEYS:
+                    if ly.get(k) is None:
+                        ly.pop(k, None)
         return d
 
     @classmethod
@@ -436,6 +467,21 @@ class Scenario:
         _check(L.lanes >= 1, "layout.lanes", "must be >= 1")
         _check(L.lane_width_m > 0, "layout.lane_width_m", "must be positive")
         _check(L.road_length_m > 0, "layout.road_length_m", "must be positive")
+        _check(not L.wrap or L.kind == "highway", "layout.wrap", "is only defined for the highway layout")
+        _check(not L.wrap or L.sites is not None or L.highway_sites == "hex19" or abs(L.road_length_m / L.site_spacing_m
+                                                         - round(L.road_length_m / L.site_spacing_m)) < 1e-9,
+               "layout.wrap", "needs a road length that is a whole number of site spacings")
+        _check(R.los_model in ("probability", "los"), "radio.los_model", "must be 'probability' or 'los'")
+        _check(R.los_model == "probability" or L.kind != "street_grid", "radio.los_model",
+               "'los' is not available on the street grid, where the buildings decide the LOS state")
+        _check(not (L.wrap and R.layers), "layout.wrap", "cannot be combined with radio.layers")
+        _check(L.highway_sites in ("roadside", "one_side", "hex19"), "layout.highway_sites",
+               "must be 'roadside', 'one_side' or 'hex19'")
+        if L.highway_sites == "hex19":
+            _check(L.kind == "highway" and L.wrap and L.sites is None, "layout.highway_sites",
+                   "'hex19' needs layout.kind 'highway', layout.wrap true and no layout.sites")
+            _check(abs(L.road_length_m - math.sqrt(19.0) * L.site_spacing_m) < 0.5, "layout.road_length_m",
+                   "must be sqrt(19) x site_spacing_m = %.2f m with 'hex19'" % (math.sqrt(19.0) * L.site_spacing_m))
         _check(L.sites is None or len(L.sites) >= 1, "layout.sites", "needs at least one site")
         _check(L.blocks[0] >= 1 and L.blocks[1] >= 1, "layout.blocks", "needs at least 1 x 1 blocks")
         _check(L.site_spacing_m > 0, "layout.site_spacing_m", "must be positive")
@@ -474,6 +520,10 @@ class Scenario:
             from .mobility import PROFILES
             _check(M.profile in PROFILES, "mobility.profile", "unknown profile; known: %s" % ", ".join(PROFILES))
         _check(T.duration_s > T.warmup_s >= 0, "run.duration_s", "must exceed run.warmup_s (>= 0)")
+        _check(T.backend in ("numpy", "numba"), "run.backend", "must be 'numpy' or 'numba'")
+        if T.backend == "numba":
+            from .engine._kernels import available
+            _check(available(), "run.backend", "'numba' needs Numba: pip install handoverlab[fast]")
         shares = sum(s.share for s in self.traffic.services)
         _check(len(self.traffic.services) > 0 and shares > 0, "traffic.services", "needs a positive total share")
         from .traffic import MODELS
@@ -514,12 +564,14 @@ class Scenario:
 
 #: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`
 LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
-                                                    "area_m", "min_site_distance_m"),
+                                                    "area_m", "min_site_distance_m", "wrap", "highway_sites"),
                                          "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
-                                                   "beams", "layers"),
+                                                   "beams", "layers", "los_model"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
+#: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
+LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")
 
 
 def read_sites(path: Union[str, os.PathLike]) -> Tuple[Tuple[float, float], ...]:
