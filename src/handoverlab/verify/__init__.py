@@ -20,6 +20,7 @@ Optional:
 
 ``learning``      the learning rule a3_bandit against an exhaustive search over its arms (``--only learning``;
                   about 20 minutes; since 1.11.0)
+``ntn``           NTN link budget, antenna and orbit against TR 38.821 / TR 38.811 (``--only ntn``; since 2.0.0)
 ``ns3``           reference comparison with stored ns-3 / 5G-LENA results (``--ns3``; minutes)
 ``stored``        recompute (a sample of) a stored result file and compare fingerprints (``--results FILE``)
 
@@ -33,7 +34,7 @@ from typing import Callable, Optional, Sequence
 from .report import FAIL, NOTE, PASS, Check, Report, header
 
 GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended", "highway")
-OPTIONAL_GROUPS = ("learning",)
+OPTIONAL_GROUPS = ("learning", "ntn")
 
 
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
@@ -76,6 +77,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "highway" in groups:
         from .highway import highway_checks
         highway_checks(rep)
+    if "ntn" in groups:
+        from .ntn import ntn_checks
+        ntn_checks(rep)
     if "learning" in groups:
         from .learning import learning_checks
         learning_checks(rep)

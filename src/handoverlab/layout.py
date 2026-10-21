@@ -252,6 +252,8 @@ def make_layout(cfg) -> Layout:
         return open_area(cfg.area_m or cfg.size_m, cfg.site_spacing_m, cfg.sites)
     if cfg.kind == "indoor":
         return indoor(cfg.area_m or INDOOR_SIZE_M, cfg.site_spacing_m, cfg.sites)
+    if cfg.kind == "ntn":
+        raise ValueError("the NTN layout comes from the satellite geometry: handoverlab.channel.ntn.ntn_layout")
     if cfg.kind == "highway":
         if cfg.highway_sites == "hex19":
             return highway_hex(cfg.site_spacing_m, cfg.lanes, cfg.lane_width_m)

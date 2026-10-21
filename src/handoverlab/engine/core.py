@@ -166,7 +166,7 @@ class Engine:
         self.kind = self.proc.kind
         rule.reset(RuleContext(U, self.M, world.cell_sites, world.nominal_cell, P.step_s,
                                self.mdt, world.seed, rule_stream(world.seed), sc,
-                               None if world.ext is None else world.ext.cell_carrier))
+                               None if world.ext is None else world.ext.cell_carrier, world.cell_center))
 
     @property
     def meas(self) -> np.ndarray:

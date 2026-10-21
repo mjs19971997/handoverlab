@@ -304,6 +304,8 @@ class ConditionalProcedure(Procedure):
     def _exec_on_delivery(self, u, n) -> bool:
         """True if the UE executes towards ``n`` as soon as its configuration arrives."""
         rule, meas = self.rule, self.eng.meas
+        if rule.exec_condition_used:                    # the further condition is evaluated at measurement instants
+            return rule.immediate
         return rule.immediate or (rule.ttt_exec_s <= 0 and meas[u, n] - meas[u, self.eng.serv[u]] > self.oexec[u, n])
 
     def _config_offsets(self, obs):
@@ -324,6 +326,10 @@ class ConditionalProcedure(Procedure):
         """UE side: execution condition of the prepared cells; returns the users still connected."""
         eng, gap, t = self.eng, obs.gap_db, obs.t
         cx = self.prepared & (gap > self.oexec) & con[:, None]
+        if self.rule.exec_condition_used:               # since 2.0.0: e.g. condEventD2 together with A3
+            extra = self.rule.exec_condition(obs)
+            if extra is not None:
+                cx &= np.asarray(extra, dtype=bool)
         self.tx = np.where(cx, np.minimum(self.tx, t), INF)
         rdy = held_for(self.tx, t, self.rule.ttt_exec_s)
         for u in np.nonzero(rdy.any(1))[0]:

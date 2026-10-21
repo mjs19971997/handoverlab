@@ -74,6 +74,7 @@ class RuleContext:
     rng: np.random.Generator                # private random stream of the rule
     scenario: Any
     cell_carrier: Optional[np.ndarray] = None  # (M,) carrier index of every cell, multi-carrier model (since 1.10.0)
+    cell_center: Optional[Callable[[float], np.ndarray]] = None  # (M, 2) reference locations at time t (2.0.0)
 
 
 @dataclass
@@ -200,6 +201,14 @@ class ConditionalRule(Rule):
     def exec_offsets(self, obs: Observation) -> Union[float, np.ndarray]:
         """Execution offset [dB] written into a new conditional configuration: scalar or (U, M)."""
         raise NotImplementedError
+
+    #: True if :meth:`exec_condition` returns a condition (then a UE never executes on delivery of a configuration)
+    exec_condition_used = False
+
+    def exec_condition(self, obs: Observation) -> Optional[np.ndarray]:
+        """A further execution condition (U, M) that must hold together with the execution offset (since 2.0.0),
+        e.g. condEventD1 / D2 / T1 of TS 38.331 5.5.4.15-16; None (the default): the offset alone."""
+        return None
 
 
 class DAPSRule(BaselineRule):

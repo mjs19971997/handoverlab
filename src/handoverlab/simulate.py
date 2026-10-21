@@ -97,7 +97,12 @@ def run_world(world: World, rules: Sequence[RuleSpec], log_events: Union[bool, s
     engines = [cls(world, r, log_events, debug) for r in objs]
     runners = [EngineBatch(engines)] if batch and EngineBatch.supported(engines) else engines
     t_radio = 0.0
-    it = (ExtendedSource(world, chunk_steps) if world.ext is not None else RadioSource(world, chunk_steps)).chunks()
+    if world.ntn is not None:                                 # one satellite with moving beams (since 2.0.0)
+        from .channel.ntn import NtnSource
+        src = NtnSource(world, chunk_steps)
+    else:
+        src = ExtendedSource(world, chunk_steps) if world.ext is not None else RadioSource(world, chunk_steps)
+    it = src.chunks()
     while True:
         ta = time.perf_counter()
         ch = next(it, None)

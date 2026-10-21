@@ -36,6 +36,7 @@ class World:
     bg_load: np.ndarray      # (M,) background load of every cell
     offered: Optional[np.ndarray] = None   # (n_meas, U) arriving bits per measurement interval (traffic.model)
     ext: Optional[ExtendedRadio] = None    # beams and further layers (since 1.10.0), else None
+    ntn: Optional[object] = None           # satellite geometry of layout.kind ntn (since 2.0.0), else None
 
     @property
     def n_steps(self) -> int:
@@ -56,6 +57,10 @@ class World:
         """Nominal best server at points (the operator's plan, see :class:`RadioMap`)."""
         return self.radio_map.nominal_cell if self.ext is None else self.ext.nominal_cell
 
+    def cell_center(self, t: float) -> np.ndarray:
+        """(M, 2) reference locations of the cells at time t [m]: the sites, or the moving beam centres (NTN)."""
+        return self.cell_sites if self.ntn is None else self.ntn.beam_centres(t)
+
     @property
     def n_users(self) -> int:
         return self.x.shape[1]
@@ -63,10 +68,19 @@ class World:
 
 def build_world(scenario: Scenario, seed: int) -> World:
     """Layout, radio map, trajectories, services and background load of one seed."""
-    layout = make_layout(scenario.layout)
     rng_traj, rng_svc, rng_bg = streams(seed, "world", 3)
     R = scenario.radio
-    if R.map_file:                                             # radio map from a file (since 1.12.0)
+    geom = None
+    if scenario.layout.kind == "ntn":                         # one satellite with moving beams (since 2.0.0)
+        from .channel.ntn import NtnGeometry, NtnMap, ntn_layout
+        geom = NtnGeometry(scenario)
+        layout = ntn_layout(scenario, geom)
+        rmap = NtnMap(layout, geom)
+    else:
+        layout = make_layout(scenario.layout)
+    if geom is not None:
+        pass
+    elif R.map_file:                                             # radio map from a file (since 1.12.0)
         from .mapfile import MapFileError, file_sha256
         if R.map_sha256 and file_sha256(R.map_file) != R.map_sha256:
             raise MapFileError("%s changed since the scenario was loaded (SHA-256 differs)" % R.map_file)
@@ -77,11 +91,11 @@ def build_world(scenario: Scenario, seed: int) -> World:
                                rng_traj, scenario.layout.min_site_distance_m)
     tr = scenario.traffic
     svc = ServiceTable(tr.services, assign_services(tr.services, scenario.mobility.users, rng_svc), tr.rate_scale)
-    ext = build_extended(scenario, layout, rmap, seed)
+    ext = None if geom is not None else build_extended(scenario, layout, rmap, seed)
     bg = background_load(tr, layout.n_sites if ext is None else ext.n_cells, rng_bg)
     offered = None
     if tr.model in ("periodic", "ftp3"):                       # own stream: the other draws stay as they were
         P = scenario.protocol
         mp = max(1, int(round(P.l1_period_s / P.step_s)))
         offered = offered_bits(tr, -(-x.shape[0] // mp), mp * P.step_s, x.shape[1], streams(seed, "traffic", 1)[0])
-    return World(scenario, int(seed), layout, rmap, x, y, v, th, svc, bg, offered, ext)
+    return World(scenario, int(seed), layout, rmap, x, y, v, th, svc, bg, offered, ext, geom)

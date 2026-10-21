@@ -396,6 +396,29 @@ class RunConfig:
 
 
 @dataclass
+class NtnConfig:
+    """One LEO satellite with earth-moving beams, for ``layout.kind: ntn`` (since 2.0.0; see
+    :mod:`handoverlab.channel.ntn`).
+
+    Defaults: LEO-600, Set-1 satellite parameters in the S band of TR 38.821 Table 6.1.1.1-1 (equivalent
+    aperture 2 m, EIRP density 34 dBW/MHz), 19 beams on the UV plane (Table 6.1.1.1-4), the central beam
+    pointing at the area centre with 30 degrees elevation (case 2; the target elevation of the LEO link budget,
+    Table 6.1.3.2-1), the rural tables of TR 38.811, the atmospheric zenith attenuation of the link budget of
+    Table 6.1.3.3-1 through Eq. 6.6-8 and the ionospheric scintillation loss of 2.2 dB (Table 6.1.3.2-1, note 1).
+    """
+    altitude_km: float = 600.0
+    aperture_m: float = 2.0
+    eirp_dbw_per_mhz: float = 34.0
+    n_beams: int = 19
+    centre_elevation_deg: float = 30.0
+    environment: str = "rural"
+    atm_zenith_db: float = 0.045
+    scintillation_db: float = 2.2
+    sf_corr_m: float = 37.0
+    los_corr_m: float = 60.0
+
+
+@dataclass
 class Scenario:
     """One simulated condition.  Together with a seed it fixes a *world*."""
     name: str = "street-grid"
@@ -405,6 +428,7 @@ class Scenario:
     traffic: TrafficConfig = field(default_factory=TrafficConfig)
     mobility: MobilityConfig = field(default_factory=MobilityConfig)
     run: RunConfig = field(default_factory=RunConfig)
+    ntn: NtnConfig = field(default_factory=NtnConfig)
 
     def to_dict(self, full: bool = False) -> Dict[str, Any]:
         """The scenario as a plain dictionary.
@@ -422,6 +446,8 @@ class Scenario:
                     if d[section].get(k) == default[k]:
                         del d[section][k]
             d["run"].pop("backend", None)                 # results do not depend on it (since 1.11.0)
+            if self.layout.kind != "ntn" and d["ntn"] == _plain(dataclasses.asdict(NtnConfig())):
+                del d["ntn"]                              # the section of 2.0.0, only where it is used
             for ly in d["radio"].get("layers") or ():     # layer keys of 1.11.0 and later, while unset
                 for k in LAYER_LATE_KEYS:
                     if ly.get(k) is None:
@@ -470,8 +496,19 @@ class Scenario:
     def validate(self) -> None:
         """Range checks that name the offending key."""
         L, R, P, M, T = self.layout, self.radio, self.protocol, self.mobility, self.run
-        _check(L.kind in ("street_grid", "open_area", "highway", "indoor"), "layout.kind",
-               "must be 'street_grid', 'open_area', 'highway' or 'indoor'")
+        _check(L.kind in ("street_grid", "open_area", "highway", "indoor", "ntn"), "layout.kind",
+               "must be 'street_grid', 'open_area', 'highway', 'indoor' or 'ntn'")
+        N = self.ntn
+        if L.kind == "ntn":
+            _check(not (R.beams or R.layers or R.map_file or L.wrap), "layout.kind",
+                   "'ntn' cannot be combined with radio.beams, radio.layers, radio.map_file or layout.wrap")
+            _check(N.altitude_km > 0 and N.aperture_m > 0 and N.n_beams >= 1, "ntn.altitude_km",
+                   "altitude, aperture and number of beams must be positive")
+            _check(10.0 <= N.centre_elevation_deg <= 90.0, "ntn.centre_elevation_deg",
+                   "must be between 10 and 90 degrees (TR 38.821 Table 4.2-2: minimum elevation 10 degrees)")
+            _check(N.environment in ("dense_urban", "urban", "rural"), "ntn.environment",
+                   "must be 'dense_urban', 'urban' or 'rural' (TR 38.811 Tables 6.6.1-1, 6.6.2-1..3)")
+            _check(R.carrier_ghz < 6.0, "radio.carrier_ghz", "the NTN model of this version covers the S band only")
         _check(L.min_site_distance_m >= 0, "layout.min_site_distance_m", "must be >= 0")
         _check(L.area_m is None or (L.area_m[0] > 0 and L.area_m[1] > 0), "layout.area_m",
                "width and height must be positive")

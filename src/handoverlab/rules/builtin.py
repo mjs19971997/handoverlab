@@ -227,6 +227,54 @@ class CLTM(CLTMRule):
         return self.o_switch_db
 
 
+class CHOD2(CHO):
+    """Conditional handover with condEventD2 together with A3 (NTN with moving cells; since 2.0.0).
+
+    TS 38.331 V18 5.5.4.15a, Event D2: entering when ``Ml1 - Hys > Thresh1`` (distance of the UE from the
+    serving cell's moving reference location) and ``Ml2 + Hys < Thresh2`` (distance from the candidate's moving
+    reference location); leaving when ``Ml1 + Hys < Thresh1`` or ``Ml2 - Hys > Thresh2``.  The reference
+    locations are ``ctx.cell_center(t)``: the beam centres on the ground, which move with the satellite; on cells
+    that do not move (terrestrial sites) the event is Event D1 (5.5.4.15).  TS 38.331 (CondReconfigToAddMod)
+    has the network configure a second event (A3, A4 or A5) together with D1 or D2; here the execution needs both
+    the D2 state and the A3 condition of :class:`CHO` (``o_exec_db``), held together for ``ttt_exec_s`` (one
+    time-to-trigger for both events, a simplification).  Distances use the UE's reported position.
+
+    d_thresh1_m  distanceThreshFromReference1 [m] (serving cell); default: half the 50 km nadir beam diameter of
+                 the LEO-600 S-band beams of TR 38.821 Table 6.1.1.1-1 (TS 38.331 gives no default)
+    d_thresh2_m  distanceThreshFromReference2 [m] (candidate); the same default
+    hys_m        hysteresisLocation [m]
+    Other parameters as :class:`CHO`.
+    """
+    exec_condition_used = True
+
+    def __init__(self, d_thresh1_m: float = 25000.0, d_thresh2_m: float = 25000.0, hys_m: float = 1000.0,
+                 o_prep_db: float = -2.0, o_exec_db: float = 0.0, ttt_exec_s: float = 0.08, ttt_prep_s: float = 0.0,
+                 n_max: int = 4, rel_hys_db: float = 3.0, name: str = "CHO-D2"):
+        super().__init__(o_prep_db, o_exec_db, ttt_exec_s, ttt_prep_s, n_max, rel_hys_db, False, name)
+        if d_thresh1_m < 0 or d_thresh2_m < 0 or hys_m < 0:
+            raise ValueError("distance thresholds and hysteresis must be >= 0")
+        self.d_thresh1_m, self.d_thresh2_m, self.hys_m = float(d_thresh1_m), float(d_thresh2_m), float(hys_m)
+
+    def params(self):
+        p = super().params()
+        p.pop("immediate")
+        p.update(d_thresh1_m=self.d_thresh1_m, d_thresh2_m=self.d_thresh2_m, hys_m=self.hys_m)
+        return p
+
+    def reset(self, ctx):
+        super().reset(ctx)
+        self.d_on = np.zeros((ctx.n_users, ctx.n_sites), dtype=bool)
+
+    def exec_condition(self, obs):
+        ref = self.ctx.cell_center(obs.t) if self.ctx.cell_center is not None else self.ctx.sites
+        d = np.hypot(obs.x[:, None] - ref[None, :, 0], obs.y[:, None] - ref[None, :, 1])      # (U, M)
+        ml1 = d[np.arange(len(obs.serving)), obs.serving][:, None]
+        enter = (ml1 - self.hys_m > self.d_thresh1_m) & (d + self.hys_m < self.d_thresh2_m)
+        leave = (ml1 + self.hys_m < self.d_thresh1_m) | (d - self.hys_m > self.d_thresh2_m)
+        self.d_on = (self.d_on | enter) & ~leave
+        return self.d_on
+
+
 class BanditA3(BaselineRule):
     """Event A3 whose offset each cell learns with an epsilon-greedy bandit (a learning-based example).
 

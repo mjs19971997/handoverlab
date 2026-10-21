@@ -1,0 +1,58 @@
+# Scenario card (machine-readable).  docs/scenarios/ntn-leo600-2ghz.md is generated from this file.
+name: ntn-leo600-2ghz
+title: A LEO satellite at 600 km with 19 earth-moving beams in the S band (NTN)
+since: 2.0.0
+purpose: >
+  The LEO scenario of the 3GPP NTN study (TR 38.821) that RAN2 prioritised for mobility: one satellite at
+  600 km altitude, transparent payload, 19 beams fixed in the satellite frame (they sweep over the ground with
+  the satellite at 7.56 km/s), Set-1 satellite parameters in the S band (2 GHz, 30 MHz), frequency reuse 1,
+  handheld users at 3 km/h in a rural area, and the large-scale channel of TR 38.811.  The handovers come from
+  the satellite's motion, not the users': every user crosses a beam within seconds.  Use it for NTN
+  mobility, e.g. conditional handover with the location condition D2 of Release 18 (rule `cho_d2`).
+layout_note: >
+  The users' area of 60 km x 60 km around the point at which the central beam points with 30 degrees
+  elevation at the middle of the run; the 19 beam centres on the ground at that time.  The satellite passes
+  west of the area, moving north.
+scenario:
+  name: ntn-leo600-2ghz
+  layout: {kind: ntn, area_m: [60000.0, 60000.0]}
+  radio: {carrier_ghz: 2.0, bandwidth_mhz: 30.0, noise_figure_db: 7.0, ue_gain_db: 0.0, isolation: 1.0,
+          time_var_db: 0.0}
+  ntn: {altitude_km: 600.0, aperture_m: 2.0, eirp_dbw_per_mhz: 34.0, n_beams: 19, centre_elevation_deg: 30.0,
+        environment: rural, atm_zenith_db: 0.045, scintillation_db: 2.2, sf_corr_m: 37.0, los_corr_m: 60.0}
+  protocol: {prep_s: 0.07577, exec_s: 0.06577}
+  mobility: {users: 40, profile: ped3}
+  run: {duration_s: 30.0, warmup_s: 2.0}
+sources:
+  layout.kind: "TR 38.821 Table 4.2-2 and Table 7.1-1 (scenario C2: LEO 600 km, transparent payload, beams moving with the satellite); TR 38.821 clause 7.3.2.4 (RAN2 prioritises LEO with moving beams for mobility)"
+  layout.area_m: "assumption (the users stay under the 19 beams for the length of the run)"
+  radio.carrier_ghz: "TR 38.821 Table 6.1.1.1-5 (S band, 2 GHz)"
+  radio.bandwidth_mhz: "TR 38.821 Table 6.1.1.1-5 (S band: 30 MHz per beam, frequency reuse 1)"
+  radio.noise_figure_db: "TR 38.821 Table 6.1.1.1-3 (handheld UE: noise figure 7 dB, antenna temperature 290 K)"
+  radio.ue_gain_db: "TR 38.821 Table 6.1.1.1-3 (handheld UE: 0 dBi per element)"
+  radio.isolation: "TR 38.821 Table 6.1.1.1-5 (frequency reuse factor 1: every beam interferes with its full power and load)"
+  radio.time_var_db: "set to 0: the large-scale model of TR 38.811 has no further time-varying component"
+  ntn.altitude_km: "TR 38.821 Table 6.1.1.1-1 (LEO-600)"
+  ntn.aperture_m: "TR 38.821 Table 6.1.1.1-1 (Set-1, S band: equivalent antenna aperture 2 m; 3 dB beamwidth 4.4127 degrees)"
+  ntn.eirp_dbw_per_mhz: "TR 38.821 Table 6.1.1.1-1 (Set-1, S band, LEO-600: 34 dBW/MHz)"
+  ntn.n_beams: "TR 38.821 Table 6.1.1.1-4 (19 beams, hexagonal on the UV plane, adjacent beam spacing sqrt(3) sin(HPBW/2))"
+  ntn.centre_elevation_deg: "TR 38.821 Table 6.1.1.1-4 (case 2: central beam boresight from the target elevation) and Table 6.1.3.2-1 (target elevation 30 degrees for LEO)"
+  ntn.environment: "TR 38.821 Table 6.1.1.1-5 (deployment scenario: rural); TR 38.811 Tables 6.6.1-1 and 6.6.2-3 (suburban and rural)"
+  ntn.atm_zenith_db: "TR 38.811 Eq. 6.6-8 with the atmospheric losses of the S-band LEO link budgets of TR 38.821 Table 6.1.3.3-1 (0.1 dB at 30 degrees; 0.2 dB at 12.5 degrees for GEO): 0.04-0.05 dB"
+  ntn.scintillation_db: "TR 38.821 Table 6.1.3.2-1 (ionospheric scintillation loss 2.2 dB, note 1)"
+  ntn.sf_corr_m: "TR 38.811 Table 6.7.2-7a (rural, S band, LOS: shadowing correlation 37 m; NLOS 120 m, Table 6.7.2-8a)"
+  ntn.los_corr_m: "assumption: TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, RMa: 60 m); TR 38.811 gives no value"
+  protocol.prep_s: "TR 36.839 (50 ms) plus the maximum round-trip delay of scenario C2 (TR 38.821 Table 7.1-1: 25.77 ms)"
+  protocol.exec_s: "TR 36.839 (40 ms) plus the maximum round-trip delay of scenario C2 for the random access (assumption: one round trip)"
+  mobility.profile: "TR 38.821 Table 6.1.1.1-3 (handheld UE); 3 km/h is an assumption"
+  run.duration_s: "numerical setting (the satellite moves 227 km in 30 s; the users stay under the 19 beams)"
+limitations:
+  - "Frequency reuse 1 (TR 38.821 Table 6.1.1.1-5, option 1): at the beam edges the neighbouring beams interfere with full power, and most link failures are coverage failures (no beam is good enough); the options of reuse 3 and 2 are not modelled in this version."
+  - "One satellite and its 19 beams, no wrap-around of beams and no next satellite: the run is short enough for the users to stay under the beams."
+  - "Earth-moving beams only (scenarios C2, D2); earth-fixed beams (C1, D1), several satellites, the feeder link, Doppler and the Ka band are not modelled."
+  - "The round-trip delay is the worst case of scenario C2 for every user, not the user's own slant range."
+  - "One shadowing correlation distance (37 m, the LOS value; NLOS 120 m in TR 38.811); the LOS state correlation is the RMa value of TR 38.901."
+  - "condEventT1 is not modelled; condEventD2 is combined with A3 with one time-to-trigger (rule cho_d2)."
+  - "The failure model is not calibrated for NTN; read failure rates relative to each other."
+references:
+  - "Slant range, free-space path loss and the link budget are checked against TR 38.821 Table 6.1.3.3-1, the beamwidth of the antenna pattern against Tables 6.1.1.1-1 and -2 (handoverlab verify, group ntn)."
