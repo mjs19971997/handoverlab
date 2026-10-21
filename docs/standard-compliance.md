@@ -54,6 +54,14 @@ HandoverLab does not model, and added the SMa scenario. One small deviation rema
 of Table 7.4.1-1 take c = 3.0e8 m/s in the breakpoint distances, HandoverLab the exact speed of light
 (0.07 % longer breakpoints); the correction changes results and is planned for 2.0.0.
 
+## Map-based channel model (1.12.0, `radio.map_file`)
+
+TR 38.901 V19.5.0 clause 8 defines a map-based hybrid model: deterministic ray tracing on a digitized map
+plus stochastic components of clause 7, "not calibrated and can be used per company basis", with the map
+format left to the implementation. HandoverLab **follows** its deterministic large-scale part (a path gain
+per site and pixel from a ray tracer or from measurements, `handoverlab.mapfile`) and **does not model** the
+small-scale part (ray-level phases, Doppler, the stochastic clusters), as nowhere else in HandoverLab.
+
 ## Measurements and triggering
 
 | Rule | Clause | HandoverLab | Status |

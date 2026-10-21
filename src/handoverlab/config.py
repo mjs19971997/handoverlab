@@ -242,6 +242,10 @@ class RadioConfig:
     # (TR 38.901 Table 7.4.2-1; on the street grid on top of the buildings), "los" makes every link LOS
     # (TR 37.885 Table 6.2.1-2: the base-station-to-vehicle links of the highway are LOS only)
     los_model: str = "probability"
+    # radio map from a file (since 1.12.0; TR 38.901 clause 8, map-based model: ray tracing or measurements):
+    # path gain of every site and pixel, see handoverlab.mapfile; map_sha256 is filled when the scenario is loaded
+    map_file: Optional[str] = None
+    map_sha256: Optional[str] = None
     time_var_db: float = 1.5            # time-varying component (moving blockers)
     time_var_tau_s: float = 1.0
     l1_error_db: float = 1.0            # error of one L1 RSRP sample
@@ -438,6 +442,11 @@ class Scenario:
         sc = _build(cls, data or {}, "scenario.")
         if sc.layout.sites_file and sc.layout.sites is None:
             sc.layout.sites = read_sites(sc.layout.sites_file)
+        if sc.radio.map_file and sc.radio.map_sha256 is None:      # the content becomes part of the job IDs
+            from .mapfile import file_sha256
+            if not os.path.exists(sc.radio.map_file):
+                raise ConfigError("scenario.radio.map_file: %r not found" % sc.radio.map_file)
+            sc.radio.map_sha256 = file_sha256(sc.radio.map_file)
         sc.validate()
         return sc
 
@@ -454,6 +463,8 @@ class Scenario:
             if parts[-1] not in node:
                 raise ConfigError("unknown key 'scenario.%s'" % key)
             node[parts[-1]] = value
+        if "radio.map_file" in overrides and "radio.map_sha256" not in overrides:
+            d["radio"]["map_sha256"] = None                    # hash of the new file
         return Scenario.from_dict(d)
 
     def validate(self) -> None:
@@ -475,6 +486,9 @@ class Scenario:
         _check(R.los_model == "probability" or L.kind != "street_grid", "radio.los_model",
                "'los' is not available on the street grid, where the buildings decide the LOS state")
         _check(not (L.wrap and R.layers), "layout.wrap", "cannot be combined with radio.layers")
+        _check(not (R.map_file and R.layers), "radio.map_file",
+               "cannot be combined with radio.layers (base layer only)")
+        _check(not (R.map_file and L.wrap), "radio.map_file", "cannot be combined with layout.wrap")
         _check(L.highway_sites in ("roadside", "one_side", "hex19"), "layout.highway_sites",
                "must be 'roadside', 'one_side' or 'hex19'")
         if L.highway_sites == "hex19":
@@ -566,7 +580,7 @@ class Scenario:
 LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
                                                     "area_m", "min_site_distance_m", "wrap", "highway_sites"),
                                          "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
-                                                   "beams", "layers", "los_model"),
+                                                   "beams", "layers", "los_model", "map_file", "map_sha256"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}

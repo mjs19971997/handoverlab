@@ -7,6 +7,30 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-20
+
+### Added
+
+- Radio maps from a file (roadmap item 17), after the map-based hybrid channel model of TR 38.901
+  V19.5.0 clause 8: `radio.map_file` gives the path gain of every site and pixel (dB, without transmit
+  power and antenna gains) in place of path loss, LOS state and place-tied shadowing; the map is static.
+  `radio.map_sha256` is filled when the scenario is loaded, so the content of the file is part of the job
+  IDs, and a run refuses a file that has changed. Not combined with `radio.layers` or `layout.wrap`.
+- `handoverlab.mapfile`: the file format (`.npz`, `"handoverlab-radiomap"` version 1), `save_map`,
+  `load_map`, `export_map` (the map of a street-grid world), `map_from_raster` (e.g. a ray tracer's
+  path-gain map) and `map_from_points` (measurements, linear interpolation, error on held-out points);
+  `RadioMap.from_file`.
+- The guide "Your own radio map", `examples/radio_map.py`, the API page of `handoverlab.mapfile`.
+
+### Results (plan fixed before the runs)
+
+- Every golden case on the street grid (9 cases, 23 runs) gives the identical event log with its exported
+  map.
+- 3000 points of the `smoke` map with 1 dB measurement error: hold-out error 3.42 dB RMSE (criterion:
+  below the 7.82 dB NLOS shadowing), 2.28 dB MAE.
+
+Old golden fingerprints are unchanged.
+
 ## [1.11.0] - 2026-10-20
 
 ### Added
@@ -697,7 +721,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/mjs19971997/handoverlab/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/mjs19971997/handoverlab/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/mjs19971997/handoverlab/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/mjs19971997/handoverlab/compare/v1.8.0...v1.9.0

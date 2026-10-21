@@ -131,6 +131,7 @@ class RadioMap:
 
     def __init__(self, layout: Layout, radio, seed: int, sub: int = 0):
         self.layout, self.radio = layout, radio
+        self.imported = False
         self.is_grid = layout.is_grid
         res = float(radio.map_res_m) if self.is_grid else max(float(radio.map_res_m), 2.0)
         pad = 3.0 * res
@@ -142,16 +143,7 @@ class RadioMap:
         XX, YY = np.meshgrid(self.x0 + np.arange(self.nx) * res, self.y0 + np.arange(self.ny) * res)
         rng_shadow, rng_los = streams(seed, "map", 2, sub)    # sub: a further layer (since 1.10.0)
 
-        # nominal plan on a 2 m raster: nearest site (equal power and height, no buildings)
-        self.nres = 2.0
-        nnx = int((layout.xmax - layout.xmin + 2 * pad) / self.nres) + 2
-        nny = int((layout.ymax - layout.ymin + 2 * pad) / self.nres) + 2
-        NX, NY = np.meshgrid(self.x0 + np.arange(nnx) * self.nres, self.y0 + np.arange(nny) * self.nres)
-        if layout.period_x:                                    # nearest image of every site (wrap-around)
-            nearest = np.argmin(layout.distances(NX.ravel(), NY.ravel()), axis=1)
-        else:
-            nearest = cKDTree(layout.sites).query(np.c_[NX.ravel(), NY.ravel()])[1]
-        self.best_nominal = nearest.reshape(nny, nnx).astype(np.int16)
+        self._nominal_plan(layout, pad)
 
         mask = layout.street_mask(XX, YY, margin=2.0 * res)
         px, py = XX[mask], YY[mask]
@@ -207,6 +199,70 @@ class RadioMap:
         else:
             gain[...] = 0.0
         self.gain[P] = FLOOR_DB if self.is_grid else 0.0
+
+    def _nominal_plan(self, layout: Layout, pad: float) -> None:
+        """Nominal plan on a 2 m raster: nearest site (equal power and height, no buildings)."""
+        self.nres = 2.0
+        nnx = int((layout.xmax - layout.xmin + 2 * pad) / self.nres) + 2
+        nny = int((layout.ymax - layout.ymin + 2 * pad) / self.nres) + 2
+        NX, NY = np.meshgrid(self.x0 + np.arange(nnx) * self.nres, self.y0 + np.arange(nny) * self.nres)
+        if layout.period_x:                                    # nearest image of every site (wrap-around)
+            nearest = np.argmin(layout.distances(NX.ravel(), NY.ravel()), axis=1)
+        else:
+            nearest = cKDTree(layout.sites).query(np.c_[NX.ravel(), NY.ravel()])[1]
+        self.best_nominal = nearest.reshape(nny, nnx).astype(np.int16)
+
+    @classmethod
+    def from_file(cls, layout: Layout, radio, path: str) -> "RadioMap":
+        """Radio map read from ``radio.map_file`` (since 1.12.0; see :mod:`handoverlab.mapfile`).
+
+        The path gains of the file take the place of path loss, LOS state and place-tied shadowing; the map
+        is static, like the street grid's, so the LOS process along the users' paths is not drawn.
+        """
+        from ..mapfile import MapFileError, load_map
+        d = load_map(path)
+        sites = np.asarray(d["sites"], dtype=float)
+        if sites.shape != layout.sites.shape or not np.allclose(sites, layout.sites, atol=1e-6):
+            raise MapFileError("%s: its %d sites differ from the %d sites of the layout" % (path, len(sites),
+                                                                                       layout.n_sites))
+        self = cls.__new__(cls)
+        self.layout, self.radio, self.imported = layout, radio, True
+        self.is_grid = True                                    # static lookup, as on the street grid
+        self.res, self.x0, self.y0 = d["res"], d["x0"], d["y0"]
+        idx = np.asarray(d["idx"], dtype=np.int64)
+        self.ny, self.nx = idx.shape
+        gain = np.asarray(d["gain_db"], dtype=np.float32)
+        P = len(gain)
+        self.n_pix = P
+        self.idx = np.where(idx < 0, P, idx)
+        self.gain = np.empty((P + 1, layout.n_sites), dtype=np.float32)
+        self.gain[:P] = gain
+        self.gain[P] = FLOOR_DB
+        self.has_field = False
+        if "los" in d:
+            self.los = np.zeros((P + 1, layout.n_sites), dtype=bool)
+            self.los[:P] = d["los"]
+            self.los_share = float(self.los[:P].mean())
+        else:
+            self.los = np.zeros((P + 1, layout.n_sites), dtype=bool)
+            self.los_share = float("nan")
+        # the area where users go must have values: the streets on the grid, the whole area otherwise
+        xmax = self.x0 + (self.nx - 1) * self.res
+        ymax = self.y0 + (self.ny - 1) * self.res
+        short = (self.x0 > layout.xmin + 1e-6 or self.y0 > layout.ymin + 1e-6 or xmax < layout.xmax - 1e-6
+                 or ymax < layout.ymax - 1e-6)
+        if short:
+            raise MapFileError("%s covers x %.1f..%.1f, y %.1f..%.1f m, not the layout's %.1f..%.1f, %.1f..%.1f m"
+                               % (path, self.x0, xmax, self.y0, ymax, layout.xmin, layout.xmax, layout.ymin,
+                                  layout.ymax))
+        XX, YY = np.meshgrid(self.x0 + np.arange(self.nx) * self.res, self.y0 + np.arange(self.ny) * self.res)
+        inside = (XX >= layout.xmin) & (XX <= layout.xmax) & (YY >= layout.ymin) & (YY <= layout.ymax)
+        need = inside & layout.street_mask(XX, YY, margin=self.res)    # incl. the neighbours read by interpolation
+        if np.any(self.idx[need] == P):
+            raise MapFileError("%s has no values at %d pixels where users can be" % (path,
+                                                                                 int(np.sum(self.idx[need] == P))))
+        self._nominal_plan(layout, max(0.0, layout.xmin - self.x0))
+        return self
 
     # ------------------------------------------------------------------
     def _grid_coords(self, x, y):

@@ -216,6 +216,7 @@ output: results/metrics.csv
 | | `place_share` | `1` | share of shadowing variance tied to place (rest moves with the user) |
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
+| | `map_file` | none | radio map from a file: path gain of every site and pixel from a ray tracer or measurements (TR 38.901 clause 8; since 1.12.0; see [your own radio map](guides/radio-maps.md)); `map_sha256` is filled on loading |
 | | `los_model` | `probability` | `los`: every link LOS (TR 37.885 Table 6.2.1-2, highway); not on the street grid (since 1.11.0) |
 | | `soft_los`, `soft_los_d_m` | `false`, `20` | optional (1.7.0): soft LOS state of TR 38.901 clause 7.6.3.3 instead of a hard switch (see below) |
 | | `time_var_db`, `time_var_tau_s` | `1.5`, `1` | time-varying component (moving blockers) |

@@ -10,7 +10,7 @@ received-power-level radio model from TR 38.901 (optionally with SSB beams, beam
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 1.11.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 1.12.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
 > and anything removed is deprecated first. New models are options, so the results of earlier
@@ -66,7 +66,8 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
 - **Channel**: TR 38.901 UMi street canyon, UMa, RMa and InH-Office path loss (LOS/NLOS); line of sight from the
   building geometry plus the spatially consistent LOS state, hard or soft; spatially correlated shadowing; a
   time-varying component; L1 measurement error; beam gain and load-coupled interference;
-  optionally a penetration loss per user (in-car loss of TR 38.901).
+  optionally a penetration loss per user (in-car loss of TR 38.901); or, since 1.12.0, your own radio
+  map from a ray tracer or measurements (`radio.map_file`, the map-based model of TR 38.901 clause 8).
 - **Beams and carriers** (options, 1.10.0): sectors with SSB beams from the TR 38.901 antenna
   model, cell quality from the beams (TS 38.331 5.5.3.3), the serving beam from beam reports, beam
   failure detection and recovery (TS 38.321 5.17, TS 38.133 8.5), several carriers with the
@@ -156,6 +157,9 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **1.12.0**: radio maps from a file (`radio.map_file`): the path gain of every site and pixel from a ray
+  tracer (TR 38.901 clause 8, map-based hybrid model) or interpolated from measurements, with the error on
+  held-out points; an exported street-grid map gives the same event log bit for bit.
 - **1.11.0**: the TR 37.885 highway as specified (wrap-around, LOS-only base-station-to-vehicle
   links, sites on one side 1732 m apart below 6 GHz, 19 hexagonal sites with 3 sectors above), checked
   against an independent computation; every scenario card audited against TR 38.901 (also against
@@ -339,10 +343,10 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 18. 1.9.0: the 3GPP protocol profile and the standard-compliance page.
 19. 1.10.0: SSB beams and beam failure recovery, several carriers with measurement gaps, DAPS
     and LTM against TS 38.133 and published 3GPP evaluations.
-20. **1.11.0 (this release)**: the TR 37.885 highway, the card audit, the bandit against an
-    exhaustive search, the `dqn` rule and the optional Numba kernel.
-21. Later (planned, not done): radio maps from ray tracing or measurements, NTN mobility (CHO
-    events D1/T1).
+20. 1.11.0: the TR 37.885 highway, the card audit, the bandit against an exhaustive search, the
+    `dqn` rule and the optional Numba kernel.
+21. **1.12.0 (this release)**: radio maps from ray tracing or measurements.
+22. Later (planned, not done): NTN mobility (CHO events D1/T1), 2.0.0.
 
 ## Citation
 

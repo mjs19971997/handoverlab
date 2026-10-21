@@ -65,7 +65,14 @@ def build_world(scenario: Scenario, seed: int) -> World:
     """Layout, radio map, trajectories, services and background load of one seed."""
     layout = make_layout(scenario.layout)
     rng_traj, rng_svc, rng_bg = streams(seed, "world", 3)
-    rmap = RadioMap(layout, scenario.radio, seed)
+    R = scenario.radio
+    if R.map_file:                                             # radio map from a file (since 1.12.0)
+        from .mapfile import MapFileError, file_sha256
+        if R.map_sha256 and file_sha256(R.map_file) != R.map_sha256:
+            raise MapFileError("%s changed since the scenario was loaded (SHA-256 differs)" % R.map_file)
+        rmap = RadioMap.from_file(layout, R, R.map_file)
+    else:
+        rmap = RadioMap(layout, R, seed)
     x, y, v, th = trajectories(layout, scenario.mobility, scenario.run.duration_s, scenario.protocol.step_s,
                                rng_traj, scenario.layout.min_site_distance_m)
     tr = scenario.traffic

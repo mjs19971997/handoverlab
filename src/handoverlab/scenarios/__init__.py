@@ -110,6 +110,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "radio.scs_khz": "unset: 30 kHz up to 7.125 GHz, 120 kHz above (assumption)",
     "radio.beams": "off by default (antenna abstraction); TR 38.901 clause 7.3 when set",
     "radio.layers": "off by default (one carrier)",
+    "radio.map_file": "off by default (statistical map); TR 38.901 clause 8 (map-based model) when set",
+    "radio.map_sha256": "filled from the map file when the scenario is loaded",
     "protocol.meas_periods": "sample: one L1 sample per L1 period (the model of 1.x)",
     "protocol.ssb_period_s": "assumption (20 ms SSB and SMTC periodicity)",
     "protocol.gap_pattern": "TS 38.133 Table 9.1.2-1 (gap pattern 0: MGL 6 ms, MGRP 40 ms)",
@@ -216,7 +218,8 @@ def _fmt(v: Any) -> str:
 _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "radio.soft_los_d_m",
              "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s",
              "radio.scs_khz", "radio.beams", "radio.layers", "protocol.meas_periods", "protocol.ssb_period_s",
-             "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval")
+             "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval", "radio.map_file",
+             "radio.map_sha256")
 
 
 def card_markdown(name: str, figure: str = None) -> str:

@@ -36,6 +36,7 @@ nav:
       - Indoor and rural scenarios: guides/indoor-rural.md
       - Mobility robustness optimisation: guides/mro.md
       - Beams and several carriers: guides/beams-layers.md
+      - Your own radio map: guides/radio-maps.md
       - Scenario cards:
           - smoke: scenarios/smoke.md
           - urban-grid-10ghz: scenarios/urban-grid-10ghz.md
@@ -59,6 +60,7 @@ nav:
           - Rule interface: reference/api/rules.md
           - Rule contract kit: reference/api/testing.md
           - Event logs: reference/api/eventlog.md
+          - Radio-map files: reference/api/mapfile.md
           - Engine and metrics: reference/api/engine.md
           - Built-in scenarios: reference/api/scenarios.md
           - Studies: reference/api/studies.md
