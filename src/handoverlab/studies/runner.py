@@ -44,7 +44,7 @@ from .config import canonical
 #: different results (the golden fingerprints are regenerated at the same
 #: time), and it is part of every run key and job ID, so stored results of an
 #: older model are never reused.
-MODEL_VERSION = "1"
+MODEL_VERSION = "2"
 
 _THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS",
                 "VECLIB_MAXIMUM_THREADS")

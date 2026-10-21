@@ -30,7 +30,7 @@ import numpy as np
 
 from ..channel.antenna import element_gain_db  # Table 7.3-1, shared with the beam model
 
-C0 = 299792458.0
+C0 = 3.0e8                # TR 38.901 Table 7.4.1-1 notes 1 and 5 (since 2.0.0; 1.x: 299792458)
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "r1_165974.csv")
 PERCENTILES = tuple(range(5, 100, 5))
 

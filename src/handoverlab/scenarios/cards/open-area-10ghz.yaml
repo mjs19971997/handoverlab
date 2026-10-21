@@ -13,7 +13,7 @@ scenario:
   name: open-area-10ghz
   layout: {kind: open_area, blocks: [3, 3], site_spacing_m: 100.0}
   radio: {place_share: 0.0}
-  mobility: {users: 40, profile: veh16}
+  mobility: {users: 40, profile: v60}
   run: {duration_s: 120.0, warmup_s: 20.0}
 sources:
   layout.kind: "assumption (open area, hexagonal sites)"
@@ -21,7 +21,7 @@ sources:
   radio.place_share: "assumption (no place-tied shadowing)"
   mobility.profile: "random waypoints at vehicular speed (assumption)"
 limitations:
-  - "No minimum distance to the sites: users may pass closer than the 10 m of TR 38.901 Table 7.2-1 (UMi)."
+  - "No minimum distance to the sites: users may pass closer than the 10 m of TR 38.901 Table 7.2-1 (UMi); the path loss is evaluated at 10 m there (since 2.0.0)."
   - "The LOS state follows the TR 38.901 LOS probability with the UMi street-canyon formula although there are no streets; it stands for scattered obstacles."
   - "Random-waypoint users cross the area in straight lines; their density is higher in the middle."
   - "Same received-power-level abstraction and uncalibrated failure model as the street grid."

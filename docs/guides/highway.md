@@ -13,8 +13,7 @@ Both have 3 + 3 lanes of 4 m, wrap-around (TR 37.885 Table A-1) and LOS on every
 vehicle link (TR 37.885 clause 6.2.1 and Table 6.2.1-2). Every value and its source is on the card
 pages; `handoverlab verify --only highway` checks them (section 4).
 
-The card `highway-10ghz` of 1.0.0rc3 to 1.10.0 is **deprecated** (it warns when loaded and goes in
-2.0.0): it combined the 35 m roadside offset of option 1 with the 500 m spacing of option 2, used
+The card `highway-10ghz` of 1.0.0rc3 to 1.10.0 was deprecated in 1.11.0 and removed in 2.0.0: it combined the 35 m roadside offset of option 1 with the 500 m spacing of option 2, used
 10 GHz, which TR 37.885 does not, and had neither the LOS-only links nor the wrap-around.
 
 ## 1. Run a built-in scenario

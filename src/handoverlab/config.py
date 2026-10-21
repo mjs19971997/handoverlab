@@ -242,6 +242,11 @@ class RadioConfig:
     # (TR 38.901 Table 7.4.2-1; on the street grid on top of the buildings), "los" makes every link LOS
     # (TR 37.885 Table 6.2.1-2: the base-station-to-vehicle links of the highway are LOS only)
     los_model: str = "probability"
+    # path-loss formulas (since 2.0.0): speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1
+    # notes 1 and 5: 3.0e8 m/s; 1.x: 299792458) and the smallest 2D distance the formulas are evaluated at
+    # (the lower end of their applicability range, 10 m for RMa, UMa and UMi; 1.x: 0)
+    breakpoint_c_mps: float = 3.0e8
+    pl_min_distance_m: float = 10.0
     # radio map from a file (since 1.12.0; TR 38.901 clause 8, map-based model: ray tracing or measurements):
     # path gain of every site and pixel, see handoverlab.mapfile; map_sha256 is filled when the scenario is loaded
     map_file: Optional[str] = None
@@ -304,12 +309,12 @@ class ProtocolConfig:
     lm_load: Optional[float] = None     # interferer load at link monitoring; None: the load of the data channel
     lm_load_per_ue: float = 0.0         # added to lm_load per user served by the interfering cell
     exec_can_fail: bool = True          # False: the execution always joins the target (ideal random access)
-    rlm_holdoff_s: float = 0.0          # no out-of-sync on a newly joined cell for this time (TS 38.133: 0.2 s)
+    rlm_holdoff_s: float = 0.2          # no out-of-sync on a newly joined cell for this time (TS 38.133 8.1; 1.x: 0)
     # handover command and execution as TS 38.331 specifies them (since 1.9.0; the defaults keep the model of 1.x):
     # "receive": a command that reaches a UE while T310 runs is received at the first step with link-monitoring
     # SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); "lost": it is lost at once
-    cmd_during_t310: str = "lost"
-    t304_s: Optional[float] = None      # T304: the execution fails only when T304 expires (TS 38.331 5.3.5.8.3)
+    cmd_during_t310: str = "receive"     # TS 38.331 5.3.5.5.2 (since 2.0.0; 1.x: "lost")
+    t304_s: Optional[float] = 1.0       # T304 (TS 38.331 5.3.5.8.3; since 2.0.0; 1.x: None, no T304)
     # measurement periods and evaluation periods of TS 38.133 (since 1.10.0; the defaults keep the model of 1.x):
     # meas_periods "ts38133": every cell's L1 result is the average over its measurement period -- intra-frequency
     # without gaps (Tables 9.2.5.2-1/-2), inter-frequency within the gaps of pattern gap_pattern (Tables 9.1.2-1,
@@ -372,13 +377,16 @@ class SpeedGroup:
     v_min: float
     v_max: float
     lateral_m: Tuple[float, float] = (0.0, 3.0)
+    # lane centres [m from the street centre line] (since 2.0.0): a user drives in one of them instead of at a
+    # uniform lateral displacement (TR 37.885 Table A-1, urban: 2 lanes of 3.5 m per direction -> 1.75, 5.25 m)
+    lanes_m: Optional[Tuple[float, ...]] = None
 
 
 @dataclass
 class MobilityConfig:
     """Number of users and their speeds; ``groups`` overrides the named ``profile``."""
     users: int = 40
-    profile: str = "veh16"
+    profile: str = "v60"                # since 2.0.0 (1.x: "veh16")
     groups: Optional[Tuple[SpeedGroup, ...]] = None
 
 
@@ -617,7 +625,8 @@ class Scenario:
 LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
                                                     "area_m", "min_site_distance_m", "wrap", "highway_sites"),
                                          "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
-                                                   "beams", "layers", "los_model", "map_file", "map_sha256"),
+                                                   "beams", "layers", "los_model", "map_file", "map_sha256",
+                                                   "breakpoint_c_mps", "pl_min_distance_m"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}

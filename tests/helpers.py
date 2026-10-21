@@ -8,8 +8,12 @@ from handoverlab.channel.source import Chunk
 from handoverlab.config import Scenario
 from handoverlab.engine import Engine
 from handoverlab.layout import Layout
+from handoverlab.stability import LEGACY_1X
 from handoverlab.traffic import ServiceTable
 from handoverlab.world import World
+
+#: the protocol model of 1.x (command lost while T310 runs, no T304, no RLM hold-off); defaults until 2.0.0
+PROTOCOL_1X = {k: v for k, v in LEGACY_1X.items() if k.startswith("protocol.")}
 
 
 def synthetic_world(n_steps, n_users=1, sites=((0.0, 0.0), (100.0, 0.0)), bg_load=0.0, overrides=None):

@@ -247,7 +247,7 @@ class ExtEngine(Engine):
             t304 = self.P.t304_s
             if t304 is not None and t - self.f_tx[u] < t304 - EPS:
                 self.t_done[u] = t + self.dt
-                if t >= self.t0c:
+                if t >= self.t0c and not self.proc.dual:      # DAPS: the source link still carries the data
                     self.acc["int_exec"] += self.dt
                 return
             if not (self.proc.fallback and self._fallback(u, t, ln, tot)):

@@ -9,8 +9,9 @@ from handoverlab.channel import pathloss as pl
 
 
 def test_breakpoint_distance_10ghz():
-    # d'_BP = 4 (10 - 1)(1.5 - 1) 10e9 / c
-    assert pl.breakpoint_distance(10.0, 10.0, 1.5) == pytest.approx(600.4, abs=0.05)
+    # d'_BP = 4 (10 - 1)(1.5 - 1) 10e9 / c with c = 3.0e8 m/s (TR 38.901 Table 7.4.1-1 notes 1 and 5; 2.0.0)
+    assert pl.breakpoint_distance(10.0, 10.0, 1.5) == pytest.approx(600.0, abs=1e-9)
+    assert pl.breakpoint_distance(10.0, 10.0, 1.5, c=299792458.0) == pytest.approx(600.415, abs=1e-3)   # 1.x
 
 
 def test_umi_los_hand_value():
@@ -59,7 +60,8 @@ def test_los_probability_umi():
 def test_rma_breakpoint_and_pl1_hand_value():
     # d_BP = 2 pi 35 1.5 0.7e9 / c; PL1 = 20 log10(40 pi d3 fc / 3) + 0.03 h^1.72 log10(d3) - 0.044 h^1.72
     # + 0.002 log10(h) d3 with h = 5 m
-    assert pl.rma_breakpoint(0.7, 35.0, 1.5) == pytest.approx(770.223, abs=1e-3)
+    assert pl.rma_breakpoint(0.7, 35.0, 1.5) == pytest.approx(769.690, abs=1e-3)
+    assert pl.rma_breakpoint(0.7, 35.0, 1.5, c=299792458.0) == pytest.approx(770.223, abs=1e-3)       # 1.x
     d3 = math.hypot(500.0, 33.5)
     h = 5.0
     expect = (20 * math.log10(40 * math.pi * d3 * 0.7 / 3) + 0.03 * h ** 1.72 * math.log10(d3) - 0.044 * h ** 1.72
@@ -128,5 +130,5 @@ def test_los_shadow_sd_beyond_the_breakpoint():
     from handoverlab.config import Scenario
     r = Scenario().with_overrides({"radio.pathloss": "rma", "radio.carrier_ghz": 0.7, "radio.bs_height_m": 35.0,
                                    "radio.shadow_los_far_db": 6.0}).radio
-    assert np.array_equal(pl.los_shadow_sd(np.array([500.0, 770.0, 771.0, 3000.0]), r), [4.0, 4.0, 6.0, 6.0])
+    assert np.array_equal(pl.los_shadow_sd(np.array([500.0, 769.0, 770.0, 3000.0]), r), [4.0, 4.0, 6.0, 6.0])
     assert pl.los_shadow_sd(np.array([5000.0]), Scenario().radio) == 4.0      # unset: one value

@@ -28,11 +28,11 @@ of it changes by accident.
 
 | Release | May | May not |
 |---|---|---|
-| Patch (1.0.x) | fix bugs, documentation and performance | change a result that was correct, or the surface |
-| Minor (1.x.0) | add keys with defaults that keep earlier results, add metrics, rules, scenarios, commands, options, optional hook arguments and record fields; deprecate | remove or rename any part of the surface, change a default |
+| Patch (2.0.x) | fix bugs, documentation and performance | change a result that was correct, or the surface |
+| Minor (2.x.0) | add keys with defaults that keep earlier results, add metrics, rules, scenarios, commands, options, optional hook arguments and record fields; deprecate | remove or rename any part of the surface, change a default |
 | Major (x.0.0) | remove what was deprecated, rename, change defaults and file formats | remove something that was not deprecated in a minor release before |
 
-**Results.** The model version (`handoverlab.studies.MODEL_VERSION`, now 1) identifies the
+**Results.** The model version (`handoverlab.studies.MODEL_VERSION`, now 2) identifies the
 simulation model. A change of what a run computes for the same inputs, such as a corrected
 channel formula, raises it, is listed in the changelog with its effect and comes with new golden
 fingerprints. Such a change is made only in a minor or major release, never in a patch, unless it
@@ -44,9 +44,22 @@ without it is schema 1). A new schema version comes only with a major release. H
 every schema up to its own and refuses a newer one with a message that names it, instead of
 misreading it.
 
-**Rules.** A rule written for interface version 1 runs unchanged on every 1.x release. New hooks
+**Rules.** A rule written for interface version 1 runs unchanged on every 1.x and 2.x release (2.0.0 only
+added hooks). New hooks
 get a default implementation in the base class; new fields of the observation and the records are
 only appended.
+
+## Getting the results of an earlier major release
+
+2.0.0 changed defaults (see [moving from 1.x to 2.0](migration-2.0.md)). `handoverlab.stability.LEGACY_1X`
+holds the 1.x values of every changed key; with it (and `mobility.profile: veh16` on the urban-grid cards) a
+configuration gives the 1.x event log bit for bit. `handoverlab verify --only fingerprints` checks this on
+every golden run of 1.12.0 (section `fingerprints-1x`).
+
+```python
+from handoverlab.stability import LEGACY_1X
+sc = hl.builtin_scenario("ns3-urban-3.5ghz").with_overrides(LEGACY_1X)
+```
 
 ## Deprecation
 

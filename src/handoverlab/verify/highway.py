@@ -31,7 +31,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-from ..channel.pathloss import path_loss
+from ..channel.pathloss import path_loss, radio_kwargs
 from ..channel.source import RadioSource
 from ..scenarios import builtin_scenario
 from ..world import build_world
@@ -208,7 +208,8 @@ def highway_checks(rep, n_ref: int = 20000, seeds=tuple(range(1, 11)), tol_db: f
         x, y = w.x[:ch.n].ravel(), w.y[:ch.n].ravel()
         d2 = w.layout.distances(x, y)
         want = R.tx_power_dbm + R.bs_gain_db + R.ue_gain_db - path_loss(d2, True, R.pathloss, R.carrier_ghz,
-                                                                          R.bs_height_m, R.ue_height_m)
+                                                                          R.bs_height_m, R.ue_height_m,
+                                                                          **radio_kwargs(R))
         err = float(np.abs(ch.rsrp.reshape(want.shape) - want).max())
         rep.check("%s: every link has the LOS path loss" % name, err < 1e-6,
                   "largest difference from the LOS path loss %.2e dB over %d links" % (err, want.size))

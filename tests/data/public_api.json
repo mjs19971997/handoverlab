@@ -50,6 +50,7 @@
    "BanditA3",
    "BaselineRule",
    "CHO",
+   "CHOD2",
    "CLTM",
    "CLTMRule",
    "ConditionalRule",
@@ -110,6 +111,7 @@
   ],
   "handoverlab.stability": [
    "HandoverLabDeprecationWarning",
+   "LEGACY_1X",
    "METRIC_ALIASES",
    "RULE_API_VERSION",
    "SCHEMA_VERSION",
@@ -162,6 +164,10 @@
    ]
   },
   "ConditionalRule": {
+   "exec_condition": [
+    "self",
+    "obs"
+   ],
    "exec_offsets": [
     "self",
     "obs"
@@ -190,6 +196,7 @@
    "learns"
   ],
   "ConditionalRule": [
+   "exec_condition_used",
    "family",
    "n_max",
    "release_hys_db",
@@ -228,7 +235,8 @@
    "seed",
    "rng",
    "scenario",
-   "cell_carrier"
+   "cell_carrier",
+   "cell_center"
   ],
   "Observation": [
    "t",
@@ -436,6 +444,16 @@
   "mobility.profile",
   "mobility.users",
   "name",
+  "ntn.altitude_km",
+  "ntn.aperture_m",
+  "ntn.atm_zenith_db",
+  "ntn.centre_elevation_deg",
+  "ntn.eirp_dbw_per_mhz",
+  "ntn.environment",
+  "ntn.los_corr_m",
+  "ntn.n_beams",
+  "ntn.scintillation_db",
+  "ntn.sf_corr_m",
   "protocol.cfg_loss_as_failure",
   "protocol.cho_recovery_s",
   "protocol.cmd_during_t310",
@@ -467,6 +485,7 @@
   "protocol.t310_s",
   "radio.bandwidth_mhz",
   "radio.beams",
+  "radio.breakpoint_c_mps",
   "radio.bs_gain_db",
   "radio.bs_height_m",
   "radio.carrier_ghz",
@@ -485,6 +504,7 @@
   "radio.pathloss",
   "radio.penetration_db",
   "radio.penetration_sd_db",
+  "radio.pl_min_distance_m",
   "radio.place_share",
   "radio.scs_khz",
   "radio.shadow_decorr_m",

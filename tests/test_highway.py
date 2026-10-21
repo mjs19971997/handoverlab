@@ -13,9 +13,11 @@ SHORT = {"run.duration_s": 30.0, "run.warmup_s": 5.0, "mobility.users": 8}
 
 
 def _old():
-    """The deprecated card of 1.0.0rc3-1.10.0 (roadside sites, no wrap-around); it warns since 1.11.0."""
-    with pytest.warns(FutureWarning, match="deprecated"):
-        return hl.builtin_scenario("highway-10ghz")
+    """The roadside highway of the card highway-10ghz (1.0.0rc3-1.10.0, removed in 2.0.0)."""
+    return Scenario.from_dict({"name": "highway-10ghz", "layout": {"kind": "highway", "lanes": 3, "lane_width_m": 4.0,
+                       "road_length_m": 2000.0, "site_spacing_m": 500.0, "site_offset_m": 35.0},
+            "radio": {"pathloss": "uma", "bs_height_m": 25.0, "shadow_nlos_db": 6.0, "shadow_decorr_m": 37.0},
+            "mobility": {"users": 40, "profile": "hwy"}, "run": {"duration_s": 120.0, "warmup_s": 20.0}})
 
 
 def test_highway_geometry():

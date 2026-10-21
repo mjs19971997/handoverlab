@@ -11,8 +11,8 @@ purpose: >
   mobility, e.g. conditional handover with the location condition D2 of Release 18 (rule `cho_d2`).
 layout_note: >
   The users' area of 60 km x 60 km around the point at which the central beam points with 30 degrees
-  elevation at the middle of the run; the 19 beam centres on the ground at that time.  The satellite passes
-  west of the area, moving north.
+  elevation at the middle of the run, and the beam centres on the ground at that time (the drawing leaves out
+  the three below 10 degrees elevation, far to the east).  The satellite passes west of the area, moving north.
 scenario:
   name: ntn-leo600-2ghz
   layout: {kind: ntn, area_m: [60000.0, 60000.0]}
@@ -47,6 +47,7 @@ sources:
   mobility.profile: "TR 38.821 Table 6.1.1.1-3 (handheld UE); 3 km/h is an assumption"
   run.duration_s: "numerical setting (the satellite moves 227 km in 30 s; the users stay under the 19 beams)"
 limitations:
+  - "With the central beam at 30 degrees elevation (case 2 of TR 38.821 Table 6.1.1.1-4) the regular hexagon of the UV plane is stretched on the ground: neighbouring beam centres lie 72 km along the track and 163-283 km across it, and three beams of the outer ring point at 5.6-7 degrees elevation, below the 10 degrees of TR 38.821 Table 4.2-2; they serve no user of the area and only interfere."
   - "Frequency reuse 1 (TR 38.821 Table 6.1.1.1-5, option 1): at the beam edges the neighbouring beams interfere with full power, and most link failures are coverage failures (no beam is good enough); the options of reuse 3 and 2 are not modelled in this version."
   - "One satellite and its 19 beams, no wrap-around of beams and no next satellite: the run is short enough for the users to stay under the beams."
   - "Earth-moving beams only (scenarios C2, D2); earth-fixed beams (C1, D1), several satellites, the feeder link, Doppler and the Ka band are not modelled."

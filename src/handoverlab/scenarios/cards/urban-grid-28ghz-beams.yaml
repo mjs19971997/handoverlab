@@ -24,7 +24,7 @@ scenario:
     noise_figure_db: 10.0
     beams: {sectors: 3, sector_az0_deg: 30.0, n_ssb: 8, panel: [4, 8], tilt_deg: 100.0}
   protocol: {rlm_eval: ts38133, ssb_period_s: 0.02}
-  mobility: {users: 40, profile: veh16}
+  mobility: {users: 40, profile: v60}
   run: {duration_s: 120.0, warmup_s: 20.0}
 sources:
   radio.carrier_ghz: "FR2-1 (24.25-52.6 GHz, TS 38.104 Table 5.1-1); 28 GHz is an assumption"

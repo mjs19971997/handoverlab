@@ -6,7 +6,7 @@ import pytest
 import handoverlab as hl
 from handoverlab.rules import CLTM, LTM
 from handoverlab.testing import check_rule
-from helpers import run_synthetic
+from helpers import PROTOCOL_1X, run_synthetic
 from test_rules_rc2 import SMALL, first_l1_crossing
 
 
@@ -36,7 +36,7 @@ def test_cltm_has_no_late_command():
     r[:, 0, 0] = np.where(k < 300, -70.0, -110.0)
     r[:, 0, 1] = np.where(k < 300, -71.0, -75.0)
     m_ltm, _ = run_synthetic(LTM(o_prep_db=-3.0, o_switch_db=3.0, ttt_switch_s=0.0, cmd_delay_s=1.5,
-                                 recovery=False), r, bg_load=0.5)
+                                 recovery=False), r, bg_load=0.5, overrides=PROTOCOL_1X)     # command lost in T310
     m_c, ev = run_synthetic(CLTM(o_prep_db=-3.0, o_switch_db=3.0, ttt_switch_s=0.0, recovery=False), r,
                             bg_load=0.5)
     assert m_ltm["n_fail_command_lost"] == 1

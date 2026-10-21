@@ -72,7 +72,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
-| `protocol.rlm_holdoff_s` | 0 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
+| `protocol.rlm_holdoff_s` | 0.2 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |
@@ -87,14 +87,14 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | 40 | assumption |
-| `mobility.profile` | veh16 | random waypoints at vehicular speed (assumption) |
+| `mobility.profile` | v60 | random waypoints at vehicular speed (assumption) |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | 120 | numerical setting |
 | `run.warmup_s` | 20 | numerical setting |
 
 ## Known limitations
 
-- No minimum distance to the sites: users may pass closer than the 10 m of TR 38.901 Table 7.2-1 (UMi).
+- No minimum distance to the sites: users may pass closer than the 10 m of TR 38.901 Table 7.2-1 (UMi); the path loss is evaluated at 10 m there (since 2.0.0).
 - The LOS state follows the TR 38.901 LOS probability with the UMi street-canyon formula although there are no streets; it stands for scattered obstacles.
 - Random-waypoint users cross the area in straight lines; their density is higher in the middle.
 - Same received-power-level abstraction and uncalibrated failure model as the street grid.

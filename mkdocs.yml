@@ -37,6 +37,8 @@ nav:
       - Mobility robustness optimisation: guides/mro.md
       - Beams and several carriers: guides/beams-layers.md
       - Your own radio map: guides/radio-maps.md
+      - A LEO satellite (NTN): guides/ntn.md
+      - Moving from 1.x to 2.0: migration-2.0.md
       - Scenario cards:
           - smoke: scenarios/smoke.md
           - urban-grid-10ghz: scenarios/urban-grid-10ghz.md
@@ -45,7 +47,7 @@ nav:
           - fr3-urban-15ghz: scenarios/fr3-urban-15ghz.md
           - highway-tr37885-4ghz: scenarios/highway-tr37885-4ghz.md
           - highway-tr37885-30ghz: scenarios/highway-tr37885-30ghz.md
-          - highway-10ghz (deprecated): scenarios/highway-10ghz.md
+          - ntn-leo600-2ghz: scenarios/ntn-leo600-2ghz.md
           - indoor-office-4ghz: scenarios/indoor-office-4ghz.md
           - rural-700mhz: scenarios/rural-700mhz.md
           - urban-grid-28ghz-beams: scenarios/urban-grid-28ghz-beams.md
@@ -61,6 +63,7 @@ nav:
           - Rule contract kit: reference/api/testing.md
           - Event logs: reference/api/eventlog.md
           - Radio-map files: reference/api/mapfile.md
+          - NTN: reference/api/ntn.md
           - Engine and metrics: reference/api/engine.md
           - Built-in scenarios: reference/api/scenarios.md
           - Studies: reference/api/studies.md

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from handoverlab.rules import A3, CHO
-from helpers import run_synthetic
+from helpers import PROTOCOL_1X, run_synthetic
 
 MDT = 0.04        # measurement period
 PREP = 0.05       # preparation delay
@@ -102,7 +102,7 @@ def test_command_lost_while_t310_runs():
     r[:, 0, 0] = np.where(k < 300, -70.0, -110.0)
     r[:, 0, 1] = np.where(k < 300, -95.0, -75.0)
     metrics, events = run_synthetic(A3(off_db=3.0, ttt_s=0.0), r, bg_load=0.5,
-                                    overrides={"protocol.prep_s": 1.5})
+                                    overrides=dict(PROTOCOL_1X, **{"protocol.prep_s": 1.5}))   # the 1.x model
     assert metrics["n_fail_command_lost"] == 1
     assert metrics["n_too_late"] == 1
     assert events[0]["outcome"] == "too_late" and events[0]["cause"] == "command_lost"

@@ -11,8 +11,8 @@ from handoverlab.scenarios import DEFAULT_SOURCES, card_markdown, layout_svg
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "scenarios")
 NAMES = ["dense-urban-2layer", "fr3-urban-15ghz", "highway-tr37885-30ghz", "highway-tr37885-4ghz",
-         "indoor-office-4ghz", "ns3-urban-3.5ghz", "open-area-10ghz", "rural-700mhz", "smoke", "urban-grid-10ghz",
-         "urban-grid-28ghz-beams"]
+         "indoor-office-4ghz", "ns3-urban-3.5ghz", "ntn-leo600-2ghz", "open-area-10ghz", "rural-700mhz", "smoke",
+         "urban-grid-10ghz", "urban-grid-28ghz-beams"]
 
 
 def test_builtin_names_and_cards():
@@ -47,7 +47,7 @@ def test_base_and_name_in_configuration():
     assert exp.scenario == hl.builtin_scenario("smoke")
     exp = hl.load_config({"scenario": {"base": "smoke", "mobility": {"users": 5}, "radio": {"carrier_ghz": 7.0}}})
     assert exp.scenario.mobility.users == 5 and exp.scenario.radio.carrier_ghz == 7.0
-    assert exp.scenario.layout.blocks == (2, 2) and exp.scenario.mobility.profile == "veh16"
+    assert exp.scenario.layout.blocks == (2, 2) and exp.scenario.mobility.profile == "v60"
     with pytest.raises(ConfigError, match="unknown built-in scenario"):
         hl.load_config({"scenario": "nope"})
 

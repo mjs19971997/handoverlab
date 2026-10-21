@@ -102,8 +102,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "traffic.rate_scale": "assumption",
     "traffic.label_load": "assumption (all cells transmit for the label)",
     "mobility.users": "assumption",
-    "mobility.profile": "TR 37.885 clause 6.1.2 (urban option A: 60 km/h); the profile veh16 spreads the speed "
-                        "over 52-63 km/h (assumption); see the user guide",
+    "mobility.profile": "TR 37.885 clause 6.1.2 (urban option A: 60 km/h in all lanes) and Table A-1 (2 lanes of "
+                        "3.5 m per direction): profile v60 (since 2.0.0)",
     "mobility.groups": "profile",
     "run.duration_s": "numerical setting",
     "run.warmup_s": "numerical setting",
@@ -112,6 +112,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "radio.layers": "off by default (one carrier)",
     "radio.map_file": "off by default (statistical map); TR 38.901 clause 8 (map-based model) when set",
     "radio.map_sha256": "filled from the map file when the scenario is loaded",
+    "radio.breakpoint_c_mps": "TR 38.901 Table 7.4.1-1 notes 1 and 5 (c = 3.0e8 m/s in the breakpoint distances)",
+    "radio.pl_min_distance_m": "TR 38.901 Table 7.4.1-1 (applicability range of RMa, UMa, UMi: 10 m <= d2D)",
     "protocol.meas_periods": "sample: one L1 sample per L1 period (the model of 1.x)",
     "protocol.ssb_period_s": "assumption (20 ms SSB and SMTC periodicity)",
     "protocol.gap_pattern": "TS 38.133 Table 9.1.2-1 (gap pattern 0: MGL 6 ms, MGRP 40 ms)",
@@ -121,12 +123,7 @@ DEFAULT_SOURCES: Dict[str, str] = {
 
 
 #: deprecated built-in scenarios: name -> (deprecated since, removed in, replacement, reason)
-DEPRECATED: Dict[str, tuple] = {
-    "highway-10ghz": ("1.11", "2.0", "'highway-tr37885-30ghz' or 'highway-tr37885-4ghz'",
-                      "it combines the 35 m roadside offset of TR 36.885 option 1 with the 500 m spacing of option 2, "
-                      "uses 10 GHz, which TR 37.885 does not, and has neither the LOS-only links nor the wrap-around "
-                      "of TR 37.885"),
-}
+DEPRECATED: Dict[str, tuple] = {}
 
 
 def _read(name: str) -> Dict[str, Any]:
@@ -273,12 +270,23 @@ def card_markdown(name: str, figure: str = None) -> str:
 def layout_svg(scenario: Scenario, width_px: int = 640) -> str:
     """A plain SVG drawing of the layout of ``scenario``: buildings, streets and sites."""
     from ..layout import make_layout
-    lay = make_layout(scenario.layout)
+    shown = None
+    if scenario.layout.kind == "ntn":               # the beams' ground centres at mid-run (since 2.0.0)
+        import numpy as np
+        from ..channel.ntn import NtnGeometry, ntn_layout
+        geom = NtnGeometry(scenario)
+        lay = ntn_layout(scenario, geom)
+        c = lay.sites
+        elev = geom.link(c[:, 0], c[:, 1], np.full(len(c), geom.t_mid))[0]
+        shown = elev >= 10.0                        # minimum elevation of TR 38.821 Table 4.2-2
+    else:
+        lay = make_layout(scenario.layout)
+    pts = lay.sites if shown is None else lay.sites[shown]
     fx0, fx1, fy0, fy1 = lay.xmin, lay.xmax, lay.ymin, lay.ymax
-    if lay.images is not None:                      # sites far from the road (hexagonal highway): show them all
-        pad = 60.0
-        fx0, fx1 = min(fx0, lay.sites[:, 0].min() - pad), max(fx1, lay.sites[:, 0].max() + pad)
-        fy0, fy1 = min(fy0, lay.sites[:, 1].min() - pad), max(fy1, lay.sites[:, 1].max() + pad)
+    if lay.images is not None or shown is not None:     # sites far from the users' area (hexagonal highway, beams)
+        pad = 60.0 if shown is None else 40e3
+        fx0, fx1 = min(fx0, pts[:, 0].min() - pad), max(fx1, pts[:, 0].max() + pad)
+        fy0, fy1 = min(fy0, pts[:, 1].min() - pad), max(fy1, pts[:, 1].max() + pad)
     w, h = fx1 - fx0, fy1 - fy0
     s = width_px / w
     H = h * s
@@ -305,11 +313,19 @@ def layout_svg(scenario: Scenario, width_px: int = 640) -> str:
         else:                                       # the simulated road with its wrap-around period
             out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#8a8a80"/>'
                        % (X(lay.xmin), Y(half), (lay.xmax - lay.xmin) * s, max(2.0 * half * s, 2.0)))
-    for x, y in lay.sites:
+    if lay.kind == "ntn":                           # the users' area
+        out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#b9b9b0"/>'
+                   % (X(lay.xmin), Y(lay.ymax), (lay.xmax - lay.xmin) * s, (lay.ymax - lay.ymin) * s))
+    for x, y in pts:
         out.append('<circle cx="%.1f" cy="%.1f" r="3" fill="#c0392b"/>' % (X(x), Y(y)))
-    out.append('<text x="4" y="%d" font-family="sans-serif" font-size="12" fill="#333">%s: %d sites, %.0f m x %.0f m'
-               ' (grey: %s, red: sites)</text>' % (round(H) + 17, scenario.name, lay.n_sites, w, h,
-                                                   "road" if lay.kind == "highway" else "buildings"))
+    if shown is None:
+        out.append('<text x="4" y="%d" font-family="sans-serif" font-size="12" fill="#333">%s: %d sites, %.0f m x '
+                   '%.0f m (grey: %s, red: sites)</text>' % (round(H) + 17, scenario.name, lay.n_sites, w, h,
+                                                       "road" if lay.kind == "highway" else "buildings"))
+    else:
+        out.append('<text x="4" y="%d" font-family="sans-serif" font-size="12" fill="#333">%s: %d beam centres above'
+                   " 10 degrees elevation, %.0f km x %.0f km (grey: users' area)</text>"
+                   % (round(H) + 17, scenario.name, len(pts), w / 1e3, h / 1e3))
     out.append("</svg>")
     return "\n".join(out) + "\n"
 

@@ -29,6 +29,8 @@ from ..scenarios import builtin_scenario
 from ..simulate import simulate
 
 PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "golden.json")
+#: the golden runs of 1.x (as written by 1.12.0), reproduced with :data:`handoverlab.stability.LEGACY_1X`
+PATH_1X = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "golden_1x.json")
 
 RULES = [
     {"rule": "a3", "name": "A3", "off_db": 3.0, "ttt_s": 0.16},
@@ -38,74 +40,99 @@ RULES = [
 COUNTS = ("n_attempts", "n_handovers", "n_unnecessary", "n_pingpong", "n_failures", "n_preparations")
 
 
+def _S(base, over):
+    """``base.with_overrides(over)`` remembering both, so that :func:`legacy` can rebuild the case on 1.x defaults."""
+    sc = base.with_overrides(over)
+    sc._golden = (base, dict(over))
+    return sc
+
+
 def cases() -> Dict[str, Dict[str, Any]]:
     """name -> scenario, seed and rules of every golden run."""
     smoke = builtin_scenario("smoke")
     return {
-        "smoke": dict(scenario=smoke, seed=1, rules=RULES),
-        "smoke-stress": dict(scenario=smoke.with_overrides({"name": "smoke-stress", "radio.isolation": 1.0,
+        "smoke": dict(scenario=_S(smoke, {}), seed=1, rules=RULES),
+        "smoke-stress": dict(scenario=_S(smoke, {"name": "smoke-stress", "radio.isolation": 1.0,
                                                             "mobility.profile": "veh30"}), seed=2, rules=RULES),
-        "smoke-open": dict(scenario=smoke.with_overrides({"name": "smoke-open", "layout.kind": "open_area",
+        "smoke-open": dict(scenario=_S(smoke, {"name": "smoke-open", "layout.kind": "open_area",
                                                           "radio.place_share": 0.5, "mobility.profile": "mix"}),
                            seed=3, rules=RULES[::2]),
         # the optional models of 1.1-1.4: FTP traffic, in-car loss, link monitoring with its own load,
         # execution that cannot fail and the restart of link monitoring on a new cell
-        "smoke-ftp3": dict(scenario=smoke.with_overrides({
+        "smoke-ftp3": dict(scenario=_S(smoke, {
             "name": "smoke-ftp3", "traffic.model": "ftp3", "traffic.ftp_rate_hz": 0.5, "radio.penetration_db": 9.0,
             "radio.penetration_sd_db": 5.0, "protocol.lm_load": 0.05, "protocol.lm_load_per_ue": 0.02,
             "protocol.exec_can_fail": False, "protocol.rlm_holdoff_s": 0.2}), seed=4, rules=RULES[:2]),
-        "smoke-cltm": dict(scenario=smoke.with_overrides({"name": "smoke-cltm", "radio.isolation": 1.0,
+        "smoke-cltm": dict(scenario=_S(smoke, {"name": "smoke-cltm", "radio.isolation": 1.0,
                                                           "mobility.profile": "veh30"}), seed=5,
                            rules=[{"rule": "ltm", "name": "LTM"}, {"rule": "cltm", "name": "CLTM"}]),
         # since 1.7.0: the indoor and rural scenarios (shortened) and mobility robustness optimisation
-        "indoor": dict(scenario=builtin_scenario("indoor-office-4ghz").with_overrides({
+        "indoor": dict(scenario=_S(builtin_scenario("indoor-office-4ghz"), {
             "name": "indoor", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 12}),
             seed=6, rules=RULES[::2]),
-        "rural": dict(scenario=builtin_scenario("rural-700mhz").with_overrides({
+        "rural": dict(scenario=_S(builtin_scenario("rural-700mhz"), {
             "name": "rural", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 8,
             "layout.area_m": [4000.0, 2000.0]}), seed=7, rules=RULES[::2]),
-        "smoke-soft": dict(scenario=smoke.with_overrides({"name": "smoke-soft", "radio.soft_los": True}),
+        "smoke-soft": dict(scenario=_S(smoke, {"name": "smoke-soft", "radio.soft_los": True}),
                            seed=9, rules=RULES[:1]),
-        "rural-hard": dict(scenario=builtin_scenario("rural-700mhz").with_overrides({
+        "rural-hard": dict(scenario=_S(builtin_scenario("rural-700mhz"), {
             "name": "rural-hard", "run.duration_s": 40.0, "run.warmup_s": 5.0, "mobility.users": 8,
             "layout.area_m": [4000.0, 2000.0], "radio.soft_los": False}), seed=7, rules=RULES[::2]),
         # since 1.9.0: the 3GPP protocol profile (command received during T310, T304, restart of monitoring)
-        "smoke-3gpp": dict(scenario=smoke.with_overrides({
+        "smoke-3gpp": dict(scenario=_S(smoke, {
             "name": "smoke-3gpp", "radio.isolation": 1.0, "mobility.profile": "veh30",
             "protocol.cmd_during_t310": "receive", "protocol.t304_s": 1.0, "protocol.rlm_holdoff_s": 0.2}),
             seed=10, rules=RULES + [{"rule": "ltm", "name": "LTM"}]),
-        "smoke-mro": dict(scenario=smoke.with_overrides({"name": "smoke-mro", "radio.isolation": 1.0,
+        "smoke-mro": dict(scenario=_S(smoke, {"name": "smoke-mro", "radio.isolation": 1.0,
                                                          "mobility.profile": "veh30", "run.duration_s": 60.0}),
                           seed=8, rules=[RULES[0], {"rule": "a3_mro", "name": "A3-MRO", "window_s": 5.0,
                                                     "step_db": 1.0}]),
         # since 1.10.0: SSB beams with beam failure recovery at 28 GHz, two carriers with measurement gaps,
         # and the TS 38.133 measurement and RLM evaluation periods on one carrier
-        "smoke-beams": dict(scenario=smoke.with_overrides({
+        "smoke-beams": dict(scenario=_S(smoke, {
             "name": "smoke-beams", "radio.carrier_ghz": 28.0, "radio.bandwidth_mhz": 400.0,
             "radio.beams": {"sectors": 3, "n_ssb": 8}, "mobility.users": 10, "mobility.profile": "veh30"}),
             seed=13, rules=[RULES[0], {"rule": "ltm", "name": "LTM"}]),
-        "smoke-2layer": dict(scenario=smoke.with_overrides({
+        "smoke-2layer": dict(scenario=_S(smoke, {
             "name": "smoke-2layer", "radio.carrier_ghz": 3.5, "radio.bandwidth_mhz": 100.0,
             "radio.layers": [{"name": "fr2", "carrier_ghz": 28.0, "bandwidth_mhz": 400.0, "site_spacing_m": 200.0,
                               "beams": {"sectors": 3, "n_ssb": 8}}],
             "protocol.meas_periods": "ts38133", "mobility.users": 10}), seed=14,
             rules=[RULES[0], {"rule": "a3a5", "name": "A3A5", "a5_thresh1_dbm": -95.0, "a5_thresh2_dbm": -100.0}]),
-        "smoke-38133": dict(scenario=smoke.with_overrides({
+        "smoke-38133": dict(scenario=_S(smoke, {
             "name": "smoke-38133", "protocol.meas_periods": "ts38133", "protocol.rlm_eval": "ts38133"}),
             seed=15, rules=RULES[:1]),
+        # since 2.0.0: one LEO satellite with earth-moving beams (NTN), A3 and CHO with condEventD2
+        "ntn": dict(scenario=_S(builtin_scenario("ntn-leo600-2ghz"), {
+            "name": "ntn", "run.duration_s": 10.0, "run.warmup_s": 1.0, "mobility.users": 12}),
+            seed=18, rules=[RULES[0], {"rule": "cho_d2", "name": "CHO-D2"}]),
         # since 1.11.0: the TR 37.885 highway cards (wrap-around, LOS-only links, hexagonal layout with beams)
-        "hwy-4ghz": dict(scenario=builtin_scenario("highway-tr37885-4ghz").with_overrides({
+        "hwy-4ghz": dict(scenario=_S(builtin_scenario("highway-tr37885-4ghz"), {
             "name": "hwy-4ghz", "run.duration_s": 30.0, "run.warmup_s": 5.0, "mobility.users": 40}),
             seed=16, rules=RULES[::2]),
-        "hwy-30ghz": dict(scenario=builtin_scenario("highway-tr37885-30ghz").with_overrides({
+        "hwy-30ghz": dict(scenario=_S(builtin_scenario("highway-tr37885-30ghz"), {
             "name": "hwy-30ghz", "run.duration_s": 6.0, "run.warmup_s": 1.0, "mobility.users": 10}),
             seed=17, rules=RULES[:1]),
     }
 
 
-def compute() -> Dict[str, Any]:
+def legacy(scenario):
+    """The 1.x version of a golden scenario: :data:`LEGACY_1X`, and the 1.x urban profile where 2.0 uses v60."""
+    from ..stability import LEGACY_1X
+    base, own = getattr(scenario, "_golden", (scenario, {}))
+    over = dict(LEGACY_1X)
+    if base.mobility.profile == "v60":
+        over["mobility.profile"] = "veh16"
+    return base.with_overrides(over).with_overrides(own)   # the case's own settings win, as in 1.x
+
+
+def compute(legacy_1x: bool = False, names=None) -> Dict[str, Any]:
     out = {}
     for name, c in cases().items():
+        if names is not None and name not in names:
+            continue
+        if legacy_1x:
+            c = dict(c, scenario=legacy(c["scenario"]))
         res = simulate(c["scenario"], c["rules"], seeds=[c["seed"]])
         out[name] = [dict(rule=r.rule, fingerprint=r.fingerprint, n_events=r.n_events,
                           sinr_db=r.metrics["sinr_db"], **{k: r.metrics[k] for k in COUNTS}) for r in res]
@@ -138,9 +165,18 @@ def fingerprint_checks(rep) -> None:
         rep.note("different NumPy / SciPy build or platform than the reference",
                  "fingerprints may differ; counts must agree within 10 %% or 3 events")
     got = compute()
+    _compare(rep, ref, got, same, "")
+    with open(PATH_1X, encoding="utf-8") as f:                # 1.x results with the legacy settings (since 2.0.0)
+        ref1 = json.load(f)
+    rep.section("fingerprints-1x", "the golden runs of 1.x with the legacy settings (handoverlab.stability.LEGACY_1X)")
+    got1 = compute(legacy_1x=True, names=set(ref1["cases"]))
+    _compare(rep, ref1, got1, same_build(ref1["versions"]), "1.x ")
+
+
+def _compare(rep, ref, got, same, prefix) -> None:
     for name, runs in ref["cases"].items():
         for want, have in zip(runs, got[name]):
-            label = "%s / %s" % (name, want["rule"])
+            label = "%s%s / %s" % (prefix, name, want["rule"])
             if have["fingerprint"] == want["fingerprint"]:
                 rep.check(label + ": identical event log", True, "%s..., %d events" % (have["fingerprint"][:12],
                                                                                     have["n_events"]))

@@ -5,7 +5,7 @@ Run it:  python examples/traffic_models.py
 "fixed" keeps the constant service rates; "full_buffer" lets every user take what the link carries;
 "periodic" sends a small packet every 20 ms (as VoIP); "ftp3" downloads 0.5 Mbyte files that arrive
 at random (TR 36.814 FTP model 3).  The busier the cells, the stronger the interference and the
-lower the SINR, which shows in the failure rate.
+lower the SINR. One seed gives only a few failures; compare failure rates over several seeds.
 """
 import handoverlab as hl
 

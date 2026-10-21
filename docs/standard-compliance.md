@@ -13,8 +13,9 @@ comparison against ns-3 / 5G-LENA, against handover statistics measured in comme
 and, since 1.10.0, against the DAPS and LTM requirements of TS 38.133 and published 3GPP
 evaluations.
 
-The options added in 1.9.0 make the handover command and the execution follow TS 38.331; they are
-switched off by default, so the results of 1.x are unchanged. The **3GPP protocol profile** is:
+The options added in 1.9.0 make the handover command and the execution follow TS 38.331; in 1.x they were
+switched off by default, and since 2.0.0 they are the defaults (`handoverlab.stability.LEGACY_1X` switches
+them off again). The **3GPP protocol profile** is:
 
 ```yaml
 scenario:
@@ -40,19 +41,19 @@ M.2412-0). Outcome:
 
 | Card | Finding | Action |
 |---|---|---|
-| `highway-10ghz` | 35 m roadside offset of TR 36.885 A.1.3 option 1 combined with the 500 m spacing of option 2; 10 GHz (TR 37.885: 2 or 4 GHz below 6 GHz, 30 GHz above); LOS from a probability (Table 6.2.1-2: LOS only); no wrap-around (Table A-1) | deprecated (removed in 2.0.0); replaced by `highway-tr37885-4ghz` (option 1) and `highway-tr37885-30ghz` (option 2) |
+| `highway-10ghz` | 35 m roadside offset of TR 36.885 A.1.3 option 1 combined with the 500 m spacing of option 2; 10 GHz (TR 37.885: 2 or 4 GHz below 6 GHz, 30 GHz above); LOS from a probability (Table 6.2.1-2: LOS only); no wrap-around (Table A-1) | deprecated in 1.11.0, removed in 2.0.0; replaced by `highway-tr37885-4ghz` (option 1) and `highway-tr37885-30ghz` (option 2) |
 | `dense-urban-2layer` | the UMa macro layer had the UMi shadowing (7.82 dB NLOS, 10 m); the in-car users had no car penetration loss (M.2412-0 Annex 1 clause 3.3: 9 dB, 5 dB); no minimum BS-UT distance | corrected: UMa 4 / 6 dB and 50 m, UMi 4 / 7.82 dB and 13 m per layer (TR 38.901 Tables 7.4.1-1, 7.5-6), 9 / 5 dB car loss, 35 m (Table 7.2-1) |
 | `urban-grid-28ghz-beams` | UE noise figure 7 dB (M.2412-0 Table 5b at 30 GHz: 10 dB) | corrected to 10 dB |
 | `indoor-office-4ghz` | citations of the bandwidth and of the 12 sites (M.2412-0 Table 5a, clause 8.3.1); UE height 1 m of TR 38.901 with the link budget of M.2412 (1.5 m) | citations corrected; the mixed source stated |
-| urban-grid cards (`urban-grid-10ghz`, `fr3-urban-15ghz`, `smoke`, `urban-grid-28ghz-beams`) | TR 37.885 has 500 m macro sites with UMa in the urban grid (ours: small cells on UMi); speeds 52-63 km/h around the 60 km/h of option A; users closer than the 10 m minimum distance of UMi | stated on the cards as assumptions (the golden runs use these cards; exact 60 km/h and the minimum distance are planned for 2.0.0) |
+| urban-grid cards (`urban-grid-10ghz`, `fr3-urban-15ghz`, `smoke`, `urban-grid-28ghz-beams`) | TR 37.885 has 500 m macro sites with UMa in the urban grid (ours: small cells on UMi); speeds 52-63 km/h around the 60 km/h of option A; users closer than the 10 m minimum distance of UMi | stated on the cards as assumptions in 1.11.0; since 2.0.0 every vehicle drives at exactly 60 km/h in a lane of 3.5 m (profile `v60`) and the path loss is evaluated at 10 m or more (`radio.pl_min_distance_m`); the small cells on UMi remain an assumption |
 | `fr3-urban-15ghz` | "FR3 (7.125-24.25 GHz)" is not a range of TR 38.901, which studies "7-24 GHz" in Release 19 | wording corrected |
 
 TR 38.901 V19.5.0 (Release 19, with the 7-24 GHz study) was compared with V17.0.0: the path loss of
 RMa, UMa, UMi and InH (Table 7.4.1-1), the LOS probabilities (Table 7.4.2-1) and the shadowing rows
 and correlation distances of Table 7.5-6 are unchanged; Release 19 changed small-scale spreads, which
-HandoverLab does not model, and added the SMa scenario. One small deviation remains: notes 1 and 5
-of Table 7.4.1-1 take c = 3.0e8 m/s in the breakpoint distances, HandoverLab the exact speed of light
-(0.07 % longer breakpoints); the correction changes results and is planned for 2.0.0.
+HandoverLab does not model, and added the SMa scenario. Notes 1 and 5 of Table 7.4.1-1 take
+c = 3.0e8 m/s in the breakpoint distances; up to 1.12.0 HandoverLab took the exact speed of light (0.07 %
+longer breakpoints), since 2.0.0 it takes 3.0e8 m/s (`radio.breakpoint_c_mps`).
 
 ## Map-based channel model (1.12.0, `radio.map_file`)
 
@@ -61,6 +62,21 @@ plus stochastic components of clause 7, "not calibrated and can be used per comp
 format left to the implementation. HandoverLab **follows** its deterministic large-scale part (a path gain
 per site and pixel from a ray tracer or from measurements, `handoverlab.mapfile`) and **does not model** the
 small-scale part (ray-level phases, Doppler, the stochastic clusters), as nowhere else in HandoverLab.
+
+## Non-terrestrial networks (2.0.0, `layout.kind: ntn`)
+
+| Rule | Clause | HandoverLab | Status |
+|---|---|---|---|
+| Earth a sphere of radius 6371 km; satellite antenna 4 \|J1(ka sin t) / (ka sin t)\|^2 | TR 38.811 V15.4.0 6.3, 6.4.1 | so; the aperture gives ka | follows |
+| LOS probability per elevation (reference elevations 10-90 degrees) | TR 38.811 Table 6.6.1-1 | value of the nearest reference elevation, a spatially correlated state along each user's path | follows (nearest reference instead of interpolation) |
+| Basic path loss PLb = FSPL(d, fc) + SF + CL, FSPL = 32.45 + 20 log10 fc + 20 log10 d, slant range d | TR 38.811 Eqs. 6.6-2..6.6-4, Tables 6.6.2-1..3 | so, with the shadowing and clutter loss of the S band for suburban and rural areas | follows |
+| Atmospheric loss Azenith / sin(alpha); scintillation | TR 38.811 Eq. 6.6-8; TR 38.821 Table 6.1.3.2-1 | `ntn.atm_zenith_db`, `ntn.scintillation_db` (2.2 dB, a fixed loss) | follows |
+| LEO-600 Set-1 S band, handheld UE, 19 beams on the UV plane, spacing sqrt(3) sin(HPBW / 2), reuse 1 | TR 38.821 V16.2.0 Tables 6.1.1.1-1, -3, -4, -5 | the card `ntn-leo600-2ghz`; reuse 3 and 2 not modelled | follows (option 1) |
+| Link budget of the S-band LEO cases | TR 38.821 Table 6.1.3.3-1 | `verify --only ntn`, N1: within 0.028 dB | follows |
+| Satellite speed 7.56 km/s, maximum round-trip delay 25.77 ms (C2) | TR 38.821 Table 7.1-1 | circular orbit from the altitude; the worst-case delay added to preparation and execution | follows (one delay for every user) |
+| condEventD1 / D2: entering Ml1 - Hys > Thresh1 and Ml2 + Hys < Thresh2, leaving Ml1 + Hys < Thresh1 or Ml2 - Hys > Thresh2; with D2 the reference locations move | TS 38.331 V18 5.5.4.15, 5.5.4.15a | rule `cho_d2`: reference locations = beam centres on the ground at time t | follows |
+| D1 / D2 configured together with A3, A4 or A5 | TS 38.331 CondReconfigToAddMod | `cho_d2` requires D2 and A3; one time-to-trigger for both | follows (one TTT, a simplification) |
+| condEventT1, RACH-less NTN handover, earth-fixed beams, several satellites, feeder link, Doppler | TS 38.331 5.5.4.16; TS 38.300 16.14 | not modelled | not modelled |
 
 ## Measurements and triggering
 
@@ -98,9 +114,10 @@ small-scale part (ray-level phases, Doppler, the stochastic clusters), as nowher
 | Rule | Clause | HandoverLab | Status |
 |---|---|---|---|
 | Baseline handover steps: report, preparation, command, execution, completion | TS 38.300 9.2.3.2.1 | report after TTT, preparation `prep_s` (50 ms, TR 36.839 Table 5.2.4.1), command, execution `exec_s` (40 ms) | follows (timing abstraction) |
-| A command received while T310 runs is executed: "stop timer T310 ... start timer T304" | TS 38.331 5.3.5.5.2 | default (1.x): lost at once, stricter than TR 36.839 5.2.1 and 5.4.1; with `protocol.cmd_during_t310: receive` (1.9.0) the command is received at the first step with link-monitoring SINR >= Qout and stops T310; T310 expiry first ends in RLF (too late) | follows with the option |
+| A command received while T310 runs is executed: "stop timer T310 ... start timer T304" | TS 38.331 5.3.5.5.2 | `protocol.cmd_during_t310: receive` (1.9.0, default since 2.0.0): the command is received at the first step with link-monitoring SINR >= Qout and stops T310; T310 expiry first ends in RLF (too late). 1.x default `lost`: lost at once, stricter than TR 36.839 5.2.1 and 5.4.1 | follows |
+| A CHO configuration (RRCReconfiguration with conditionalReconfiguration) is stored whenever it is received; no condition on T310 | TS 38.331 5.3.5.13.1, 5.3.5.13.3 | since 2.0.0, with `cmd_during_t310: receive`: received like a command at the first step with SINR >= Qout, T310 goes on; with `lost` (1.x) lost while T310 runs | follows |
 | Lost command: no UE rule; the outcome follows from RLF detection | TS 38.331 (none); TR 36.839 5.2.1 (evaluation rule: T310 running at reception = handover failure) | see the row above | follows with the option |
-| T304: started at execution, stopped by a successful random access; expiry = handover failure, re-establishment; RA problems during T304 are not RLF; MAC retries | TS 38.331 5.3.5.3, 5.3.5.8.3, 5.3.10.3; TS 38.321 5.1 | default: the target must reach Qout at the end of the execution time (TR 36.839 5.2.1 state 3); with `protocol.t304_s` (1.9.0) the UE joins at the first step with target SINR >= Qout and fails only when T304 expires | follows with the option |
+| T304: started at execution, stopped by a successful random access; expiry = handover failure, re-establishment; RA problems during T304 are not RLF; MAC retries | TS 38.331 5.3.5.3, 5.3.5.8.3, 5.3.10.3; TS 38.321 5.1 | `protocol.t304_s: 1.0` (1.9.0, default since 2.0.0): the UE joins at the first step with target SINR >= Qout and fails only when T304 expires. 1.x default (none): the target must reach Qout at the end of the execution time (TR 36.839 5.2.1 state 3) | follows |
 | Interruption: T_interrupt = T_search + T_IU + T_processing (<= 20 ms) + Trs + T_margin; T_RRC 10 ms | TS 38.133 6.1.1.2.2; TS 38.331 12 | `exec_s` 40 ms (inside the bound); metric `interruption_s_pm` | follows (abstraction) |
 | Mobility interruption target 0 ms | TR 38.913 7.7; ITU-R M.2410 4.12 | measured per rule (DAPS and LTM reach it closely) | measured |
 | Xn handover preparation (TXnRELOCprep, no value in the spec) | TS 38.423 8.2.1 | preparation delay `prep_s` | abstraction |
@@ -146,7 +163,7 @@ reading.
 
 | Rule | Clause | Status |
 |---|---|---|
-| NTN mobility: CHO triggers D1/T1 (distance, time), RACH-less NTN handover | TS 38.331 5.5.4.15-16; TS 38.300 16.14 | not modelled: roadmap item 20 |
+| NTN mobility: CHO with condEventT1 (time), RACH-less NTN handover, earth-fixed beams, several satellites | TS 38.331 5.5.4.16; TS 38.300 16.14 | not modelled (D1 and D2 follow since 2.0.0, see above) |
 | 6G | TR 38.914 V20.1.0 sets requirements only (mobility interruption 0 ms between TRxPs of one base station; speeds up to 1000-1200 km/h) | no 6G procedure is specified yet |
 
 ## Definitions used in the metrics

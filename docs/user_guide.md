@@ -154,13 +154,13 @@ parameter with its source, known limitations and the reference results it was ch
 | [`indoor-office-4ghz`](scenarios/indoor-office-4ghz.md) | the TR 38.901 indoor office: 120 m x 50 m hall, 12 ceiling sites 20 m apart, InH path loss at 4 GHz, pedestrians at 3 km/h (since 1.7.0) |
 | [`rural-700mhz`](scenarios/rural-700mhz.md) | rural macro cells: 11 sites 35 m high, 1732 m apart, RMa path loss at 700 MHz, vehicles at 120 km/h (since 1.7.0) |
 | [`urban-grid-28ghz-beams`](scenarios/urban-grid-28ghz-beams.md) | the urban grid at 28 GHz (FR2) with three sectors per site, 8 SSB beams per sector, beam management and beam failure recovery (since 1.10.0) |
+| [`ntn-leo600-2ghz`](scenarios/ntn-leo600-2ghz.md) | a LEO satellite at 600 km with 19 earth-moving beams in the S band, handheld users, the channel of TR 38.811 and the parameters of TR 38.821 (since 2.0.0) |
 | [`dense-urban-2layer`](scenarios/dense-urban-2layer.md) | ITU-R M.2412 dense urban, two layers: 4 GHz macro (ISD 200 m, 3 sectors) and 30 GHz micro sites, SSB beams, inter-frequency measurements in gaps, in-car users at 30 km/h (since 1.10.0) |
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
 `handoverlab scenarios` lists them and `handoverlab scenarios smoke` prints a card. The card
-`highway-10ghz` (1.0.0rc3 to 1.10.0) is deprecated: it still loads, with a warning, and is removed in
-2.0.0 (see the [highway guide](guides/highway.md)).
+`highway-10ghz` (1.0.0rc3 to 1.10.0) was removed in 2.0.0 (see [moving from 1.x to 2.0](migration-2.0.md)).
 
 ## 3. Configuration
 
@@ -174,7 +174,7 @@ JSON (`.json`) files are accepted, and `hl.load_config()` also takes a dictionar
 scenario:
   layout: {kind: street_grid, blocks: [3, 3], site_spacing_m: 100.0}
   radio: {carrier_ghz: 10.0, pathloss: umi_street_canyon}
-  mobility: {users: 40, profile: veh16}
+  mobility: {users: 40, profile: v60}
   run: {duration_s: 120.0, warmup_s: 20.0}
 seeds: [1, 2, 3]            # or {first: 1, last: 10}
 rules:
@@ -216,6 +216,8 @@ output: results/metrics.csv
 | | `place_share` | `1` | share of shadowing variance tied to place (rest moves with the user) |
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
+| | `breakpoint_c_mps` | `3.0e8` | speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1 notes 1 and 5; since 2.0.0, 1.x: 299792458) |
+| | `pl_min_distance_m` | `10` | smallest 2D distance the RMa, UMa and UMi formulas are evaluated at (their applicability range; since 2.0.0, 1.x: 0) |
 | | `map_file` | none | radio map from a file: path gain of every site and pixel from a ray tracer or measurements (TR 38.901 clause 8; since 1.12.0; see [your own radio map](guides/radio-maps.md)); `map_sha256` is filled on loading |
 | | `los_model` | `probability` | `los`: every link LOS (TR 37.885 Table 6.2.1-2, highway); not on the street grid (since 1.11.0) |
 | | `soft_los`, `soft_los_d_m` | `false`, `20` | optional (1.7.0): soft LOS state of TR 38.901 clause 7.6.3.3 instead of a hard switch (see below) |
@@ -241,9 +243,9 @@ output: results/metrics.csv
 | | `cfg_loss_as_failure` | `false` | check mode: a lost conditional configuration fails like a lost handover command |
 | | `lm_load`, `lm_load_per_ue` | `null`, `0` | optional (1.1.0): interferer load at link monitoring, plus a part per user served by the interfering cell; `null` and `0` keep the load of the data channel ([calibration](calibration.md)) |
 | | `exec_can_fail` | `true` | `false`: the execution always joins the target (ideal random access) |
-| | `rlm_holdoff_s` | `0` | optional (1.3.0): no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (TS 38.133 clause 8.1: `0.2`) |
-| | `cmd_during_t310` | `lost` | `receive` (1.9.0): a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2) |
-| | `t304_s` | none | T304 (1.9.0): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
+| | `rlm_holdoff_s` | `0.2` | no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (TS 38.133 clause 8.1; since 1.3.0, default since 2.0.0; 1.x: `0`) |
+| | `cmd_during_t310` | `receive` | (1.9.0; default since 2.0.0, 1.x: `lost`) a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); since 2.0.0 a CHO or LTM candidate configuration is received the same way, without stopping T310 (5.3.5.13) |
+| | `t304_s` | `1.0` | T304 (1.9.0; default since 2.0.0, 1.x: none): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
 | | `meas_periods` | `sample` | `ts38133` (1.10.0): every cell's L1 result is the average over its measurement period of TS 38.133 (intra-frequency Tables 9.2.5.2-1/-2, inter-frequency within gaps Tables 9.3.5-1/-2) and enters the L3 filter once per period |
 | | `ssb_period_s` | `0.02` | SSB and SMTC periodicity T_SSB used by the TS 38.133 formulas (1.10.0) |
 | | `gap_pattern` | `0` | measurement gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms) (1.10.0) |
@@ -257,9 +259,10 @@ output: results/metrics.csv
 | | `period_s`, `packet_bytes` | `0.02`, `100` | `periodic`: one packet every period |
 | | `ftp_file_bytes`, `ftp_rate_hz` | `500000`, `0.1` | `ftp3`: file size (TR 36.814 FTP model 3) and file arrivals per user and second |
 | `mobility` | `users` | `40` | number of users |
-| | `profile` | `veh16` | `ped`, `veh8`, `veh16`, `veh30`, `mix`, `c8`, `c16`, `c30`; highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h, since 1.11.0) |
+| | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120`; highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h, since 1.11.0) |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
+| `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
 | | `backend` | `numpy` | `numba`: compiled kernel of the step loop, bit-identical results, needs `pip install handoverlab[fast]` (since 1.11.0; see [performance](performance.md)); not part of the job IDs |
 
 In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a changed copy.
@@ -273,6 +276,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 |---|---|---|
 | `a3` | baseline | `off_db` (3.0), `ttt_s` (0.16), `name` |
 | `cho` | conditional | `o_prep_db` (-2.0), `o_exec_db` (3.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `immediate` (false), `name` |
+| `cho_d2` | conditional | `d_thresh1_m` (25000), `d_thresh2_m` (25000), `hys_m` (1000), `o_prep_db` (-2.0), `o_exec_db` (0.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `name` (since 2.0.0): CHO with condEventD2 of TS 38.331 together with A3; on fixed cells Event D1 |
 | `daps` | daps | `off_db` (3.0), `ttt_s` (0.16), `interruption_s` (0.0), `fallback` (true), `source_data` (true), `name` |
 | `ltm` | ltm | `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `cmd_delay_s` (0.01), `exec_s` (0.02), `recovery` (true), `name` |
 | `cltm` | cltm | as `ltm` without `cmd_delay_s`: `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `exec_s` (0.02), `recovery` (true), `name` |

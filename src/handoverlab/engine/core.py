@@ -289,7 +289,7 @@ class Engine:
             if t304 is not None and t - self.f_tx[u] < t304 - EPS:
                 # random access goes on while T304 runs (TS 38.331 5.3.5.3, 5.3.10.3): try again next step
                 self.t_done[u] = t + self.dt
-                if t >= self.t0c:
+                if t >= self.t0c and not self.proc.dual:      # DAPS: the source link still carries the data
                     self.acc["int_exec"] += self.dt
                 return
             if not (self.proc.fallback and self._fallback(u, t, ln, tot)):

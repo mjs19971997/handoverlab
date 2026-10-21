@@ -12,7 +12,6 @@ from handoverlab.channel.source import RadioSource
 from handoverlab.config import ConfigError, Scenario
 from handoverlab.layout import HEX_ROAD_DEG, highway, highway_hex, make_layout
 from handoverlab.mobility import PROFILES, trajectories
-from handoverlab.stability import HandoverLabDeprecationWarning
 from handoverlab.world import build_world
 
 SHORT = {"run.duration_s": 10.0, "run.warmup_s": 2.0}
@@ -99,15 +98,13 @@ def test_configuration_checks():
     assert "wrap" not in d["layout"] and "highway_sites" not in d["layout"] and "los_model" not in d["radio"]
 
 
-def test_old_highway_card_is_deprecated():
-    assert "highway-10ghz" not in hl.scenario_names()
-    assert "highway-10ghz" in hl.scenario_names(deprecated=True)
-    with pytest.warns(HandoverLabDeprecationWarning, match="highway-tr37885"):
-        sc = hl.builtin_scenario("highway-10ghz")
-    assert sc.layout.kind == "highway" and not sc.layout.wrap
+def test_old_highway_card_is_removed():
+    assert "highway-10ghz" not in hl.scenario_names(deprecated=True)
+    with pytest.raises(hl.ConfigError, match="unknown built-in scenario"):
+        hl.builtin_scenario("highway-10ghz")
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        hl.builtin_scenario("highway-tr37885-4ghz")                    # the new cards do not warn
+        hl.builtin_scenario("highway-tr37885-4ghz")                    # the cards of 2.0.0 do not warn
 
 
 def test_verify_group_highway_passes():

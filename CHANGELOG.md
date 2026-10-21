@@ -7,6 +7,74 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-20
+
+2.0.0 makes the 3GPP values the defaults. Results of an unchanged configuration therefore differ from 1.x;
+`handoverlab.stability.LEGACY_1X` (plus `mobility.profile: veh16` on the urban-grid cards) gives the 1.x
+results back bit for bit. See [moving from 1.x to 2.0](docs/migration-2.0.md).
+
+### Added
+
+- Non-terrestrial networks (roadmap item 20): `layout.kind: ntn` with one LEO satellite on a circular orbit
+  and earth-moving beams, after TR 38.811 V15.4.0 (Earth radius, Bessel antenna pattern, LOS probability per
+  elevation, free-space loss on the slant range, shadowing and clutter loss, atmospheric loss over the
+  elevation, scintillation) and TR 38.821 V16.2.0 (LEO-600 Set-1 S band: 2 m aperture, 34 dBW/MHz; handheld
+  UE; 19 beams on the UV plane, reuse 1; 7.56 km/s; round-trip delay 25.77 ms of scenario C2). The new
+  configuration section `ntn` and the card `ntn-leo600-2ghz`.
+- The rule `cho_d2`: conditional handover with condEventD2 of TS 38.331 V18 5.5.4.15a (moving reference
+  locations, the beam centres on the ground) together with A3; on fixed cells it is Event D1.
+- `ConditionalRule.exec_condition` (a rule may add its own execution condition) and `RuleContext.cell_center`.
+- The optional `verify` group `ntn` (N1-N3, below) and the section `fingerprints-1x` of the group
+  `fingerprints`: every golden run of 1.12.0 repeated with `LEGACY_1X`.
+- `radio.breakpoint_c_mps` and `radio.pl_min_distance_m`, the mobility profile `v60`.
+- The guides "A LEO satellite (NTN)" and "Moving from 1.x to 2.0", the API page of `handoverlab.channel.ntn`,
+  pictures of the highway, a radio map and the satellite beams in the README.
+
+### Changed (breaking: results differ from 1.x)
+
+- The speed of light in the breakpoint distances of TR 38.901 is 3.0e8 m/s (Table 7.4.1-1, notes 1 and 5);
+  1.x: 299 792 458 m/s.
+- The RMa, UMa and UMi path loss is evaluated at a 2D distance of at least 10 m, the lower end of its
+  applicability range in Table 7.4.1-1 (InH not limited); 1.x: no limit.
+- The default mobility profile is `v60`: every vehicle at 60 km/h in one of two lanes of 3.5 m (TR 37.885
+  clause 6.1.2 option A, Table A-1); 1.x: `veh16`. The cards `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`,
+  `urban-grid-28ghz-beams` and `open-area-10ghz` use it.
+- The 3GPP protocol profile of 1.9.0 is the default: `protocol.cmd_during_t310: receive`, `t304_s: 1.0`,
+  `rlm_holdoff_s: 0.2` (TS 38.331 5.3.5.5.2 and 5.3.5.8.3, TS 38.133 clause 8.1); 1.x: `lost`, none, 0.
+- With `cmd_during_t310: receive` a CHO (or LTM) candidate configuration that arrives while T310 runs is
+  received like a handover command, at the first step with the link at or above Qout, and T310 goes on
+  (TS 38.331 5.3.5.13 sets no condition on T310); up to 1.12.0 it was lost even with the 3GPP profile. The
+  check "CHO with immediate execution = A3" now also holds with the 2.0.0 defaults. With `lost` nothing
+  changes.
+- The 3GPP calibration (`verify` group `calibration`) uses c = 3.0e8 m/s like the simulator; its result is
+  unchanged (325 of 342 percentiles in the full run).
+- `MODEL_VERSION` is 2: studies of 1.x run their jobs again. New golden fingerprints (17 cases, 35 runs,
+  among them the highway and the satellite).
+
+### Fixed
+
+- With `protocol.t304_s`, every step that T304 kept an execution going counted as interruption also for DAPS
+  handover, whose source link carries the data meanwhile (1.9.0-1.12.0, only with the 3GPP profile; the event
+  logs are unchanged, only `interruption_*` metrics of DAPS are lower). `verify` check V1e now passes with the
+  2.0.0 defaults.
+
+### Removed
+
+- The scenario card `highway-10ghz`, deprecated in 1.11.0; use `highway-tr37885-4ghz` or
+  `highway-tr37885-30ghz`.
+
+### Results (plan fixed before the runs)
+
+- `LEGACY_1X` reproduces all 33 golden runs of 1.12.0 bit for bit.
+- N1: slant range, free-space and atmospheric loss and CNR of the 8 S-band LEO cases of TR 38.821
+  Table 6.1.3.3-1 within 0.1 dB: passed, largest difference 0.028 dB.
+- N2: 3 dB beamwidth of the Bessel pattern within 0.01 degree of Tables 6.1.1.1-1/-2: **failed** for the
+  1 m aperture (8.8462 against 8.8320 degrees; 2 m: 4.4198 against 4.4127); both are 0.16 % wider than the
+  tables. Reported as is; the group `ntn` runs on request only.
+- N3: 7562 m/s at 600 km (7.56 km/s), nadir footprint 46.3 km (50 km, informative): passed.
+- The default distance thresholds of `cho_d2` (25 km, half the 50 km beam diameter of TR 38.821) replaced a
+  first guess (20/15 km) after one run had been seen; no further tuning.
+
 ## [1.12.0] - 2026-10-20
 
 ### Added
@@ -721,7 +789,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/mjs19971997/handoverlab/compare/v1.12.0...v2.0.0
 [1.12.0]: https://github.com/mjs19971997/handoverlab/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/mjs19971997/handoverlab/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/mjs19971997/handoverlab/compare/v1.9.0...v1.10.0

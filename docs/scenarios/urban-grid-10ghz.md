@@ -72,7 +72,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
-| `protocol.rlm_holdoff_s` | 0 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
+| `protocol.rlm_holdoff_s` | 0.2 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |
@@ -87,7 +87,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | 40 | assumption |
-| `mobility.profile` | veh16 | TR 37.885 clause 6.1.2 (urban option A: 60 km/h); the profile veh16 spreads the speed over 52-63 km/h (assumption); see the user guide |
+| `mobility.profile` | v60 | TR 37.885 clause 6.1.2 (urban option A: 60 km/h in all lanes) and Table A-1 (2 lanes of 3.5 m per direction): profile v60 (since 2.0.0) |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | 120 | numerical setting |
 | `run.warmup_s` | 20 | numerical setting |
@@ -95,8 +95,7 @@ Values in **bold** differ from the HandoverLab defaults.
 ## Known limitations
 
 - Small cells on UMi along the streets: TR 37.885 itself has 500 m macro sites with UMa in the urban grid (Tables 6.1.3-2 and 6.2.1-2); only the road geometry and the turning probabilities are TR 37.885's.
-- Sites stand 9 m from the street centre line, so users pass closer than 10 m, below the UMi range 10 m <= d2D of TR 38.901 Table 7.4.1-1 (minimum BS-UT distance 10 m in Table 7.2-1).
-- Speeds spread over 52-63 km/h (profile veh16) around the 60 km/h of TR 37.885 clause 6.1.2, where all vehicles in a lane have one speed.
+- Sites stand 9 m from the street centre line, so users pass closer than 10 m to a site; the path loss is evaluated at 10 m there (radio.pl_min_distance_m, the lower end of the UMi range 10 m <= d2D of TR 38.901 Table 7.4.1-1; since 2.0.0).
 - Received-power level only: no fast fading, no link-level physical layer, one beam gain and one isolation factor.
 - TR 38.901 UMi parameters are used at 10 GHz; the model's validity in the 7-24 GHz range was re-examined in Rel-19.
 - The failure model is not calibrated in absolute terms; read failure rates relative to each other.

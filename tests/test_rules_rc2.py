@@ -10,7 +10,7 @@ import pytest
 import handoverlab as hl
 from handoverlab.rules import A3, CHO, DAPS, EARLY, LATE, LTM, UNNECESSARY, USEFUL, BanditA3, RuleContext
 from handoverlab.testing import check_rule
-from helpers import run_synthetic
+from helpers import PROTOCOL_1X, run_synthetic
 from test_engine_triggers import first_filtered_crossing
 
 PREP, EXEC = 0.05, 0.04
@@ -46,8 +46,8 @@ def _target_vanishes(ramp, off_db=3.0):
 
 def test_daps_falls_back_to_the_source(ramp):
     r, k_exec = _target_vanishes(ramp)
-    m_a3, ev_a3 = run_synthetic(A3(off_db=3.0, ttt_s=0.0), r)
-    m_d, ev_d = run_synthetic(DAPS(off_db=3.0, ttt_s=0.0), r)
+    m_a3, ev_a3 = run_synthetic(A3(off_db=3.0, ttt_s=0.0), r, overrides=PROTOCOL_1X)
+    m_d, ev_d = run_synthetic(DAPS(off_db=3.0, ttt_s=0.0), r, overrides=PROTOCOL_1X)   # without T304 (1.x)
     # baseline: execution failure, re-establishment in the source (too early)
     assert ev_a3[0]["outcome"] == "too_early" and ev_a3[0]["cause"] == "execution_failure"
     assert m_a3["n_failures"] == 1 and m_a3["interruption_fail_s_pm"] > 0
@@ -58,6 +58,10 @@ def test_daps_falls_back_to_the_source(ramp):
     assert d["t_end"] == pytest.approx(k_exec * 0.01 + EXEC, abs=1e-6)
     assert m_d["n_failures"] == 0 and m_d["n_too_early"] == 1 and m_d["n_handovers"] == 0
     assert m_d["interruption_s_pm"] == 0.0
+    # with T304 (default since 2.0.0) the fallback comes when T304 expires (TS 38.331 5.3.5.8.3)
+    m_t, (t,) = run_synthetic(DAPS(off_db=3.0, ttt_s=0.0), r)
+    assert t["cause"] == "daps_fallback" and t["t_end"] == pytest.approx(k_exec * 0.01 + 1.0, abs=1e-6)
+    assert m_t["n_failures"] == 0
 
 
 def test_daps_without_fallback_fails_like_a3(ramp):
@@ -128,9 +132,12 @@ def test_ltm_switch_command_lost_while_t310_runs():
     r[:, 0, 0] = np.where(k < 300, -70.0, -110.0)
     r[:, 0, 1] = np.where(k < 300, -71.0, -75.0)
     m, ev = run_synthetic(LTM(o_prep_db=-3.0, o_switch_db=3.0, ttt_switch_s=0.0, cmd_delay_s=1.5, recovery=False),
-                          r, bg_load=0.5)
+                          r, bg_load=0.5, overrides=PROTOCOL_1X)                       # the 1.x model
     assert ev[0]["kind"] == "ltm" and ev[0]["outcome"] == "too_late" and ev[0]["cause"] == "command_lost"
     assert m["n_fail_command_lost"] == 1 and m["n_recoveries"] == 0
+    m2, _ = run_synthetic(LTM(o_prep_db=-3.0, o_switch_db=3.0, ttt_switch_s=0.0, cmd_delay_s=1.5, recovery=False),
+                          r, bg_load=0.5)
+    assert m2["n_fail_command_lost"] == 0                     # 2.0.0: received during T310 (TS 38.331 5.3.5.5.2)
 
 
 def test_ltm_validation():

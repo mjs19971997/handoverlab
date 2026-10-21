@@ -35,6 +35,9 @@ PROFILES: Dict[str, List[SpeedGroup]] = {
     "hwy140": [SpeedGroup(1.0, 126.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],  # up to 140 km/h
     # TR 37.885 clause 6.1.2, highway option A (since 1.11.0): every vehicle at 140 km/h (baseline) or 70 km/h
     "v140": [SpeedGroup(1.0, 140.0 / 3.6, 140.0 / 3.6, (0.0, 0.5))],
+    # TR 37.885 clause 6.1.2, urban option A (since 2.0.0, the default): every vehicle at 60 km/h in one of the
+    # two lanes of 3.5 m per direction (Table A-1)
+    "v60": [SpeedGroup(1.0, 60.0 / 3.6, 60.0 / 3.6, (0.0, 0.0), lanes_m=(1.75, 5.25))],
     "v70": [SpeedGroup(1.0, 70.0 / 3.6, 70.0 / 3.6, (0.0, 0.5))],
     # indoor and rural (since 1.7.0): TR 38.901 Table 7.2-2 (indoor office: 3 km/h); rural users in cars at
     # 120 km/h (TR 38.913 rural evaluation; TR 38.901 Table 7.2-3 gives the users as 50 % indoor, 50 % in car)
@@ -55,7 +58,11 @@ def draw_users(groups, n_users: int, rng) -> Tuple[np.ndarray, np.ndarray]:
     for u in range(n_users):
         g = groups[cls[u]]
         v[u] = rng.uniform(g.v_min, g.v_max)
-        off[u] = rng.uniform(g.lateral_m[0], g.lateral_m[1], 2) * rng.choice([-1.0, 1.0], 2)
+        if g.lanes_m:                                   # one of the lane centres (since 2.0.0)
+            off[u] = np.asarray(g.lanes_m, dtype=float)[rng.integers(len(g.lanes_m), size=2)] * \
+                rng.choice([-1.0, 1.0], 2)
+        else:
+            off[u] = rng.uniform(g.lateral_m[0], g.lateral_m[1], 2) * rng.choice([-1.0, 1.0], 2)
     return v, off
 
 

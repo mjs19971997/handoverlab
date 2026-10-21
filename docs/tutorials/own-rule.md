@@ -74,11 +74,11 @@ print(check_rule(SpeedScaledA3, params={"off_db": 3.0, "ttt_s": 0.32, "v_ref": 8
 contract of rule SpeedScaledA3:
   PASS  construct  [family baseline]
   PASS  recreate
-  PASS  debug run  [87 events, 85 handovers, 0 failures]
+  PASS  debug run  [77 events, 75 handovers, 1 failures]
   PASS  deterministic
   PASS  global random state
   PASS  independent
-  PASS  reduces_to a3  [80 / 80 events]
+  PASS  reduces_to a3  [70 / 70 events]
 ```
 
 The `debug run` runs the engine with its invariant checks and validates every value the rule
@@ -100,12 +100,12 @@ for r in hl.simulate(sc, rules, seeds=[1, 2, 3]):
 
 ```text
 rule      seed  handovers  unnecessary  failures
-A3           1      14.76         2.76      0.60
-A3-speed     1      17.04         4.56      0.12
+A3           1      15.36         3.24      0.12
+A3-speed     1      17.04         4.56      0.00
 A3           2      14.16         1.44      0.00
 A3-speed     2      14.28         1.92      0.00
 A3           3      13.32         0.84      0.12
-A3-speed     3      13.92         1.20      0.24
+A3-speed     3      14.16         1.44      0.00
 ```
 
 Three seeds of a 30-second scenario prove nothing, and both rules use one hand-picked setting.

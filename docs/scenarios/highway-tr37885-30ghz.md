@@ -50,6 +50,8 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.clutter_los` | true | TR 38.901 clause 7.6.3.3 (spatially consistent LOS state) |
 | `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m) |
 | `radio.los_model` | **los** | TR 37.885 clause 6.2.1 (LOS propagation type is used for V2B and B2R links in the highway scenario) |
+| `radio.breakpoint_c_mps` | 3e+08 | TR 38.901 Table 7.4.1-1 notes 1 and 5 (c = 3.0e8 m/s in the breakpoint distances) |
+| `radio.pl_min_distance_m` | 10 | TR 38.901 Table 7.4.1-1 (applicability range of RMa, UMa, UMi: 10 m <= d2D) |
 | `radio.time_var_db` | **0** | set to 0: TR 37.885 has no blockage of the B2V link in the highway (LOS only) |
 | `radio.time_var_tau_s` | 1 | assumption |
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
@@ -99,7 +101,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
-| `protocol.rlm_holdoff_s` | 0 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
+| `protocol.rlm_holdoff_s` | 0.2 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |
@@ -119,6 +121,16 @@ Values in **bold** differ from the HandoverLab defaults.
 | `run.duration_s` | **60** | numerical setting |
 | `run.warmup_s` | **10** | numerical setting |
 | `run.backend` | numpy |  |
+| `ntn.altitude_km` | 600 |  |
+| `ntn.aperture_m` | 2 |  |
+| `ntn.eirp_dbw_per_mhz` | 34 |  |
+| `ntn.n_beams` | 19 |  |
+| `ntn.centre_elevation_deg` | 30 |  |
+| `ntn.environment` | rural |  |
+| `ntn.atm_zenith_db` | 0.045 |  |
+| `ntn.scintillation_db` | 2.2 |  |
+| `ntn.sf_corr_m` | 37 |  |
+| `ntn.los_corr_m` | 60 |  |
 
 ## Known limitations
 

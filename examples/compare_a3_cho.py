@@ -3,7 +3,7 @@ import handoverlab as hl
 
 scenario = hl.Scenario.from_dict({
     "layout": {"kind": "street_grid", "blocks": [3, 3], "site_spacing_m": 150.0},
-    "mobility": {"users": 20, "profile": "veh16"},
+    "mobility": {"users": 20, "profile": "v60"},
     "run": {"duration_s": 60.0, "warmup_s": 10.0},
 })
 rules = [

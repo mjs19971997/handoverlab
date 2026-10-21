@@ -1,0 +1,440 @@
+{
+ "note": "Golden event-log fingerprints; regenerate with python -m handoverlab.verify.golden --write and record the reason in CHANGELOG.md.",
+ "versions": {
+  "python": "3.12.10",
+  "numpy": "2.4.6",
+  "scipy": "1.18.0",
+  "system": "Windows",
+  "machine": "AMD64"
+ },
+ "cases": {
+  "smoke": [
+   {
+    "rule": "A3",
+    "fingerprint": "2d742bbcbe212730e439d5b0b04a45dd55fd7417734e2195393a128a22e59d01",
+    "n_events": 86,
+    "sinr_db": 27.685147660387077,
+    "n_attempts": 86,
+    "n_handovers": 85,
+    "n_unnecessary": 24,
+    "n_pingpong": 4,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "d10ce8afc8661a24778e71877f39c0d8394d435cc1594d460a4a6240efb0c50c",
+    "n_events": 73,
+    "sinr_db": 26.42462244523055,
+    "n_attempts": 73,
+    "n_handovers": 71,
+    "n_unnecessary": 13,
+    "n_pingpong": 1,
+    "n_failures": 2,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "28d1e5902f88baef392eb15bfe30c65030dbb76331ac8dac21b60afad2493828",
+    "n_events": 87,
+    "sinr_db": 28.440724136482572,
+    "n_attempts": 87,
+    "n_handovers": 87,
+    "n_unnecessary": 23,
+    "n_pingpong": 4,
+    "n_failures": 0,
+    "n_preparations": 139
+   }
+  ],
+  "smoke-stress": [
+   {
+    "rule": "A3",
+    "fingerprint": "937021e24248d7dfe5aad3daa969beb47bb26682d69385fbf28eb1e24c8c7edb",
+    "n_events": 119,
+    "sinr_db": 18.998074128803864,
+    "n_attempts": 119,
+    "n_handovers": 115,
+    "n_unnecessary": 11,
+    "n_pingpong": 3,
+    "n_failures": 4,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "749ee249d4110c1b53c5040c0e74c1ea925bf8375300c888221bdbc93419ae6d",
+    "n_events": 109,
+    "sinr_db": 16.669040650918944,
+    "n_attempts": 109,
+    "n_handovers": 102,
+    "n_unnecessary": 0,
+    "n_pingpong": 0,
+    "n_failures": 7,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "47fc8dd1533f00e9eb3917a9d42b334f372e9d26113579edd61f8fd6b6a2a199",
+    "n_events": 120,
+    "sinr_db": 20.201940155933134,
+    "n_attempts": 120,
+    "n_handovers": 119,
+    "n_unnecessary": 14,
+    "n_pingpong": 5,
+    "n_failures": 0,
+    "n_preparations": 162
+   }
+  ],
+  "smoke-open": [
+   {
+    "rule": "A3",
+    "fingerprint": "aba6ccfada9cfc7e08037a2e792bffdf251d998d64cc57df98ac86047f2bb4e2",
+    "n_events": 120,
+    "sinr_db": 15.119944861873604,
+    "n_attempts": 120,
+    "n_handovers": 111,
+    "n_unnecessary": 64,
+    "n_pingpong": 10,
+    "n_failures": 9,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "1a9db8da97e56ea051b5949dfdc27ed97a049e1cae4a55464c4c454cd719c2ab",
+    "n_events": 134,
+    "sinr_db": 15.52934717042929,
+    "n_attempts": 133,
+    "n_handovers": 129,
+    "n_unnecessary": 73,
+    "n_pingpong": 16,
+    "n_failures": 5,
+    "n_preparations": 382
+   }
+  ],
+  "smoke-ftp3": [
+   {
+    "rule": "A3",
+    "fingerprint": "fa79b6c69182f42315077a6602b0ef3d4bc3116655ef7ac26cf31dd849aff7af",
+    "n_events": 81,
+    "sinr_db": 26.441110880461668,
+    "n_attempts": 81,
+    "n_handovers": 81,
+    "n_unnecessary": 23,
+    "n_pingpong": 4,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "1d8eeb13c2a423acf0706e8488afb7b768674c483ff60a74f956189279f83e09",
+    "n_events": 66,
+    "sinr_db": 25.31517187365412,
+    "n_attempts": 66,
+    "n_handovers": 66,
+    "n_unnecessary": 6,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 0
+   }
+  ],
+  "smoke-cltm": [
+   {
+    "rule": "LTM",
+    "fingerprint": "632473d7e601707eaecfe945c24bb737bf2596bd7db31df9893306c9dee0ec1d",
+    "n_events": 151,
+    "sinr_db": 19.891945673306004,
+    "n_attempts": 151,
+    "n_handovers": 150,
+    "n_unnecessary": 41,
+    "n_pingpong": 17,
+    "n_failures": 1,
+    "n_preparations": 260
+   },
+   {
+    "rule": "CLTM",
+    "fingerprint": "eba18a5091c66d46f41e7ab69f8287ea29da7ce07aca89350c5e6258dbb6307d",
+    "n_events": 151,
+    "sinr_db": 20.236883203624057,
+    "n_attempts": 151,
+    "n_handovers": 150,
+    "n_unnecessary": 41,
+    "n_pingpong": 18,
+    "n_failures": 1,
+    "n_preparations": 253
+   }
+  ],
+  "indoor": [
+   {
+    "rule": "A3",
+    "fingerprint": "e3daf69186ad2e62ddf3b31f79b07928d79b7795052a19f2665964b0f732bef2",
+    "n_events": 49,
+    "sinr_db": 12.7811474446411,
+    "n_attempts": 49,
+    "n_handovers": 49,
+    "n_unnecessary": 19,
+    "n_pingpong": 2,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "a775f465b12bec597d008176022e14162581d6ed9ab910f8109c3921bf682564",
+    "n_events": 50,
+    "sinr_db": 13.073251595576696,
+    "n_attempts": 50,
+    "n_handovers": 49,
+    "n_unnecessary": 20,
+    "n_pingpong": 2,
+    "n_failures": 1,
+    "n_preparations": 125
+   }
+  ],
+  "rural": [
+   {
+    "rule": "A3",
+    "fingerprint": "c7974dd82a03eb026f4559349472f2c9c2c277e9bc64c337640793aafff7b874",
+    "n_events": 53,
+    "sinr_db": 19.150999685958652,
+    "n_attempts": 53,
+    "n_handovers": 53,
+    "n_unnecessary": 26,
+    "n_pingpong": 7,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "4e0cd51495a460b86bb3386ab4ab2160017267565d88fffd1abc7cb614178eac",
+    "n_events": 58,
+    "sinr_db": 19.705172720525372,
+    "n_attempts": 58,
+    "n_handovers": 58,
+    "n_unnecessary": 31,
+    "n_pingpong": 8,
+    "n_failures": 0,
+    "n_preparations": 112
+   }
+  ],
+  "smoke-soft": [
+   {
+    "rule": "A3",
+    "fingerprint": "4c921045e8498b5724cf227a206d3bcb103ef944abb80a5779ba9cecc71d0e27",
+    "n_events": 91,
+    "sinr_db": 26.569678892184903,
+    "n_attempts": 91,
+    "n_handovers": 91,
+    "n_unnecessary": 29,
+    "n_pingpong": 8,
+    "n_failures": 0,
+    "n_preparations": 0
+   }
+  ],
+  "rural-hard": [
+   {
+    "rule": "A3",
+    "fingerprint": "cc54206c5e4890dfa69cbe4429fd93cdc712e617125e12e49516b30df47919a1",
+    "n_events": 71,
+    "sinr_db": 19.206337207827637,
+    "n_attempts": 71,
+    "n_handovers": 69,
+    "n_unnecessary": 39,
+    "n_pingpong": 12,
+    "n_failures": 2,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "3af7d2c3199cadf6bca4ca7b009e84abe8b21fad5f032c2867aed68d042da65b",
+    "n_events": 74,
+    "sinr_db": 20.101736013386333,
+    "n_attempts": 74,
+    "n_handovers": 70,
+    "n_unnecessary": 40,
+    "n_pingpong": 10,
+    "n_failures": 4,
+    "n_preparations": 150
+   }
+  ],
+  "smoke-3gpp": [
+   {
+    "rule": "A3",
+    "fingerprint": "7aebfc61fd490f8177e151777b6c63b2c7d9ac2d230dca8100e0dda1ae7e3498",
+    "n_events": 116,
+    "sinr_db": 20.03989344957073,
+    "n_attempts": 116,
+    "n_handovers": 114,
+    "n_unnecessary": 11,
+    "n_pingpong": 1,
+    "n_failures": 1,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-late",
+    "fingerprint": "a32e5055fa9a36342010433cd8c4e6c9109382280adb1db6d54b87a16352b94a",
+    "n_events": 106,
+    "sinr_db": 16.442631384966965,
+    "n_attempts": 106,
+    "n_handovers": 94,
+    "n_unnecessary": 1,
+    "n_pingpong": 0,
+    "n_failures": 12,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "1c29dd2839771461ec28dc4f11110da5484fe69d6a74e2ba47d14d6759970b50",
+    "n_events": 120,
+    "sinr_db": 21.363677172411293,
+    "n_attempts": 120,
+    "n_handovers": 120,
+    "n_unnecessary": 17,
+    "n_pingpong": 3,
+    "n_failures": 0,
+    "n_preparations": 178
+   },
+   {
+    "rule": "LTM",
+    "fingerprint": "864781444c06dc6f36a93fe147d9afad308627f31373819310b6c7a663af76e5",
+    "n_events": 136,
+    "sinr_db": 21.560752769731376,
+    "n_attempts": 136,
+    "n_handovers": 135,
+    "n_unnecessary": 30,
+    "n_pingpong": 11,
+    "n_failures": 1,
+    "n_preparations": 228
+   }
+  ],
+  "smoke-mro": [
+   {
+    "rule": "A3",
+    "fingerprint": "c73ceb2325e02160603baff70ee1c319735cf206ee4ae819f5b2b4e1a2c4799d",
+    "n_events": 286,
+    "sinr_db": 20.125221289078656,
+    "n_attempts": 286,
+    "n_handovers": 272,
+    "n_unnecessary": 41,
+    "n_pingpong": 10,
+    "n_failures": 12,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3-MRO",
+    "fingerprint": "efcc23a480eeee891df8bdfb622f6d3e0d87910167481cac7c129d99380963ab",
+    "n_events": 278,
+    "sinr_db": 20.167384221946218,
+    "n_attempts": 278,
+    "n_handovers": 271,
+    "n_unnecessary": 36,
+    "n_pingpong": 10,
+    "n_failures": 5,
+    "n_preparations": 0
+   }
+  ],
+  "smoke-beams": [
+   {
+    "rule": "A3",
+    "fingerprint": "a2d5ac00b14bfd2509bc5ba59a61e4412f3b99c765acbe72f6c4efe33fe70f87",
+    "n_events": 112,
+    "sinr_db": 14.177571316927022,
+    "n_attempts": 107,
+    "n_handovers": 99,
+    "n_unnecessary": 23,
+    "n_pingpong": 1,
+    "n_failures": 17,
+    "n_preparations": 0
+   },
+   {
+    "rule": "LTM",
+    "fingerprint": "687891bdff2a2209742e481e538b80b56a2d3d871b4c401710d7c350e3a458bc",
+    "n_events": 137,
+    "sinr_db": 16.330720902948237,
+    "n_attempts": 135,
+    "n_handovers": 132,
+    "n_unnecessary": 50,
+    "n_pingpong": 13,
+    "n_failures": 8,
+    "n_preparations": 217
+   }
+  ],
+  "smoke-2layer": [
+   {
+    "rule": "A3",
+    "fingerprint": "99d3c3924b3f90d12e2867fbaeaf810dbb465f7dcc301e0186c8be322d35d678",
+    "n_events": 47,
+    "sinr_db": 26.499356989792272,
+    "n_attempts": 47,
+    "n_handovers": 46,
+    "n_unnecessary": 13,
+    "n_pingpong": 4,
+    "n_failures": 1,
+    "n_preparations": 0
+   },
+   {
+    "rule": "A3A5",
+    "fingerprint": "2733639254b5fb72abef0b8160d18bda6bb6fe4db85f863cc80b33f8371a02a1",
+    "n_events": 42,
+    "sinr_db": 26.251715209961397,
+    "n_attempts": 42,
+    "n_handovers": 41,
+    "n_unnecessary": 9,
+    "n_pingpong": 3,
+    "n_failures": 1,
+    "n_preparations": 0
+   }
+  ],
+  "smoke-38133": [
+   {
+    "rule": "A3",
+    "fingerprint": "11a5a7b821040a6ce59162616c8bf48aecf3dbbba4e430e917f88bbb8426e847",
+    "n_events": 92,
+    "sinr_db": 25.8140602325041,
+    "n_attempts": 92,
+    "n_handovers": 89,
+    "n_unnecessary": 31,
+    "n_pingpong": 5,
+    "n_failures": 3,
+    "n_preparations": 0
+   }
+  ],
+  "hwy-4ghz": [
+   {
+    "rule": "A3",
+    "fingerprint": "59f7b8d19d2978df40ca6c41068f170fac21fcf6b4e8e4cb328cc15fb617a8f4",
+    "n_events": 23,
+    "sinr_db": 17.40395774369289,
+    "n_attempts": 23,
+    "n_handovers": 23,
+    "n_unnecessary": 0,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 0
+   },
+   {
+    "rule": "CHO",
+    "fingerprint": "8d736fb7b3b1a24f2e6dad36d3cb1fd3855830c21e0662907a01769ee672b249",
+    "n_events": 23,
+    "sinr_db": 17.444653107854204,
+    "n_attempts": 23,
+    "n_handovers": 23,
+    "n_unnecessary": 0,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 62
+   }
+  ],
+  "hwy-30ghz": [
+   {
+    "rule": "A3",
+    "fingerprint": "f0ad4cefbbbeb3c257e8191bb420395651502f7f490ab70aa8ecde1f74998c1c",
+    "n_events": 15,
+    "sinr_db": 9.222220941026672,
+    "n_attempts": 15,
+    "n_handovers": 14,
+    "n_unnecessary": 6,
+    "n_pingpong": 0,
+    "n_failures": 0,
+    "n_preparations": 0
+   }
+  ]
+ }
+}

@@ -28,7 +28,7 @@ from scipy.special import ndtri
 
 from ..layout import Layout, los_matrix
 from ..seeds import streams
-from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, soft_los_power_weight
+from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, radio_kwargs, soft_los_power_weight
 
 FLOOR_DB = -300.0
 
@@ -177,7 +177,7 @@ class RadioMap:
                     sh = shadow[ip, im].astype(np.float64) if shadow is not None else 0.0
                     del lat, thr
             gain[...] = path_loss(d2, los, radio.pathloss, radio.carrier_ghz, radio.bs_height_m,
-                                  radio.ue_height_m)
+                                  radio.ue_height_m, **radio_kwargs(radio))
             np.negative(gain, out=gain)
             if shadow is not None:
                 if radio.shadow_los_far_db is None:
@@ -187,8 +187,8 @@ class RadioMap:
                 gain += shadow
             if radio.clutter_los and radio.soft_los:
                 args = (radio.pathloss, radio.carrier_ghz, radio.bs_height_m, radio.ue_height_m)
-                g_l = -path_loss(dd, True, *args) + los_shadow_sd(dd, radio) * sh
-                g_n = -path_loss(dd, False, *args) + radio.shadow_nlos_db * sh
+                g_l = -path_loss(dd, True, *args, **radio_kwargs(radio)) + los_shadow_sd(dd, radio) * sh
+                g_n = -path_loss(dd, False, *args, **radio_kwargs(radio)) + radio.shadow_nlos_db * sh
                 gain[ip, im] = mix_db(w, g_l, g_n)
                 del g_l, g_n, w, sh
             self.los = np.zeros((P + 1, M), dtype=bool)

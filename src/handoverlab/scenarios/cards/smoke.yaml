@@ -15,7 +15,7 @@ scenario:
   name: smoke
   layout: {kind: street_grid, blocks: [2, 2], site_spacing_m: 150.0}
   radio: {map_res_m: 2.0}
-  mobility: {users: 20, profile: veh16}
+  mobility: {users: 20, profile: v60}
   run: {duration_s: 30.0, warmup_s: 5.0}
 sources:
   layout.blocks: "assumption (smaller than TR 37.885 Table A-1, for speed)"
@@ -23,7 +23,7 @@ sources:
   radio.map_res_m: "numerical setting (coarser map for speed)"
   run.duration_s: "numerical setting (short run)"
 limitations:
-  - "Small cells on UMi along the streets, users passing closer than the 10 m minimum distance of TR 38.901 Table 7.2-1, and speeds of 52-63 km/h around TR 37.885's 60 km/h, as in urban-grid-10ghz."
+  - "Small cells on UMi along the streets, as in urban-grid-10ghz (TR 37.885 itself has 500 m macro sites with UMa in the urban grid); the path loss is evaluated at no less than 10 m from a site."
   - "Below the minimum area of TR 37.885 Table A-1; users near the edge see fewer neighbours."
   - "About 10 UE-minutes per seed: rates have a large sampling error; use it for checks, not for results."
   - "The coarser 2 m radio map smooths the LOS edges a little compared with the 1 m default."

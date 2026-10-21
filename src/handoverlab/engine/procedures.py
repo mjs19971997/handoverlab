@@ -281,9 +281,16 @@ class ConditionalProcedure(Procedure):
         for u, n in zip(*np.nonzero(due)):
             if not self.ppend[u, n]:
                 continue                                    # dropped by an earlier event of this step
+            if (eng.state[u] == CONNECTED and eng.run[u] and eng.P.cmd_during_t310 == "receive"
+                    and eng.sl_now[u] < eng.qout):
+                # the configuration is an RRCReconfiguration like a handover command (TS 38.331 5.3.5.13 sets
+                # no condition on T310): while T310 runs it is received at the first step with the link at or
+                # above Qout, as in receive_during_t310; T310 goes on (since 2.0.0)
+                self.ppend_t[u, n] = t + eng.dt
+                continue
             self.ppend[u, n] = False
             self.ppend_t[u, n] = INF
-            if eng.state[u] == CONNECTED and not eng.run[u]:
+            if eng.state[u] == CONNECTED and (not eng.run[u] or eng.P.cmd_during_t310 == "receive"):
                 self.prepared[u, n] = True
                 if eng.trace_log is not None:
                     eng.trace_event(t, u, "config", eng.serv[u], n, self.oexec[u, n])

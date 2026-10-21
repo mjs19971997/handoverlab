@@ -7,7 +7,9 @@ from handoverlab.config import ConfigError
 
 RULES = [{"rule": "a3", "name": "A3", "off_db": 1.0, "ttt_s": 0.0}]
 BASE = {"radio.isolation": 1.0, "mobility.profile": "veh30", "mobility.users": 20, "run.duration_s": 30.0,
-        "run.warmup_s": 2.0}
+        "run.warmup_s": 2.0,
+        # the options of 1.1.0-1.3.0 were made for the protocol model of 1.x (the defaults until 2.0.0)
+        "protocol.cmd_during_t310": "lost", "protocol.t304_s": None, "protocol.rlm_holdoff_s": 0.0}
 
 
 def _run(**over):

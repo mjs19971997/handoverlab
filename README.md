@@ -5,16 +5,20 @@
 A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
-conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid, an open area, along a highway, in an indoor office or across rural cells, with a
-received-power-level radio model from TR 38.901 (optionally with SSB beams, beam failure recovery
+conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility, conditional handover with
+the location event D2 for satellites) for many users moving through a street grid, an open area, along a
+highway, in an indoor office, across rural cells or under the beams of a LEO satellite, with a
+received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (optionally with SSB beams, beam failure recovery
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 1.12.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.0.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
-> documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 1.x it only grows,
-> and anything removed is deprecated first. New models are options, so the results of earlier
-> configurations do not change.
+> documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
+> and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
+> the urban vehicles of TR 37.885, the path-loss constants of TR 38.901), so results differ from 1.x;
+> one switch, `LEGACY_1X`, gives every 1.x result back bit for bit
+> ([moving from 1.x to 2.0](https://github.com/mjs19971997/handoverlab/blob/main/docs/migration-2.0.md)).
 
 ## See it
 
@@ -56,13 +60,32 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
 
 ![Layout of the two-layer dense urban scenario: 23 macro sites and 207 micro sites](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/scenarios/dense-urban-2layer.svg)
 
+**Highway as in TR 37.885.** Since 1.11.0: wrap-around, LOS-only links and both site layouts of
+TR 36.885; above 6 GHz the road crosses a cluster of 19 hexagonal sites with 3 sectors each:
+
+![Layout of the highway above 6 GHz: 19 sites on a 500 m hexagonal grid, the road across the cluster](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/scenarios/highway-tr37885-30ghz.svg)
+
+**Your own radio map.** Since 1.12.0: the path gain of every site and street pixel from a ray tracer or
+from measurements replaces the statistical channel (TR 38.901 clause 8); an exported map gives the same
+event log bit for bit:
+
+![The radio map of the card smoke: best path gain in every street pixel](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/radio-map.png)
+
+**Satellites.** Since 2.0.0: one LEO satellite at 600 km with 19 earth-moving beams in the S band
+(TR 38.811 channel, TR 38.821 parameters). The beams sweep over the ground at about 7 km/s, so even a user
+standing still hands over every few seconds; the rule `cho_d2` is conditional handover with the location
+event D2 of Release 18:
+
+![The 19 beams on the ground at the start and end of a run, and the received power of each beam at one user](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/ntn-beams.png)
+
 ## What it models
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
   pitch, 20 m streets) with sites on the pavement, an open area with a hexagonal site grid, the
   TR 37.885 highway (since 1.11.0 with wrap-around, LOS-only links and both site layouts of
-  TR 36.885, below and above 6 GHz), the TR 38.901 indoor office, rural macro cells, explicit site
-  lists, and built-in scenario cards (`handoverlab scenarios`).
+  TR 36.885, below and above 6 GHz), the TR 38.901 indoor office, rural macro cells, a LEO satellite with
+  earth-moving beams (since 2.0.0, TR 38.811 and TR 38.821), explicit site lists, and built-in scenario
+  cards (`handoverlab scenarios`).
 - **Channel**: TR 38.901 UMi street canyon, UMa, RMa and InH-Office path loss (LOS/NLOS); line of sight from the
   building geometry plus the spatially consistent LOS state, hard or soft; spatially correlated shadowing; a
   time-varying component; L1 measurement error; beam gain and load-coupled interference;
@@ -73,7 +96,8 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
   failure detection and recovery (TS 38.321 5.17, TS 38.133 8.5), several carriers with the
   measurement periods and gaps of TS 38.133, Event A5 between carriers.
 - **Mobility**: street-following users with turn probabilities, random waypoints in the open area,
-  pedestrian and vehicular speed profiles or your own speed groups.
+  pedestrian and vehicular speed profiles (by default the urban vehicles of TR 37.885: 60 km/h in one of
+  two lanes) or your own speed groups.
 - **Traffic**: constant service rates per 5QI class, or a traffic model per user: full buffer,
   periodic packets (as VoIP) or FTP model 3 of TR 36.814. The load of every cell, and so the
   interference, follows the traffic of its users.
@@ -81,13 +105,15 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
   reporting for conditional handover.
 - **Handover procedures**: baseline handover (report, preparation, command, execution), Rel-16
   conditional handover (up to 8 prepared candidates) and DAPS handover, Rel-18 L1/L2-triggered
-  mobility and conditional LTM from the Rel-19 work, behind a small rule interface. Rules that learn from outcomes are supported, among them
+  mobility and conditional LTM from the Rel-19 work, conditional handover with the Rel-18 location events
+  D1/D2 (`cho_d2`), behind a small rule interface. Rules that learn from outcomes are supported, among them
   mobility robustness optimisation of a cell individual offset per cell pair (`a3_mro`), an
   epsilon-greedy bandit (`a3_bandit`, checked against an exhaustive search) and a deep Q-network
   (`dqn`, optional PyTorch).
-- **Failure model**: Qout/Qin with windows, N310/N311/T310, lost commands and configurations,
-  execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), with options for
-  the link monitoring (own interferer load, restart on a new cell, ideal random access).
+- **Failure model**: Qout/Qin with windows, N310/N311/T310, T304, lost commands and configurations,
+  execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), the handover command
+  during T310 and the restart of the link monitoring on a new cell as TS 38.331 and TS 38.133 specify
+  (defaults since 2.0.0), with options for the link monitoring (own interferer load, ideal random access).
 - **Metrics**: outcome of every attempt (useful, unnecessary, too early, wrong cell, too late,
   censored), failures by cause, ping-pong, preparation overhead, interruption, delivered rate,
   signalling (RRC messages, commands), L1 measurements of the device and network energy (EARTH
@@ -101,7 +127,9 @@ M.2412 (4 GHz macro cells, 30 GHz micro cells):
 HandoverLab targets the questions of dense beyond-5G networks: small cells 50-300 m apart, the
 upper mid-band (FR3, 7-24 GHz; the scenario `fr3-urban-15ghz`, 10 GHz by default), and the
 mobility procedures beyond baseline handover: conditional handover, DAPS handover,
-L1/L2-triggered mobility of Release 18 and conditional LTM from the Release 19 work, next to rules that learn from handover outcomes and
+L1/L2-triggered mobility of Release 18 and conditional LTM from the Release 19 work, satellite access
+with the conditional handover events of Release 18 (non-terrestrial networks, since 2.0.0), next to rules
+that learn from handover outcomes and
 A3 tuned by mobility robustness optimisation, the fair baseline for a new rule. The cost
 of each procedure (signalling, prepared cells, interruption, energy) is measured next to its
 benefit.
@@ -123,9 +151,9 @@ the industry mean, and `handoverlab verify` repeats the check
 Every rule of the handover procedure is listed clause by clause against the official 3GPP texts
 (TS 38.331, 38.133, 38.300, 38.321 of Releases 17 to 19, TR 36.839, TR 38.901) in
 [standard compliance](https://github.com/mjs19971997/handoverlab/blob/main/docs/standard-compliance.md),
-with what is followed, what is abstracted and what is not modelled yet. Since 1.9.0 the 3GPP
-protocol profile (`protocol: {cmd_during_t310: receive, t304_s: 1.0, rlm_holdoff_s: 0.2}`) makes the
-handover command and its execution behave as TS 38.331 specifies. Against handover statistics
+with what is followed, what is abstracted and what is not modelled yet. The 3GPP protocol profile of
+1.9.0 (`protocol: {cmd_during_t310: receive, t304_s: 1.0, rlm_holdoff_s: 0.2}`), the default since 2.0.0,
+makes the handover command and its execution behave as TS 38.331 specifies. Against handover statistics
 measured in commercial 5G networks (SIGCOMM, IMC and MobiCom measurement studies) the profile
 brings the handover failure rate from about six times above the measured range to just above it;
 ping-pong with the Verizon A3 setting and the handover distance in low-band rural cells match.
@@ -151,12 +179,18 @@ than ns-3:
   0.83 s in the reference runs. HandoverLab evaluates over time (`protocol.qout_window_s`, 0.2 s).
 
 On a third point ns-3 was closer to the 3GPP texts: link monitoring restarts on a newly joined cell.
-HandoverLab has had this as an option since 1.3.0 (`protocol.rlm_holdoff_s`). The comparison
+HandoverLab has had this as an option since 1.3.0 (`protocol.rlm_holdoff_s`), on by default since 2.0.0. The comparison
 covers baseline handover at 3.5 GHz only: 5G-LENA has no conditional handover, DAPS or
 L1/L2-triggered mobility.
 
 ## What's new
 
+- **2.0.0**: satellites (non-terrestrial networks): one LEO satellite at 600 km with 19 earth-moving beams
+  (TR 38.811 channel, TR 38.821 Set-1 S band), conditional handover with the location event D2 of TS 38.331
+  Release 18 (`cho_d2`), checked against the link budgets of TR 38.821 (within 0.03 dB). The 3GPP values
+  become the defaults: the protocol profile of 1.9.0, the urban vehicles of TR 37.885 (`v60`), and
+  c = 3.0e8 m/s and the 10 m applicability range in the path loss of TR 38.901; the deprecated highway card
+  is removed. `LEGACY_1X` reproduces all 33 golden runs of 1.x bit for bit.
 - **1.12.0**: radio maps from a file (`radio.map_file`): the path gain of every site and pixel from a ray
   tracer (TR 38.901 clause 8, map-based hybrid model) or interpolated from measurements, with the error on
   held-out points; an exported street-grid map gives the same event log bit for bit.
@@ -255,7 +289,7 @@ import handoverlab as hl
 
 scenario = hl.Scenario.from_dict({
     "layout": {"kind": "street_grid", "blocks": [3, 3], "site_spacing_m": 150.0},
-    "mobility": {"users": 20, "profile": "veh16"},
+    "mobility": {"users": 20, "profile": "v60"},
     "run": {"duration_s": 60.0, "warmup_s": 10.0},
 })
 rules = [
@@ -271,14 +305,14 @@ traffic models (one seed, 30 users, 60 s on the urban grid at 10 GHz):
 
 ```text
 model        cell load  rate [Mbit/s]  delivered  SINR [dB]  failures/UE-min
-fixed             0.28          14.25       0.98       24.8             0.00
-full_buffer       0.51         707.08       0.48       22.4             0.04
-periodic          0.28           0.04       0.96       24.9             0.00
-ftp3              0.28           3.93       0.93       24.9             0.00
+fixed             0.28          14.25       0.98       24.3             0.12
+full_buffer       0.52         725.93       0.49       21.9             0.08
+periodic          0.28           0.04       0.80       24.4             0.12
+ftp3              0.28           3.93       0.85       24.4             0.12
 ```
 
-Busier cells interfere more: under full buffer the SINR drops by more than 2 dB and failures
-appear.
+Busier cells interfere more: under full buffer the SINR drops by about 2.5 dB. With one seed each
+failure rate counts only a few failures; compare them over several seeds.
 
 The full script is [examples/compare_a3_cho.py](https://github.com/mjs19971997/handoverlab/blob/main/examples/compare_a3_cho.py). Writing your own
 handover rule takes a few lines; see the [user guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/user_guide.md).
@@ -299,7 +333,8 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
   [run on many cores](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/many-cores.md), [export event logs](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/export-event-logs.md),
   [reproduce and check results](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/reproduce.md), [DAPS and LTM](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/daps-ltm.md),
   [a learning-based rule](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/learning-rule.md), [the upper mid-band](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/upper-mid-band.md),
-  [a highway](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/highway.md).
+  [a highway](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/highway.md), [your own radio map](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/radio-maps.md),
+  [a LEO satellite](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/ntn.md), [moving from 1.x to 2.0](https://github.com/mjs19971997/handoverlab/blob/main/docs/migration-2.0.md).
 - Reference: [command line](https://github.com/mjs19971997/handoverlab/blob/main/docs/reference/cli.md), [metric names](https://github.com/mjs19971997/handoverlab/blob/main/docs/reference/metrics.md) and the
   API (generated from the docstrings, in the site); [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md).
 - [Scenario cards](https://github.com/mjs19971997/handoverlab/tree/main/docs/scenarios): the built-in scenarios with the source of every parameter.
@@ -345,8 +380,12 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     and LTM against TS 38.133 and published 3GPP evaluations.
 20. 1.11.0: the TR 37.885 highway, the card audit, the bandit against an exhaustive search, the
     `dqn` rule and the optional Numba kernel.
-21. **1.12.0 (this release)**: radio maps from ray tracing or measurements.
-22. Later (planned, not done): NTN mobility (CHO events D1/T1), 2.0.0.
+21. 1.12.0: radio maps from ray tracing or measurements.
+22. **2.0.0 (this release)**: a LEO satellite with earth-moving beams and conditional handover with
+    event D2; the 3GPP values as defaults, with a switch back to 1.x.
+23. Later (planned, not done): the failure model checked on held-out measurements, the sensitivity of
+    the results to the time step (LTM and beams), a reproducible benchmark package against
+    ns-3 / 5G-LENA, a table of model boundaries, condEventT1 and earth-fixed beams.
 
 ## Citation
 

@@ -32,6 +32,7 @@ import pytest
 import scipy
 
 import handoverlab as hl
+from handoverlab.stability import LEGACY_1X
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "data", "bh6_reference.json"), encoding="utf-8") as _f:
@@ -72,12 +73,12 @@ SAME_BUILD = (np.__version__ == REF["versions"]["numpy"] and scipy.__version__ =
 
 def scenario_for(case):
     s, radio = case["scenario"], case["radio"]
-    return hl.Scenario.from_dict({
+    return hl.Scenario.from_dict({  # the prototype of 1.x: legacy settings (2.0.0)
         "layout": {"kind": "street_grid", "blocks": [2, 2], "site_spacing_m": s["isd"]},
         "mobility": {"users": s["n_ue"], "profile": s["profile"]},
         "run": {"duration_s": s["t_sim"], "warmup_s": s["discard"]},
         "radio": {"isolation": radio.get("chi", 0.30)},
-    })
+    }).with_overrides(LEGACY_1X)
 
 
 @pytest.mark.parametrize("case_name", sorted(REF["cases"]))

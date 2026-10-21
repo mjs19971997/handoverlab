@@ -28,6 +28,7 @@ highway-tr37885-30ghz The TR 37.885 highway above 6 GHz (hexagonal layout, 30 GH
 highway-tr37885-4ghz The TR 37.885 highway below 6 GHz (baseline layout, 4 GHz)
 indoor-office-4ghz The TR 38.901 indoor office with ceiling sites at 4 GHz
 ns3-urban-3.5ghz   Reference scenario of the comparison with ns-3 / 5G-LENA
+ntn-leo600-2ghz    A LEO satellite at 600 km with 19 earth-moving beams in the S band (NTN)
 open-area-10ghz    Open area with hexagonal sites, nothing tied to place
 rural-700mhz       Rural macro cells at 700 MHz
 smoke              Small street grid that runs in seconds
@@ -60,17 +61,18 @@ handoverlab run examples/smoke.yaml
 ```
 
 ```text
-seed 1: 2 rules in 5.9 s
-seed 2: 2 rules in 6.7 s
+seed 1: 2 rules in 8.1 s
+seed 2: 2 rules in 8.4 s
 rule          seed handovers_pm unnecessary_  pingpong_pm  failures_pm prepared_cel
-A3               1       9.8400       2.8800       0.9600       0.0000       0.0000
-CHO              1      10.3200       3.1200       1.2000       0.0000       0.0803
-A3               2       7.2000       0.9600       0.2400       0.2400       0.0000
-CHO              2       7.4400       1.2000       0.2400       0.0000       0.0741
+A3               1      11.7600       4.3200       1.2000       0.0000       0.0000
+CHO              1      12.0000       4.5600       1.4400       0.0000       0.0979
+A3               2       7.9200       0.9600       0.4800       0.2400       0.0000
+CHO              2       8.8800       1.6800       0.7200       0.0000       0.0894
 wrote results/smoke.json
 ```
 
-Times depend on the machine; the numbers do not (same version, same platform).
+Times depend on the machine; the numbers do not (same version, same platform). The numbers are those of
+2.0.0; 1.x gave other values, as its defaults differed ([moving from 1.x to 2.0](../migration-2.0.md)).
 
 **What happened.** For each seed HandoverLab built one *world*: the site layout, the radio map
 (line of sight, path loss, shadowing), the trajectories of the users and their services. Both rules

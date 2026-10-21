@@ -22,6 +22,7 @@ import pytest
 import scipy
 
 import handoverlab as hl
+from handoverlab.stability import LEGACY_1X
 from test_regression_bh6 import NAMES
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -47,7 +48,7 @@ def scenario_for(case):
     radio = {_RADIO[k]: ({"uma": "uma", "umi": "umi_street_canyon"}.get(v, v) if k == "pl_model" else v)
              for k, v in case["radio"].items()}
     radio["clutter_los"] = s.get("clutter", True)
-    return hl.Scenario.from_dict({
+    return hl.Scenario.from_dict({  # the prototype of 1.x: legacy settings (2.0.0)
         "layout": {"kind": "street_grid" if s["env"] == "grid" else "open_area", "blocks": [2, 2],
                    "site_spacing_m": s["isd"]},
         "radio": radio,
@@ -55,7 +56,7 @@ def scenario_for(case):
         "traffic": {"label_load": s.get("label_load", 1.0)},
         "mobility": {"users": s["n_ue"], "profile": s["profile"]},
         "run": {"duration_s": s["t_sim"], "warmup_s": s["discard"]},
-    })
+    }).with_overrides(LEGACY_1X)
 
 
 def test_sample_is_wide():

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="383" viewBox="0 0 640 383">
+<rect x="0" y="0" width="640" height="359" fill="#f4f4f0" stroke="#999"/>
+<rect x="274.9" y="150.8" width="57.1" height="57.1" fill="#b9b9b0"/>
+<circle cx="303.4" cy="179.4" r="3" fill="#c0392b"/>
+<circle cx="310.1" cy="248.2" r="3" fill="#c0392b"/>
+<circle cx="572.9" cy="221.7" r="3" fill="#c0392b"/>
+<circle cx="148.2" cy="209.2" r="3" fill="#c0392b"/>
+<circle cx="572.9" cy="137.0" r="3" fill="#c0392b"/>
+<circle cx="148.2" cy="149.5" r="3" fill="#c0392b"/>
+<circle cx="310.1" cy="110.5" r="3" fill="#c0392b"/>
+<circle cx="331.1" cy="320.6" r="3" fill="#c0392b"/>
+<circle cx="601.9" cy="309.6" r="3" fill="#c0392b"/>
+<circle cx="156.4" cy="270.0" r="3" fill="#c0392b"/>
+<circle cx="40.8" cy="233.6" r="3" fill="#c0392b"/>
+<circle cx="38.1" cy="179.4" r="3" fill="#c0392b"/>
+<circle cx="601.9" cy="49.1" r="3" fill="#c0392b"/>
+<circle cx="40.8" cy="125.1" r="3" fill="#c0392b"/>
+<circle cx="156.4" cy="88.7" r="3" fill="#c0392b"/>
+<circle cx="331.1" cy="38.1" r="3" fill="#c0392b"/>
+<text x="4" y="376" font-family="sans-serif" font-size="12" fill="#333">ntn-leo600-2ghz: 16 beam centres above 10 degrees elevation, 672 km x 377 km (grey: users' area)</text>
+</svg>

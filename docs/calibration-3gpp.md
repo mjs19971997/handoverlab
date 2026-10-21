@@ -7,7 +7,8 @@ geometry (wideband SINR, with and without noise) lie inside the range of the 21 
 reported their results to 3GPP in R1-165974, for UMa, UMi-Street Canyon and the indoor office at
 6 GHz and 30 GHz: 325 of 342 compared percentiles (5 % to 95 % in steps of 5 %) are inside the
 range, and none is more than about 1 dB from the industry mean. `handoverlab verify` repeats the
-check (group `calibration`).
+check (group `calibration`). With c = 3.0e8 m/s in the breakpoint distances (2.0.0) every number of this
+page is unchanged.
 
 ![HandoverLab against the 21 companies of 3GPP R1-165974](images/calibration_38901.png)
 

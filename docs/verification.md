@@ -1,8 +1,10 @@
 # Verification of HandoverLab
 
 This page describes how HandoverLab is checked, how to run the checks yourself and what they
-showed for version 0.2.0a1. All versions since 0.3.0a1 give bit-identical results (the golden
-fingerprints and the bh6 regression are unchanged), so every number below still holds. Run everything with
+showed for version 0.2.0a1. All 1.x versions since 0.3.0a1 give bit-identical results on the same
+configuration (the golden fingerprints and the bh6 regression are unchanged). 2.0.0 changed defaults; with
+`handoverlab.stability.LEGACY_1X` it gives every 1.x golden run bit for bit, so the numbers below hold for
+those settings. Run everything with
 
 ```bash
 handoverlab verify                 # about two minutes; prints PASS / FAIL / NOTE per check
@@ -29,6 +31,8 @@ writes the report with the versions of Python, NumPy and SciPy and the platform.
 | Golden fingerprints | SHA-256 of the event logs of short reference runs (several scenarios, up to three rules each) | `verify` group `fingerprints`, `tests/test_verify.py` |
 | Regression against bh6 | ten cases, 36 runs: every metric and (for the wide sample) every event log identical to the prototype from which HandoverLab was ported | `tests/test_regression_bh6*.py` |
 | TR 37.885 highway (1.11.0) | geometry and link budget of the two highway cards against TR 37.885, TR 36.885 and TR 38.901; continuity of the received power at the wrap-around; coupling gain to the strongest site against an independent computation (percentiles 5-95 within 0.5 dB); LOS on every link | `verify` group `highway`, `tests/test_highway_tr37885.py` |
+| Legacy settings (2.0.0) | every golden run of 1.12.0 repeated with `LEGACY_1X`: identical event logs (33 of 33) | `verify` group `fingerprints` (section `fingerprints-1x`) |
+| Satellite (2.0.0) | N1 link budget of the 8 S-band LEO cases of TR 38.821 Table 6.1.3.3-1 within 0.1 dB (passed, 0.028 dB); N2 3 dB beamwidth within 0.01 degree of Tables 6.1.1.1-1/-2 (failed for 1 m: 0.014 degree; see the [NTN guide](guides/ntn.md)); N3 orbital speed and nadir footprint (passed) | `verify --only ntn` |
 | Learning rule (1.11.0) | `a3_bandit` against an exhaustive search over its arms, three criteria fixed before the run (one failed: see the [learning-rule guide](guides/learning-rule.md)) | `verify --only learning` (about 20 minutes) |
 | Imported radio maps (1.12.0) | an exported street-grid map imported again gives the identical event log (every golden case on the street grid); interpolation of measured points with its hold-out error; errors for a wrong format, other sites, a map that does not cover the area, a changed file | `tests/test_mapfile.py` |
 | Compiled kernel (1.11.0) | the golden fingerprints with `run.backend: numba` | `tests/test_v111.py` (with Numba installed) |

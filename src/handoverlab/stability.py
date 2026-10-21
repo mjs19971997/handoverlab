@@ -42,6 +42,18 @@ RULE_API_VERSION = 1
 #: old metric name -> current name (old names keep working, with a warning)
 METRIC_ALIASES: Dict[str, str] = {}
 
+#: scenario overrides that give the results of HandoverLab 1.x (since 2.0.0).  Apply them with
+#: ``scenario.with_overrides(LEGACY_1X)``; a scenario on the urban grid also needs ``mobility.profile: veh16``
+#: (the 1.x cards smoke, urban-grid-10ghz, fr3-urban-15ghz, urban-grid-28ghz-beams and open-area-10ghz).
+#: ``handoverlab verify --only fingerprints`` checks that these settings reproduce every 1.x golden run.
+LEGACY_1X: Dict[str, object] = {
+    "radio.breakpoint_c_mps": 299792458.0,    # 1.x: the exact speed of light in the breakpoint distances
+    "radio.pl_min_distance_m": 0.0,           # 1.x: path loss at any distance
+    "protocol.cmd_during_t310": "lost",       # 1.x: a handover command is lost while T310 runs
+    "protocol.t304_s": None,                  # 1.x: no T304
+    "protocol.rlm_holdoff_s": 0.0,            # 1.x: link monitoring not restarted on a new cell
+}
+
 
 class HandoverLabDeprecationWarning(FutureWarning):
     """A deprecated part of the public surface was used.
@@ -165,7 +177,8 @@ def public_surface() -> Dict[str, Any]:
     )
 
 
-__all__ = ["SCHEMA_VERSION", "RULE_API_VERSION", "METRIC_ALIASES", "HandoverLabDeprecationWarning", "deprecated",
+__all__ = ["SCHEMA_VERSION", "RULE_API_VERSION", "METRIC_ALIASES", "LEGACY_1X", "HandoverLabDeprecationWarning",
+           "deprecated",
            "deprecated_alias", "metric_name", "check_schema", "count_names", "public_surface"]
 
 

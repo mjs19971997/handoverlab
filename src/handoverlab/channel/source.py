@@ -29,7 +29,7 @@ from scipy.signal import lfilter
 from scipy.special import ndtri
 
 from ..seeds import streams
-from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, soft_los_power_weight
+from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, radio_kwargs, soft_los_power_weight
 
 LN10_10 = np.log(10.0) / 10.0
 
@@ -117,8 +117,8 @@ class RadioSource:
             self.zo = o[-1].copy()
             u += np.sqrt(1.0 - R.place_share) * o.reshape(d2.shape)
         args = (R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m)
-        g_l = -path_loss(d2, True, *args) + los_shadow_sd(d2, R) * u
-        g_n = -path_loss(d2, False, *args) + R.shadow_nlos_db * u
+        g_l = -path_loss(d2, True, *args, **radio_kwargs(R)) + los_shadow_sd(d2, R) * u
+        g_n = -path_loss(d2, False, *args, **radio_kwargs(R)) + R.shadow_nlos_db * u
         return mix_db(soft_los_power_weight(z, R.carrier_ghz, R.soft_los_d_m), g_l, g_n).reshape(shape)
 
     def chunks(self) -> Iterator[Chunk]:
@@ -164,7 +164,8 @@ class RadioSource:
                     g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
                     self.zl = g[-1].copy()
                     los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9))
-                rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m).reshape(shape)
+                rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m,
+                                **radio_kwargs(R)).reshape(shape)
                 sig = np.where(los, los_shadow_sd(d2, R), R.shadow_nlos_db).reshape(shape)
                 if rmap.has_field:
                     rs += rmap.lookup(x, y).astype(np.float64).reshape(shape) * sig

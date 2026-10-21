@@ -33,7 +33,12 @@ def test_golden_fingerprints():
     golden.fingerprint_checks(rep)
     _ok(rep)
     ref = golden.load()
-    assert sum(len(v) for v in ref["cases"].values()) == len([c for c in rep.checks if c.status != "NOTE"])
+    assert sum(len(v) for v in ref["cases"].values()) == len([c for c in rep.checks
+                                                              if c.status != "NOTE" and c.group == "fingerprints"])
+    with open(golden.PATH_1X, encoding="utf-8") as f:   # 2.0.0: every golden run of 1.12.0 with LEGACY_1X
+        old = json.load(f)
+    assert sum(len(v) for v in old["cases"].values()) == len([c for c in rep.checks if c.group == "fingerprints-1x"
+                                                              and c.status != "NOTE"]) == 33
 
 
 def test_radio_statistics():
@@ -107,7 +112,7 @@ def test_ns3_compare_and_holdout_logic(monkeypatch):
 def test_groups_listed():
     assert GROUPS == ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended",
                       "highway")
-    assert OPTIONAL_GROUPS == ("learning",)
+    assert OPTIONAL_GROUPS == ("learning", "ntn")
 
 
 def test_ns3_scenario_overrides():
