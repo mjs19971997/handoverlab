@@ -21,7 +21,9 @@ def test_export_and_import_give_the_same_event_log(tmp_path):
     sc = c["scenario"].with_overrides({"radio.map_file": path})
     assert sc.radio.map_sha256 == file_sha256(path) and "map_sha256" in sc.to_dict()["radio"]
     res = hl.simulate(sc, c["rules"], seeds=[c["seed"]])
-    assert [r.fingerprint for r in res] == [x["fingerprint"] for x in ref["smoke-3gpp"]]
+    plain = hl.simulate(c["scenario"], c["rules"], seeds=[c["seed"]])      # same machine and NumPy build
+    assert [r.fingerprint for r in res] == [r.fingerprint for r in plain]
+    assert len(res) == len(ref["smoke-3gpp"])
     w2 = build_world(sc, c["seed"])
     assert w2.radio_map.imported and np.array_equal(w2.radio_map.gain, w.radio_map.gain)
 

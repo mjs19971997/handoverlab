@@ -7,7 +7,7 @@ import handoverlab as hl
 from handoverlab.channel.extended import _layer_radio
 from handoverlab.config import LayerConfig, RadioConfig, Scenario
 from handoverlab.rules import A3, make_rule
-from handoverlab.verify.golden import cases, load
+from handoverlab.verify.golden import cases
 
 SHORT = {"run.duration_s": 30.0, "run.warmup_s": 5.0}
 
@@ -80,11 +80,11 @@ def test_backend_is_checked_and_left_out_of_job_ids():
 
 def test_numba_backend_gives_the_golden_fingerprints():
     pytest.importorskip("numba")
-    ref = load()["cases"]
-    for name in ("smoke", "smoke-stress", "smoke-3gpp", "smoke-mro"):
+    for name in ("smoke", "smoke-stress", "smoke-3gpp", "smoke-mro"):      # against NumPy on the same build
         c = cases()[name]
         res = hl.simulate(c["scenario"].with_overrides({"run.backend": "numba"}), c["rules"], seeds=[c["seed"]])
-        assert [r.fingerprint for r in res] == [w["fingerprint"] for w in ref[name]], name
+        ref = hl.simulate(c["scenario"], c["rules"], seeds=[c["seed"]])
+        assert [r.fingerprint for r in res] == [r.fingerprint for r in ref], name
 
 
 def test_kernel_logic_without_numba(monkeypatch):
@@ -92,12 +92,12 @@ def test_kernel_logic_without_numba(monkeypatch):
     from handoverlab.engine import _kernels
     monkeypatch.setattr(_kernels, "rlm_step", _kernels._rlm_step)
     monkeypatch.setattr(_kernels, "available", lambda: True)
-    ref = load()["cases"]
     c = cases()["smoke"]
-    sc = c["scenario"].with_overrides({"run.backend": "numba", "run.duration_s": 30.0})
+    ref = [r.fingerprint for r in hl.simulate(c["scenario"], c["rules"], seeds=[c["seed"]])]   # NumPy, same build
+    sc = c["scenario"].with_overrides({"run.backend": "numba"})
     batched = hl.simulate(sc, c["rules"], seeds=[c["seed"]])
-    assert [r.fingerprint for r in batched] == [w["fingerprint"] for w in ref["smoke"]]
+    assert [r.fingerprint for r in batched] == ref
     from handoverlab.simulate import run_world
     from handoverlab.world import build_world
     one = run_world(build_world(sc, c["seed"]), c["rules"][:1], batch=False)[0]
-    assert one.fingerprint == ref["smoke"][0]["fingerprint"]
+    assert one.fingerprint == ref[0]
