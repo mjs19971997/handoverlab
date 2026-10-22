@@ -7,6 +7,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- User-plane buffers at handover as an option (`protocol.buffers`: `am` or `um`, off by default): one downlink
+  bearer per user whose PDCP data wait in a FIFO at the gNB, data forwarding over Xn (`protocol.forwarding`,
+  `protocol.xn_delay_s`) for baseline handover, CHO and LTM / CLTM (late forwarding after HANDOVER SUCCESS unless
+  `protocol.early_forwarding`) and DAPS (the source keeps sending, copies to the target), re-establishment with
+  and without forwarding, the PDCP discard timer of TS 38.331 (`protocol.discard_timer_s`), and with the slot
+  scheduler the HARQ data at a MAC reset (lost with RLC UM, re-sent with AM) and TBs lost after the last HARQ
+  transmission. Sources: TS 38.300 V19.4.0 9.2.3.1-9.2.3.7, TS 38.322 V19.2.0 4.4 / 5.1.2, TS 38.323 V19.1.0
+  5.1.2 / 5.3 / 5.5. New metrics `pdcp_delivered_kbyte_pm`, `pdcp_lost_*`, `pdcp_forwarded_*`, `pdcp_delay_ms`,
+  `pdcp_delay_p95_ms`, `pdcp_delay_forwarded_ms` (0 without the option). Base engine only. With the option off
+  every result is unchanged. Guide: `docs/guides/buffers.md`.
+
 ## [2.2.0] - 2026-10-22
 
 ### Added

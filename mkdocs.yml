@@ -38,6 +38,7 @@ nav:
       - Beams and several carriers: guides/beams-layers.md
       - Fast fading and effective SINR: guides/fading.md
       - Slot scheduler, MCS and HARQ: guides/scheduler.md
+      - User-plane buffers at handover: guides/buffers.md
       - Your own radio map: guides/radio-maps.md
       - A LEO satellite (NTN): guides/ntn.md
       - Moving from 1.x to 2.0: migration-2.0.md

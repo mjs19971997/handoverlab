@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Dict
 
+from .buffers import PDCP_METRICS
+
 OUTCOMES = ("useful", "unnecessary", "too_early", "wrong_cell", "too_late", "censored", "coverage")
 CAUSES = ("command_lost", "rlf_in_preparation", "rlf_without_handover", "coverage_rlf", "execution_failure",
           "rlf_after_handover")
@@ -77,6 +79,24 @@ METRICS: Dict[str, tuple] = {
     "beam_recovery_s_pm": ("s/UE-min", "time spent in beam failure recovery"),
     "inter_frequency_handovers_pm": ("1/UE-min", "completed handovers between cells of different carriers"),
     "gap_share": ("1", "share of the UE time in measurement gaps while connected (no data in a gap)"),
+    # user-plane buffers (since 2.3.0; zero without protocol.buffers): downlink PDCP data of one DRB per user
+    "pdcp_delivered_kbyte_pm": ("kbyte/UE-min", "PDCP data delivered to the users"),
+    "pdcp_lost_kbyte_pm": ("kbyte/UE-min", "PDCP data lost (sum of the four causes)"),
+    "pdcp_lost_share": ("1", "lost share of the PDCP data that arrived at the gNB"),
+    "pdcp_lost_handover_kbyte_pm": ("kbyte/UE-min", "data lost at handover executions (no forwarding; HARQ data "
+                                                    "with RLC UM)"),
+    "pdcp_lost_failure_kbyte_pm": ("kbyte/UE-min", "data lost at failures and re-establishments (no forwarding to "
+                                                   "another cell; HARQ data with RLC UM)"),
+    "pdcp_lost_discard_kbyte_pm": ("kbyte/UE-min", "data discarded by the PDCP discard timer"),
+    "pdcp_lost_harq_kbyte_pm": ("kbyte/UE-min", "transport blocks lost after the last HARQ transmission with RLC UM "
+                                                "(slot scheduler)"),
+    "pdcp_lost_sdus_pm": ("1/UE-min", "lost data in SDUs of protocol.sdu_bytes"),
+    "pdcp_forwarded_kbyte_pm": ("kbyte/UE-min", "data forwarded over Xn (DAPS: every SN-assigned byte of the "
+                                                "execution, duplicates included)"),
+    "pdcp_forwarded_sdus_pm": ("1/UE-min", "forwarded data in SDUs of protocol.sdu_bytes"),
+    "pdcp_delay_ms": ("ms", "mean PDCP delay (arrival at the gNB to delivery, byte-weighted)"),
+    "pdcp_delay_p95_ms": ("ms", "95th percentile of the PDCP delay (1 ms bins)"),
+    "pdcp_delay_forwarded_ms": ("ms", "mean PDCP delay of the delivered data that were forwarded"),
 }
 for _c in CAUSES:
     METRICS["fail_%s_pm" % _c] = ("1/UE-min", "failures with cause %s" % _c)
@@ -138,6 +158,8 @@ def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, 
     out["beam_recovery_s_pm"] = acc.get("bfr_time", 0.0) / ue_min
     out["inter_frequency_handovers_pm"] = C.get("ho_inter", 0) / ue_min
     out["gap_share"] = acc.get("gap_time", 0.0) / ue_s
+    for k in PDCP_METRICS:
+        out[k] = acc.get(k, 0.0)
     for k, name in _COUNTS.items():
         out[name] = C[k]
     for o in OUTCOMES:

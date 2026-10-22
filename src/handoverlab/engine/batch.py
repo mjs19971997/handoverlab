@@ -79,7 +79,8 @@ class EngineBatch:
                 and not any(e.std and e.proc.dual for e in engines)  # DAPS per execution (2.1.0): one by one
                 and all(e.world.scenario.traffic.model == "fixed" for e in engines)
                 and not any(e.world.scenario.radio.fast_fading for e in engines)   # effective SINRs (2.2.0)
-                and not any(e.world.scenario.protocol.scheduler for e in engines))  # slot scheduler (2.2.0)
+                and not any(e.world.scenario.protocol.scheduler for e in engines)   # slot scheduler (2.2.0)
+                and not any(e.world.scenario.protocol.buffers for e in engines))    # user-plane buffers (2.3.0)
 
     def advance(self, ch) -> None:
         """Simulate the steps of one radio chunk for every engine."""

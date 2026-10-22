@@ -216,6 +216,22 @@ reading.
 | Block errors of a transport block | not specified (receiver property) | normal approximation of the finite-blocklength error probability on the BICM bit channel, with an implementation loss | abstraction |
 | Scheduling | not specified (gNB) | round robin in frequency or proportional fair in time | abstraction |
 
+## User-plane buffers at handover (2.3.0, `protocol.buffers`)
+
+| What the texts specify | Clause | HandoverLab | Status |
+|---|---|---|---|
+| Data forwarding may start with HANDOVER REQUEST ACKNOWLEDGE or the handover command | TS 38.300 V19.4.0 9.2.3.2.1 NOTE 2 | baseline handover: the source forwards its FIFO when the UE leaves and the data arriving until the completion | follows (forwarding is optional in the text: `forwarding`) |
+| Forwarding in order; the target sends forwarded data before new data | 9.2.3.2.2, 9.2.3.2.3 | one FIFO per user, forwarded data stay at its head | follows |
+| RLC-AM: the target re-transmits forwarded data not acknowledged; RLC-UM: no PDCP SDU re-transmitted in the target | 9.2.3.2.2 | HARQ data at the execution start kept with AM, lost with UM | follows (no PDCP status report, no duplicates) |
+| RRC handover: MAC reset and RLC re-establishment (DAPS excepted); RLC re-establishment discards the RLC PDUs | 9.2.3.1; TS 38.322 V19.2.0 5.1.2 | as in the row above | follows |
+| ARQ only for AM | TS 38.322 4.4 | a TB lost after the last HARQ transmission: re-sent with AM, lost with UM | follows (RLC ARQ timing not modelled) |
+| DAPS: forwarding tunnel always; the source keeps sending and forwards SN-assigned SDUs; the UE receives from both until the source is released | 9.2.3.2.1 NOTE 4, 9.2.3.2.2, 9.2.3.2.3 | the source serves during the execution, its data are counted as forwarded copies, the target sends the rest at the completion | follows (SN assignment on arrival: assumption) |
+| CHO: late forwarding after HANDOVER SUCCESS or early forwarding to candidates | 9.2.3.4.2 NOTE 2, 9.2.3.4.3, 9.2.3.4.4 | late: the data reach the target 2 x `xn_delay_s` after the completion; `early_forwarding`: at the target when the UE arrives | follows (copies to unused candidates not counted) |
+| Inter-gNB LTM: early forwarding (step 9a), at the cell switch (NOTE 4) or late (NOTE 5); MAC reset, RLC / PDCP handling configured | 9.2.3.5.2, 9.2.3.5.3, 9.2.3.7.1 | as CHO (every HandoverLab cell is its own gNB) | follows (intra-CU LTM not modelled) |
+| Re-establishment: the new gNB may fetch the data of the last serving gNB | 9.2.3.3 steps 6/7 | with `forwarding` the data move to the new cell, `xn_delay_s` after the re-establishment; without it they are lost in another cell | follows |
+| PDCP discard timer; its values | TS 38.323 V19.1.0 5.3; TS 38.331 PDCP-Config discardTimer | data older than `discard_timer_s` (a value of the list or infinity) are discarded | follows (the gNB uses the UE timer values: assumption) |
+| Xn delay, path switch | not specified | `xn_delay_s` (assumption); the path switches at the completion | abstraction |
+
 ## Beyond 5G: what is not modelled yet
 
 | Rule | Clause | Status |
@@ -248,7 +264,7 @@ The ns-3 / 5G-LENA build of the comparison study was read at the source (contrib
 | CHO, DAPS, LTM, conditional LTM (Rel-16 to 19) | none | all four |
 | Beam failure recovery | none | none |
 | Large-scale channel calibration (TR 38.901 7.8.1) | calibrated by its authors | calibrated (see [radio calibration](calibration-3gpp.md)) |
-| Fast fading, packet-level PHY/MAC/RLC | yes | options since 2.2.0: TDL fast fading, a slot scheduler with MCS, TBS and HARQ; no RLC / PDCP |
+| Fast fading, packet-level PHY/MAC/RLC | yes | options since 2.2.0: TDL fast fading, a slot scheduler with MCS, TBS and HARQ; since 2.3.0 simplified PDCP / RLC buffers with data forwarding (downlink, one bearer) |
 
 **Reading.** On the rules of the handover procedure and on the procedures of Releases 16 to 19,
 HandoverLab with the 3GPP profile follows the normative texts more closely; on the physical layer

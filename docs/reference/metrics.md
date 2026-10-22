@@ -52,6 +52,19 @@ Rates are per UE-minute of the measured part of the run (after the warm-up) and 
 | `beam_recovery_s_pm` | s/UE-min | time spent in beam failure recovery |
 | `inter_frequency_handovers_pm` | 1/UE-min | completed handovers between cells of different carriers (since 1.10.0; 0 on one carrier) |
 | `gap_share` | 1 | share of the UE time in measurement gaps while connected; no data is received in a gap (TS 38.133 9.1.2) |
+| `pdcp_delivered_kbyte_pm` | kbyte/UE-min | downlink PDCP data delivered (since 2.3.0; 0 without `protocol.buffers`, as all `pdcp_` metrics; see the [buffers guide](../guides/buffers.md)) |
+| `pdcp_lost_kbyte_pm` | kbyte/UE-min | PDCP data lost (sum of the four causes below) |
+| `pdcp_lost_share` | 1 | lost share of the PDCP data that arrived at the gNB |
+| `pdcp_lost_handover_kbyte_pm` | kbyte/UE-min | data lost at handover executions: no forwarding, or HARQ data with RLC UM |
+| `pdcp_lost_failure_kbyte_pm` | kbyte/UE-min | data lost at failures and re-establishments: no forwarding to another cell, or HARQ data with RLC UM |
+| `pdcp_lost_discard_kbyte_pm` | kbyte/UE-min | data discarded by the PDCP discard timer (TS 38.323 5.3) |
+| `pdcp_lost_harq_kbyte_pm` | kbyte/UE-min | transport blocks lost after the last HARQ transmission with RLC UM (slot scheduler) |
+| `pdcp_lost_sdus_pm` | 1/UE-min | lost data in SDUs of `protocol.sdu_bytes` |
+| `pdcp_forwarded_kbyte_pm` | kbyte/UE-min | data forwarded over Xn (DAPS: every SN-assigned byte of the execution, duplicates included) |
+| `pdcp_forwarded_sdus_pm` | 1/UE-min | forwarded data in SDUs of `protocol.sdu_bytes` |
+| `pdcp_delay_ms` | ms | mean PDCP delay: arrival at the gNB to delivery, byte-weighted |
+| `pdcp_delay_p95_ms` | ms | 95th percentile of the PDCP delay (1 ms bins) |
+| `pdcp_delay_forwarded_ms` | ms | mean PDCP delay of the delivered data that a target sent after forwarding |
 | `fail_command_lost_pm` | 1/UE-min | failures with cause command_lost |
 | `fail_rlf_in_preparation_pm` | 1/UE-min | failures with cause rlf_in_preparation |
 | `fail_rlf_without_handover_pm` | 1/UE-min | failures with cause rlf_without_handover |
