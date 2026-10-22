@@ -7,7 +7,8 @@ Check groups (all run by default, in this order):
 ``radio``         statistics of the radio model against its parameters (shadowing, LOS share, time variation,
                   L1 error, L3 filter)
 ``calibration``   large-scale calibration of TR 38.901 clause 7.8.1 against the 21 companies of 3GPP
-                  R1-165974 (coupling loss, SINR and SIR CDFs of UMa, UMi and the indoor office at 6 and 30 GHz)
+                  R1-165974 (coupling loss, SINR and SIR CDFs of UMa, UMi and the indoor office at 6 and 30 GHz);
+                  since 2.4.0 also Table 7.8-1A (UMa, UMi, SMa at 7 GHz) against 3GPP R1-2506406
 ``invariants``    built-in rules in debug mode, conservation of counts, determinism, independence of rules
 ``equivalences``  CHO with immediate execution = A3; a plug-in rule that reduces to A3 = A3
 ``fingerprints``  golden event-log fingerprints of short reference runs

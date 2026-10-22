@@ -74,8 +74,9 @@ scenario:
 - The urban macro card has no wrap-around: the vehicles drive on 3 x 3 blocks and every lattice site within
   1000 m of them is simulated. The position of the lattice relative to the blocks is read from TR 36.885 Figure
   A.1.3-1, which has no numbers.
-- The 7 GHz large-scale calibration of TR 38.901 clause 7.8.1 (Table 7.8-1A) is not part of 2.3.0: the TR gives the
-  company results only by reference to R1-2506406.
+- The 7 GHz large-scale calibration of TR 38.901 clause 7.8.1 (Table 7.8-1A) was not part of 2.3.0; since 2.4.0
+  it is checked against the companies of R1-2506406 with a sectorised, wrapped SMa drop
+  ([radio calibration](../calibration-3gpp.md)).
 
 ## 4. Checks
 

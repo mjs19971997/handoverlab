@@ -24,6 +24,18 @@ V19.5.0 value the 30 GHz cases leave the company range, the 6 GHz cases do not. 
 radio model of HandoverLab -- path loss, LOS probability, shadowing, penetration loss -- with the
 deployment and antenna that 3GPP fixed for calibration; the handover engine itself uses its own
 antenna abstraction (``radio.bs_gain_db``) and is not part of this check.
+
+7 GHz (since 2.4.0): TR 38.901 V19.5.0 Table 7.8-1A adds UMa, UMi-Street Canyon and SMa (ISD 1299 m and
+1732 m) at 7 GHz, and clause 7.8.1 asks for UMa and UMi at 6 GHz again with the updated channel model.  The
+companies reported these CDFs in R1-2506406 (RAN1 #122, "Calibration Results for 7 - 24 GHz SI", workbook
+``Calibration_LS_v35``, based on TR 38.901 V19.0.0); ``data/r1_2506406.csv`` holds their mean and range.  These
+cases use the IRR-glass loss of Release 19 (:data:`IRR_GLASS_V19`).  SMa follows Tables 7.2-5 and 7.8-1A: 35 m
+sites with a mechanical downtilt (95 deg for ISD 1299 m, 92 deg for 1732 m; the element and the array are
+rotated, Eqs. 7.1-7 and 7.1-8, without electrical tilt), 20 % of the users outdoors in cars (car penetration
+loss of clause 7.4.3.2, non-metallic windows), 80 % indoors (90 % in residential buildings with two floors,
+10 % in commercial buildings with five floors, uniform over the floors) with the low-loss A model, the SMa path
+loss, LOS probability (no vegetation) and shadowing of HandoverLab, and an O2I shadowing of 8 dB (Table 7.5-6
+Part-4).
 """
 from __future__ import annotations
 
@@ -31,36 +43,48 @@ import csv
 import math
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from ..channel import pathloss as _pl
 from ..channel.antenna import element_gain_db  # Table 7.3-1, shared with the beam model
 
 C0 = 3.0e8                # TR 38.901 Table 7.4.1-1 notes 1 and 5 (since 2.0.0; 1.x: 299792458)
-DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "r1_165974.csv")
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DATA = os.path.join(_DATA_DIR, "r1_165974.csv")
+DATA_R1_2506406 = os.path.join(_DATA_DIR, "r1_2506406.csv")     # since 2.4.0
 PERCENTILES = tuple(range(5, 100, 5))
 
 
 @dataclass(frozen=True)
 class CalScenario:
-    """One calibration case of TR 38.901 Table 7.8-1."""
-    name: str          # "UMa", "UMi" or "Indoor"
+    """One calibration case of TR 38.901 Table 7.8-1 (or, since 2.4.0, Table 7.8-1A)."""
+    name: str          # "UMa", "UMi", "Indoor" or (since 2.4.0) "SMa"
     fc_ghz: float
+    isd_m: float = 0.0             # SMa only: 1299 or 1732 m (Table 7.8-1A)
+    reference: str = "R1-165974"   # or "R1-2506406" (since 2.4.0)
 
     @property
     def key(self) -> str:
-        """Sheet name of R1-165974, e.g. ``UMa-6GHz``."""
-        return "%s-%dGHz" % (self.name, round(self.fc_ghz))
+        """Sheet name of the reference, e.g. ``UMa-6GHz`` or ``SMa-7GHz-1299m``."""
+        k = "%s-%dGHz" % (self.name, round(self.fc_ghz))
+        return k + "-%dm" % round(self.isd_m) if self.name == "SMa" else k
 
     @property
     def tx_power_dbm(self) -> float:
-        """Table 7.8-1: 44 dBm UMi, 49 dBm UMa at 6 GHz; 35 dBm at 30 and 70 GHz; 24 dBm indoor."""
+        """Table 7.8-1: 44 dBm UMi, 49 dBm UMa at 6 GHz (also used at 7 GHz); 35 dBm at 30 and 70 GHz; 24 dBm
+        indoor.  Table 7.8-1A: 49 dBm SMa."""
         if self.name == "Indoor":
             return 24.0
         if self.fc_ghz < 10.0:
-            return 49.0 if self.name == "UMa" else 44.0
+            return 49.0 if self.name in ("UMa", "SMa") else 44.0
         return 35.0
+
+    @property
+    def irr_glass(self) -> Tuple[float, float]:
+        """IRR-glass loss of the reference: before Release 19 for R1-165974, Release 19 for R1-2506406."""
+        return IRR_GLASS_V19 if self.reference == "R1-2506406" else IRR_GLASS_R1_165974
 
     @property
     def bandwidth_hz(self) -> float:
@@ -72,6 +96,8 @@ UT_NOISE_FIGURE_DB = 9.0          # Table 7.8-1
 TILT_DEG = {"UMa": 102.0, "UMi": 102.0, "Indoor": 110.0}
 SECTORS_DEG = (30.0, 150.0, 270.0)
 N_ELEMENTS = 10                   # (M, N, P) = (10, 1, 1), d_V = 0.5 lambda
+#: SMa (Table 7.8-1A): mechanical downtilt [deg, zenith convention] per ISD [m]
+SMA_MECH_TILT_DEG = {1299.0: 95.0, 1732.0: 92.0}
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +109,20 @@ def array_gain_db(theta_deg, tilt_deg: float, m: int = N_ELEMENTS):
     k = np.arange(m)
     af = np.abs(np.exp(1j * np.multiply.outer(psi, k)).sum(-1)) ** 2 / m
     return 10.0 * np.log10(np.maximum(af, 1e-30))
+
+
+def gcs_to_lcs_deg(theta_deg, phi_deg, bearing_deg: float, downtilt_deg: float):
+    """Zenith and azimuth angles in the LCS of an antenna with bearing alpha and downtilt beta (slant 0) [deg].
+
+    Eqs. 7.1-7 and 7.1-8 of TR 38.901 with gamma = 0:
+    theta' = arccos(cos beta cos theta + sin beta cos(phi - alpha) sin theta),
+    phi' = arg(cos beta sin theta cos(phi - alpha) - sin beta cos theta + j sin(phi - alpha) sin theta).
+    """
+    t, b = np.radians(theta_deg), math.radians(downtilt_deg)
+    p = np.radians(np.asarray(phi_deg) - bearing_deg)
+    ct = np.clip(math.cos(b) * np.cos(t) + math.sin(b) * np.cos(p) * np.sin(t), -1.0, 1.0)
+    re = math.cos(b) * np.sin(t) * np.cos(p) - math.sin(b) * np.cos(t)
+    return np.degrees(np.arccos(ct)), np.degrees(np.arctan2(np.sin(p) * np.sin(t), re))
 
 
 # ---------------------------------------------------------------------------
@@ -217,9 +257,12 @@ def indoor_sites() -> np.ndarray:
 # one calibration run
 # ---------------------------------------------------------------------------
 def simulate_drops(sc: CalScenario, n_users: int = 6000, seed: int = 1,
-                   irr_glass: Tuple[float, float] = IRR_GLASS_R1_165974) -> Dict[str, np.ndarray]:
+                   irr_glass: Optional[Tuple[float, float]] = None) -> Dict[str, np.ndarray]:
     """Coupling gain (= -coupling loss) to the serving sector, SINR and SIR [dB] of ``n_users`` dropped users
-    (``irr_glass``: see :func:`o2i_loss_db`)."""
+    (``irr_glass``: see :func:`o2i_loss_db`; unset: the value of the case's reference, ``sc.irr_glass``)."""
+    if sc.name == "SMa":
+        return _simulate_sma(sc, n_users, seed)
+    irr_glass = sc.irr_glass if irr_glass is None else irr_glass
     rng = np.random.default_rng([seed, round(sc.fc_ghz * 10), {"UMa": 1, "UMi": 2, "Indoor": 3}[sc.name]])
     fc = sc.fc_ghz
     if sc.name == "Indoor":
@@ -269,7 +312,11 @@ def simulate_drops(sc: CalScenario, n_users: int = 6000, seed: int = 1,
     for b in SECTORS_DEG:
         rel = (phi - b + 180.0) % 360.0 - 180.0
         gains.append(element_gain_db(theta, rel) + array_gain_db(theta, TILT_DEG[sc.name]))
-    cg = np.concatenate([g - loss for g in gains], axis=1)        # coupling gain to every sector
+    return _serving_metrics(sc, np.concatenate([g - loss for g in gains], axis=1), n_users)
+
+
+def _serving_metrics(sc: CalScenario, cg, n_users: int) -> Dict[str, np.ndarray]:
+    """Metrics of Table 7.8-1 from the coupling gain ``cg`` (users x sectors) [dB]."""
     p = 10.0 ** ((sc.tx_power_dbm + cg) / 10.0)                   # received power [mW]
     srv = np.argmax(cg, axis=1)                                   # handover margin 0 dB
     ps = p[np.arange(n_users), srv]
@@ -280,10 +327,93 @@ def simulate_drops(sc: CalScenario, n_users: int = 6000, seed: int = 1,
 
 
 # ---------------------------------------------------------------------------
+# SMa at 7 GHz (Tables 7.2-5 and 7.8-1A; since 2.4.0)
+# ---------------------------------------------------------------------------
+SMA_BS_HEIGHT_M = 35.0            # Table 7.2-5
+SMA_MIN_DISTANCE_M = 35.0         # Table 7.2-5 (2D)
+SMA_OUTDOOR_SHARE = 0.2           # Table 7.8-1A: 20 % of the UTs outdoors (in cars, Table 7.2-5)
+SMA_FLOORS = (2, 5)               # Table 7.2-5: up to two floors (residential), five (commercial)
+SMA_O2I_SHADOW_DB = 8.0           # Table 7.5-6 Part-4, O2I column
+CAR_LOSS_DB = (9.0, 5.0)          # clause 7.4.3.2: mu = 9 dB (non-metallic windows), sigma_P = 5 dB
+
+
+def sma_users(rng, n: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Indoor flag, residential flag and height [m] of ``n`` SMa users (Tables 7.8-1A and 7.2-5).
+
+    80 % indoors; 90 % of them in residential buildings (1.5 or 4.5 m), 10 % in commercial buildings
+    (1.5, 4.5, ..., 13.5 m), uniform over the floors of the building type; outdoor users at 1.5 m.
+    """
+    indoor = rng.random(n) >= SMA_OUTDOOR_SHARE
+    resid = rng.random(n) < _pl.SMA_RESIDENTIAL_SHARE
+    floor = np.floor(rng.random(n) * np.where(resid, SMA_FLOORS[0], SMA_FLOORS[1]))
+    return indoor, resid, np.where(indoor, 3.0 * floor + 1.5, 1.5)
+
+
+def sma_penetration_db(rng, indoor, resid, fc: float) -> Tuple[np.ndarray, np.ndarray]:
+    """Penetration loss [dB] and d2D-in [m] of SMa users: the low-loss A model of Table 7.4.3-2 indoors
+    (d2D-in = minimum of two uniform variables up to 10 m residential, 25 m commercial), the car penetration
+    loss N(9 dB, 5 dB) of clause 7.4.3.2 outdoors."""
+    n = len(indoor)
+    a = np.where(resid, 10.0, 25.0)
+    d_in = np.where(indoor, np.minimum(rng.random(n), rng.random(n)) * a, 0.0)
+    z_bldg, z_car = rng.standard_normal(n), rng.standard_normal(n)
+    bldg = _pl.o2i_wall_loss_db("low_a", fc) + 0.5 * d_in + _pl.O2I_WALLS["low_a"][1] * z_bldg
+    return np.where(indoor, bldg, CAR_LOSS_DB[0] + CAR_LOSS_DB[1] * z_car), d_in
+
+
+def sma_gain_db(theta_deg, phi_deg, bearing_deg: float, mech_tilt_deg: float):
+    """Gain of one SMa sector: element and ten-element array (no electrical tilt) rotated by the mechanical
+    downtilt (zenith convention, e.g. 95 deg = 5 deg below the horizon) and the bearing."""
+    tp, pp = gcs_to_lcs_deg(theta_deg, phi_deg, bearing_deg, mech_tilt_deg - 90.0)
+    return element_gain_db(tp, pp) + array_gain_db(tp, 90.0)
+
+
+def _simulate_sma(sc: CalScenario, n_users: int, seed: int) -> Dict[str, np.ndarray]:
+    fc, isd, hbs = sc.fc_ghz, sc.isd_m, SMA_BS_HEIGHT_M
+    rng = np.random.default_rng([seed, round(fc * 10), 4, round(isd)])
+    sites, offsets = hex_sites(isd), wrap_offsets(isd)
+    S = len(sites)
+    indoor, resid, hut = sma_users(rng, n_users)
+    pen, d_in = sma_penetration_db(rng, indoor, resid, fc)
+    ux = _drop_hex(rng, sites, isd, SMA_MIN_DISTANCE_M + d_in)    # the minimum distance holds for d2D-out
+    dx = ux[:, None, None, 0] - (sites[None, None, :, 0] + offsets[None, :, None, 0])
+    dy = ux[:, None, None, 1] - (sites[None, None, :, 1] + offsets[None, :, None, 1])
+    dd = np.hypot(dx, dy)
+    k = np.argmin(dd, axis=1)
+    iu, js = np.meshgrid(np.arange(n_users), np.arange(S), indexing="ij")
+    d2 = np.maximum(dd[iu, k, js], 1e-3)
+    ex, ey = dx[iu, k, js], dy[iu, k, js]
+    d2out = np.maximum(d2 - d_in[:, None], 0.0)
+    plos = np.empty_like(d2)
+    for h in np.unique(hut):                                      # the SMa formulas take one UT height
+        rows = hut == h
+        plos[rows] = _pl.p_los_sma(d2out[rows], hbs, float(h), 0.0)   # Table 7.8-1A: no vegetation
+    los = rng.random((n_users, S)) < plos
+    pl = np.empty_like(d2)
+    for h in np.unique(hut):
+        rows = hut == h
+        pl[rows] = np.where(los[rows], _pl.sma_los(d2[rows], fc, hbs, float(h)),
+                            _pl.sma_nlos(d2[rows], fc, hbs, float(h)))
+    dbp = (2.0 * math.pi * hbs * hut * fc * 1e9 / C0)[:, None]   # Table 7.4.1-1 note 5
+    sf_sd = np.where(indoor[:, None], SMA_O2I_SHADOW_DB, np.where(los, np.where(d2 < dbp, 4.0, 6.0), 8.0))
+    loss = pl + sf_sd * rng.standard_normal((n_users, S)) + pen[:, None]
+    h = hut[:, None]
+    theta = 90.0 + np.degrees(np.arctan2(hbs - h, d2))
+    phi = np.degrees(np.arctan2(ey, ex))
+    tilt = SMA_MECH_TILT_DEG[float(isd)]
+    gains = [sma_gain_db(theta, phi, b, tilt) for b in SECTORS_DEG]
+    return _serving_metrics(sc, np.concatenate([g - loss for g in gains], axis=1), n_users)
+
+
+# ---------------------------------------------------------------------------
 # reference and comparison
 # ---------------------------------------------------------------------------
+REFERENCE_FILES = {"R1-165974": DATA, "R1-2506406": DATA_R1_2506406}
+
+
 def load_reference(path: str = DATA) -> Dict[str, Dict[str, np.ndarray]]:
-    """Mean, minimum and maximum over the companies of R1-165974, per sheet and metric, at 0..100 %."""
+    """Mean, minimum and maximum over the companies of R1-165974 (or of the reference file ``path``), per sheet
+    and metric, at 0..100 %."""
     ref: Dict[str, Dict[str, List[float]]] = {}
     with open(path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
@@ -316,8 +446,8 @@ class Comparison:
 
 def compare(sc: CalScenario, result: Dict[str, np.ndarray], ref=None,
             percentiles: Sequence[int] = PERCENTILES) -> List[Comparison]:
-    """Our percentiles against the industry mean and range of R1-165974 for the three metrics."""
-    ref = load_reference() if ref is None else ref
+    """Our percentiles against the industry mean and range of the case's reference for the three metrics."""
+    ref = load_reference(REFERENCE_FILES[sc.reference]) if ref is None else ref
     r = ref[sc.key]
     idx = np.searchsorted(r["cdf_percent"], percentiles)
     out = []
@@ -329,6 +459,11 @@ def compare(sc: CalScenario, result: Dict[str, np.ndarray], ref=None,
 
 
 CASES = tuple(CalScenario(n, f) for n in ("UMa", "UMi", "Indoor") for f in (6.0, 30.0))
+#: the cases of R1-2506406 (since 2.4.0): UMa and UMi at 6 GHz with the updated model, UMa, UMi and SMa at 7 GHz
+CASES_R1_2506406 = tuple(CalScenario(n, f, reference="R1-2506406") for f in (6.0, 7.0) for n in ("UMa", "UMi")) + \
+    tuple(CalScenario("SMa", 7.0, isd, "R1-2506406") for isd in (1299.0, 1732.0))
+#: largest distance from the company mean [dB] of the 7 GHz criterion C2 (code/hl240 plan; reported as a note)
+MEAN_TOL_DB = 1.5
 
 
 def calibration_checks(rep, n_users: int = 10000, seed: int = 1, tol_db: float = 0.5) -> None:
@@ -344,3 +479,25 @@ def calibration_checks(rep, n_users: int = 10000, seed: int = 1, tol_db: float =
             rep.check("%s %s within the company range" % (c.key, c.metric.replace("_db", "")), ok,
                       "%d/%d percentiles inside, largest distance from the mean %.2f dB"
                       % (int(c.inside.sum()), len(c.percentiles), c.max_dev_db))
+    calibration_7ghz_checks(rep, n_users, seed, tol_db)
+
+
+def calibration_7ghz_checks(rep, n_users: int = 10000, seed: int = 1, tol_db: float = 0.5) -> None:
+    """7 GHz part of the section ``calibration`` (since 2.4.0): the cases of Table 7.8-1A and the 6 GHz rerun
+    against the companies of R1-2506406.  C1 (a check): every percentile 5-95 % within the company range
+    (+- ``tol_db``); C2 (a note): largest distance from the company mean at most :data:`MEAN_TOL_DB`."""
+    rep.section("calibration", "large-scale calibration at 7 GHz, TR 38.901 V19.5.0 clause 7.8.1 and Table 7.8-1A "
+                               "(IRR glass of V19.5.0), against the companies of 3GPP R1-2506406 (5-95 %%, %d users)"
+                % n_users)
+    ref = load_reference(DATA_R1_2506406)
+    for sc in CASES_R1_2506406:
+        comps = compare(sc, simulate_drops(sc, n_users, seed), ref)
+        for c in comps:
+            ok = bool(np.all((c.ours >= c.lo - tol_db) & (c.ours <= c.hi + tol_db)))
+            rep.check("R1-2506406 %s %s within the company range" % (c.key, c.metric.replace("_db", "")), ok,
+                      "%d/%d percentiles inside, largest distance from the mean %.2f dB"
+                      % (int(c.inside.sum()), len(c.percentiles), c.max_dev_db))
+        dev = max(c.max_dev_db for c in comps)
+        rep.note("R1-2506406 %s near the company mean" % sc.key,
+                 "largest distance %.2f dB over the three metrics (C2: at most %.1f dB, %s)"
+                 % (dev, MEAN_TOL_DB, "met" if dev <= MEAN_TOL_DB else "NOT met"))

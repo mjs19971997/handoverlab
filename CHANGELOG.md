@@ -7,6 +7,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- 7 GHz large-scale calibration (TR 38.901 V19.5.0 clause 7.8.1, Table 7.8-1A) in the `verify` group
+  `calibration`: UMa and UMi at 7 GHz, UMa and UMi at 6 GHz with the updated model, and SMa with ISD 1299 m and
+  1732 m (35 m sites with a mechanical downtilt of 95 / 92 deg through Eqs. 7.1-7 and 7.1-8, 20 % of the users
+  in cars with the car penetration loss, 80 % in residential and commercial buildings over their floors with the
+  low-loss A model), compared with the companies of 3GPP R1-2506406 (RAN1 #122; mean and range in
+  `verify/data/r1_2506406.csv`). Pre-registered result (30 000 users, seed 1): every percentile 5-95 % lies
+  inside the company range (18 of 18 case-metric pairs pass, 342 of 342 percentiles); the largest distance from
+  the company mean is 1.65-2.88 dB, so the second criterion (at most 1.5 dB) fails for all six cases. It is
+  reported as a note. The checks against R1-165974 are unchanged. `simulate_drops` takes the IRR-glass loss of
+  the case's reference when `irr_glass` is not given (unchanged for the old cases).
+
 ## [2.3.0] - 2026-10-22
 
 ### Added

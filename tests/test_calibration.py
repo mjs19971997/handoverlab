@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
-"""Large-scale calibration of TR 38.901 clause 7.8.1 against 3GPP R1-165974 (since 1.8.0)."""
+"""Large-scale calibration of TR 38.901 clause 7.8.1 against 3GPP R1-165974 (since 1.8.0) and, at 7 GHz,
+R1-2506406 (since 2.4.0)."""
 import math
 
 import numpy as np
@@ -78,4 +79,89 @@ def test_drops_fall_in_the_company_range(case):
 def test_verify_group(capsys):
     from handoverlab.verify import run_verify
     rep = run_verify(["calibration"])
-    assert rep.ok and len(rep.checks) == 18
+    checks = [c for c in rep.checks if c.status != "NOTE"]
+    notes = [c for c in rep.checks if c.status == "NOTE"]
+    # 18 checks of R1-165974, 18 checks (C1) and 6 notes (C2) of R1-2506406 (since 2.4.0)
+    assert rep.ok and len(checks) == 36 and len(notes) == 6
+    assert sum(c.name.startswith("R1-2506406") for c in checks) == 18
+
+
+# ---------------------------------------------------------------------------
+# 7 GHz: TR 38.901 Table 7.8-1A against R1-2506406 (since 2.4.0)
+# ---------------------------------------------------------------------------
+def _rot_lcs(theta, phi, alpha, beta):
+    """Independent write-out: direction in the GCS rotated by R^T = (Rz(alpha) Ry(beta))^T (Eqs. 7.1-2, 7.1-3)."""
+    t, p, a, b = (math.radians(x) for x in (theta, phi, alpha, beta))
+    rho = np.array([math.sin(t) * math.cos(p), math.sin(t) * math.sin(p), math.cos(t)])
+    rz = np.array([[math.cos(a), -math.sin(a), 0.0], [math.sin(a), math.cos(a), 0.0], [0.0, 0.0, 1.0]])
+    ry = np.array([[math.cos(b), 0.0, math.sin(b)], [0.0, 1.0, 0.0], [-math.sin(b), 0.0, math.cos(b)]])
+    x, y, z = (rz @ ry).T @ rho
+    return math.degrees(math.acos(z)), math.degrees(math.atan2(y, x))
+
+
+def test_lcs_rotation_of_a_tilted_antenna():
+    # no tilt: theta unchanged, phi relative to the bearing
+    t, p = cal.gcs_to_lcs_deg(100.0, 170.0, 150.0, 0.0)
+    assert float(t) == pytest.approx(100.0) and float(p) == pytest.approx(20.0)
+    # a positive downtilt points the boresight below the horizon: theta = 90 + beta maps to theta' = 90
+    t, p = cal.gcs_to_lcs_deg(95.0, 30.0, 30.0, 5.0)
+    assert float(t) == pytest.approx(90.0) and float(p) == pytest.approx(0.0, abs=1e-9)
+    rng = np.random.default_rng(4)
+    for _ in range(50):
+        th, ph, al, be = rng.uniform(1, 179), rng.uniform(-180, 180), rng.uniform(0, 360), rng.uniform(-10, 10)
+        t, p = cal.gcs_to_lcs_deg(th, ph, al, be)
+        t2, p2 = _rot_lcs(th, ph, al, be)
+        assert float(t) == pytest.approx(t2, abs=1e-9) and float(p) == pytest.approx(p2, abs=1e-9)
+
+
+def test_sma_sector_gain_peaks_at_the_mechanical_tilt():
+    # element 8 dBi + array 10 log10(10) = 18 dBi on the rotated boresight
+    assert float(cal.sma_gain_db(95.0, 150.0, 150.0, 95.0)) == pytest.approx(18.0)
+    assert float(cal.sma_gain_db(92.0, 30.0, 30.0, 92.0)) == pytest.approx(18.0)
+    assert float(cal.sma_gain_db(90.0, 150.0, 150.0, 95.0)) < 18.0
+
+
+def test_sma_users_and_penetration_loss():
+    rng = np.random.default_rng(6)
+    indoor, resid, hut = cal.sma_users(rng, 40000)
+    assert indoor.mean() == pytest.approx(0.8, abs=0.01) and resid.mean() == pytest.approx(0.9, abs=0.01)
+    assert set(np.unique(hut[~indoor])) == {1.5}
+    assert set(np.unique(hut[indoor & resid])) == {1.5, 4.5}
+    assert set(np.unique(hut[indoor & ~resid])) == {1.5, 4.5, 7.5, 10.5, 13.5}
+    assert (hut[indoor & resid] == 4.5).mean() == pytest.approx(0.5, abs=0.02)
+    loss, d_in = cal.sma_penetration_db(rng, indoor, resid, 7.0)
+    car = loss[~indoor]
+    assert car.mean() == pytest.approx(9.0, abs=0.15) and car.std() == pytest.approx(5.0, abs=0.15)
+    assert np.all(d_in[~indoor] == 0.0) and d_in[indoor & resid].max() <= 10.0 and d_in[indoor].max() <= 25.0
+    # low-loss A wall at 7 GHz: 5 - 10 log10(0.3 10^(-(2 + 0.2 f)/10) + 0.7 10^(-(1.03 + 0.17 f)/10))
+    wall = 5.0 - 10.0 * math.log10(0.3 * 10 ** (-(2.0 + 1.4) / 10) + 0.7 * 10 ** (-(1.03 + 1.19) / 10))
+    b = loss[indoor & resid] - 0.5 * d_in[indoor & resid]
+    assert b.mean() == pytest.approx(wall, abs=0.1) and b.std() == pytest.approx(4.4, abs=0.1)
+
+
+def test_reference_data_is_r1_2506406():
+    ref = cal.load_reference(cal.DATA_R1_2506406)
+    assert set(ref) == {c.key for c in cal.CASES_R1_2506406}
+    uma = ref["UMa-7GHz"]
+    i = list(uma["cdf_percent"]).index(50.0)
+    assert uma["coupling_gain_db_mean"][i] == pytest.approx(-122.39, abs=0.01)
+    assert uma["coupling_gain_db_n"][i] == 17 and uma["sinr_db_n"][i] == 16
+    assert ref["SMa-7GHz-1732m"]["coupling_gain_db_n"][i] == 13
+
+
+def test_old_cases_keep_their_glass_and_draws():
+    for sc in cal.CASES:
+        assert sc.irr_glass == cal.IRR_GLASS_R1_165974
+        a = cal.simulate_drops(sc, 300, 2)
+        b = cal.simulate_drops(sc, 300, 2, irr_glass=cal.IRR_GLASS_R1_165974)
+        assert all(np.array_equal(a[k], b[k]) for k in a)
+    assert all(sc.irr_glass == cal.IRR_GLASS_V19 for sc in cal.CASES_R1_2506406)
+    assert [c.key for c in cal.CASES_R1_2506406] == ["UMa-6GHz", "UMi-6GHz", "UMa-7GHz", "UMi-7GHz",
+                                                      "SMa-7GHz-1299m", "SMa-7GHz-1732m"]
+
+
+@pytest.mark.parametrize("case", cal.CASES_R1_2506406, ids=lambda c: c.key)
+def test_7ghz_drops_fall_in_the_company_range(case):
+    res = cal.simulate_drops(case, 4000, 5)
+    for c in cal.compare(case, res, percentiles=(10, 50, 90)):
+        assert np.all(c.ours >= c.lo - 1.0) and np.all(c.ours <= c.hi + 1.0), (c.key, c.metric, c.ours, c.lo, c.hi)

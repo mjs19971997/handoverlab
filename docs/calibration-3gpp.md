@@ -81,6 +81,58 @@ distribution, at most 0.12 dB below the smallest company value: the SIR of Hando
 0.5 dB below the industry mean there, which is on the conservative side. `handoverlab verify`
 passes a case when every percentile lies inside the company range widened by 0.5 dB.
 
+## 7 GHz: Table 7.8-1A against R1-2506406 (since 2.4.0)
+
+**Summary.** TR 38.901 V19.5.0 adds Table 7.8-1A to clause 7.8.1: UMa, UMi-Street Canyon and suburban macro
+(SMa, ISD 1299 m and 1732 m) at 7 GHz, plus UMa and UMi at 6 GHz again "with updated channel modeling". The
+companies reported their CDFs in the 3GPP contribution **R1-2506406** (RAN1 #122, Bengaluru, August 2025,
+InterDigital and ZTE, "Calibration Results for 7 - 24 GHz SI";
+[3GPP server](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_122/Docs/R1-2506406.zip); large-scale workbook
+`Calibration_LS_v35`, based on TR 38.901 V19.0.0). The criteria were fixed before the first run: every
+percentile 5-95 % inside the company range widened by 0.5 dB (C1, the rule of the cases above), and the
+largest distance from the company mean at most 1.5 dB per case (C2). Result, 30 000 users per case, seed 1:
+**C1 passes for all 18 case-metric pairs (342 of 342 percentiles strictly inside the range); C2 fails for all
+six cases (largest distance 1.65-2.88 dB).** `handoverlab verify` runs C1 as checks and C2 as notes in the
+group `calibration`.
+
+**The reference.** `src/handoverlab/verify/data/r1_2506406.csv` keeps, in the format of `r1_165974.csv`, the
+mean, the smallest and the largest company value and the number of companies per case, metric and percentile;
+the mean equals the workbook's own mean column. Companies with complete columns: 16 (coupling loss) / 15
+(SINR, SIR) at 6 GHz; 17 / 16 for UMa and UMi at 7 GHz (Huawei, InterDigital, Samsung, ZTE, CATT, Lenovo,
+Apple, Nokia, Ericsson, OPPO, MediaTek, Intel, Sharp, Spreadtrum, LGE, ETRI, Xiaomi; Spreadtrum gave the
+coupling loss only); 17 / 16 for SMa 1299 m (with vivo, without ETRI); 13 / 12 for SMa 1732 m.
+
+**The drop.** UMa and UMi as above (Table 7.8-1), with the IRR-glass loss of V19.5.0 (25.4 + 0.11 f dB) because
+the companies worked with Release 19; at 7 GHz 49 dBm (UMa) and 44 dBm (UMi) with 20 MHz, the 6 GHz values of
+Table 7.8-1, which Table 7.8-1A leaves unchanged for these two scenarios. SMa:
+
+| Item | Setting | Source |
+|---|---|---|
+| Layout | 19 sites, 3 sectors, ISD 1299 m or 1732 m, BS 35 m, geographical wrap-around, minimum 2D distance 35 m (to d2D-out) | Tables 7.2-5, 7.8-1A |
+| Antenna | element of Table 7.3-1 and 10 vertical elements (one port) without electrical tilt, the panel tilted mechanically to 95 deg (ISD 1299 m) or 92 deg (ISD 1732 m): the angles are taken into the antenna's local coordinates with Eqs. 7.1-7 and 7.1-8 | Tables 7.3-1, 7.8-1A; clause 7.1.3 |
+| Users | 20 % outdoors (in cars, 1.5 m) with the car penetration loss N(9 dB, 5 dB) of non-metallic windows; 80 % indoors, 90 % of them in residential buildings (1.5 or 4.5 m), 10 % in commercial buildings (1.5 ... 13.5 m), uniform over the floors | Tables 7.2-5, 7.8-1A; clause 7.4.3.2 |
+| O2I loss | low-loss A model (30 % glass, 70 % plywood, sigma_P 4.4 dB); d2D-in = minimum of two uniform variables up to 10 m (residential) or 25 m (commercial) | clause 7.4.3.1, Tables 7.4.3-1, 7.4.3-2 |
+| Path loss, LOS, shadowing | the SMa models of `handoverlab.channel.pathloss` (Table 7.4.1-1; LOS probability of Table 7.4.2-1 without vegetation); shadowing 4 dB (LOS below d_BP), 6 dB (LOS beyond), 8 dB (NLOS), 8 dB for indoor users | Tables 7.4.1-1, 7.4.2-1, 7.5-6 Part-4 |
+| Link budget | 49 dBm, 20 MHz, UT noise figure 9 dB, isotropic UT, attachment to the highest coupling gain | Tables 7.8-1, 7.8-1A |
+
+Results (median HandoverLab / company mean; percentiles 5-95 % strictly inside the range; largest distance
+from the mean):
+
+| Case | Coupling loss [dB] | SINR [dB] | SIR [dB] | C1 | C2 (largest distance) |
+|---|---|---|---|---|---|
+| UMa-6 GHz | 119.9 / 121.0; 19/19; 1.65 | 5.5 / 5.6; 19/19; 1.34 | 8.0 / 8.0; 19/19; 0.17 | pass | fail (1.65) |
+| UMi-6 GHz | 111.9 / 112.1; 19/19; 2.88 | 5.1 / 5.2; 19/19; 1.35 | 6.8 / 6.6; 19/19; 0.53 | pass | fail (2.88) |
+| UMa-7 GHz | 121.7 / 122.4; 19/19; 1.78 | 5.0 / 5.0; 19/19; 0.90 | 7.9 / 7.9; 19/19; 0.29 | pass | fail (1.78) |
+| UMi-7 GHz | 113.8 / 113.3; 19/19; 2.43 | 4.7 / 4.8; 19/19; 1.63 | 6.7 / 6.6; 19/19; 0.30 | pass | fail (2.43) |
+| SMa-7 GHz, ISD 1299 m | 103.5 / 104.3; 19/19; 1.31 | 5.9 / 5.7; 19/19; 1.69 | 5.9 / 5.9; 19/19; 1.57 | pass | fail (1.69) |
+| SMa-7 GHz, ISD 1732 m | 109.2 / 111.3; 19/19; 2.24 | 6.3 / 5.9; 19/19; 1.07 | 6.4 / 6.6; 19/19; 0.32 | pass | fail (2.24) |
+
+Where the distance comes from: for UMa and UMi the coupling loss of the best users (75-95 %, close to a site)
+is 1.6-2.9 dB lower than the company mean, and at UMi 7 GHz also at 5-10 %; the medians are within 1.1 dB.
+For SMa 1732 m the coupling loss is about 2.1 dB lower than the mean over most of the distribution. The
+company spread is large here (at the median, from 106.5 dB to 129.4 dB for SMa 1732 m), so the mean is a soft
+target, but C2 was fixed before the run and is reported as it came. No parameter was changed after the run.
+
 ## What this calibration covers, and what it does not
 
 - It covers the **radio model**: the path-loss formulas, the LOS probabilities, the shadowing, the
@@ -98,8 +150,8 @@ passes a case when every percentile lies inside the company range widened by 0.5
 ## Repeat it
 
 ```bash
-handoverlab verify --only calibration          # 10 000 users per case, a few seconds
-handoverlab verify --only calibration --full   # 30 000 users per case, the table above
+handoverlab verify --only calibration          # 10 000 users per case, under a minute
+handoverlab verify --only calibration --full   # 30 000 users per case, the tables above
 python tools/make_calibration_figure.py        # docs/images/calibration_38901.png
 ```
 
@@ -110,4 +162,6 @@ case = cal.CalScenario("UMa", 6.0)
 res = cal.simulate_drops(case, n_users=30000, seed=1)
 for c in cal.compare(case, res):
     print(c.metric, c.inside.sum(), "of", len(c.percentiles), "inside, largest distance", c.max_dev_db)
+
+case = cal.CalScenario("SMa", 7.0, isd_m=1299.0, reference="R1-2506406")   # compared with R1-2506406
 ```
