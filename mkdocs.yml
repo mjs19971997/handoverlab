@@ -34,9 +34,11 @@ nav:
       - The upper mid-band: guides/upper-mid-band.md
       - A highway: guides/highway.md
       - Urban macro, suburban macro and indoor users: guides/suburban-o2i.md
+      - A high-speed train in FR2: guides/high-speed-train.md
       - Indoor and rural scenarios: guides/indoor-rural.md
       - Mobility robustness optimisation: guides/mro.md
       - Beams and several carriers: guides/beams-layers.md
+      - Dual connectivity: guides/dual-connectivity.md
       - Fast fading and effective SINR: guides/fading.md
       - Slot scheduler, MCS and HARQ: guides/scheduler.md
       - User-plane buffers at handover: guides/buffers.md
@@ -53,6 +55,7 @@ nav:
           - fr3-urban-15ghz: scenarios/fr3-urban-15ghz.md
           - highway-tr37885-4ghz: scenarios/highway-tr37885-4ghz.md
           - highway-tr37885-30ghz: scenarios/highway-tr37885-30ghz.md
+          - hst-fr2-28ghz: scenarios/hst-fr2-28ghz.md
           - ntn-leo600-2ghz: scenarios/ntn-leo600-2ghz.md
           - indoor-office-4ghz: scenarios/indoor-office-4ghz.md
           - rural-700mhz: scenarios/rural-700mhz.md

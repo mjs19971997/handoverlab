@@ -107,6 +107,8 @@ candidate beam above `rsrp_thresh_ssb_dbm` while `bfr_timer_s` runs, else conten
 `preamble_max` failed attempts the random-access problem is a radio-link failure. Radio-link
 monitoring uses the serving beam (`rlm_rs: tci`) or the best N_RLM beams (`rlm_rs: beams`; up to 8
 in FR2). A cell interferes with the mean gain of its beams towards the user, scaled by its load.
+`am_db` (since 2.3.0, default `30`) is A_m of the element pattern, its front-to-back ratio; a larger
+value lowers the back lobe (the high-speed train guide uses it).
 
 ```yaml
 scenario:
@@ -260,6 +262,7 @@ output: results/metrics.csv
 | | `gap_pattern` | `0` | measurement gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms) (1.10.0) |
 | | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.1 and 9.3.4 (1.10.0) |
 | | `rlm_eval` | `fixed` | `ts38133` (1.10.0): Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 for the serving cell's frequency range (FR2: 1.6 s / 0.8 s at T_SSB 20 ms) instead of `qout_window_s` / `qin_window_s` |
+| | `dc` | `null` | (2.3.0) dual connectivity, NR-DC of TS 37.340: `{scg_layer, add_thresh_dbm, add_ttt_s, change_off_db, change_ttt_s, release_thresh_dbm, release_ttt_s, prep_s, exec_s, on_mcg_ho}` with defaults first layer, `-110`, `0.16`, `3`, `0.16`, `-120`, `0.16`, `protocol.prep_s`, `protocol.exec_s`, `keep`: an SCG on the cells of one layer next to the MCG ([guide](guides/dual-connectivity.md)) |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |

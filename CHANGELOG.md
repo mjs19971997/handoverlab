@@ -42,6 +42,26 @@ All notable changes to this project are documented in this file. The format foll
   of the outdoor SMa users fails on sampling noise (40 seeds pooled: within 0.54 dB); a TR-exact treatment of
   indoor users (LOS at d2D-out, O2I shadowing 8 dB) gives a 2.0 dB wider upper tail (95 % point) than the
   simulator's abstraction, with the median within 0.1 dB.
+- Scenario card `hst-fr2-28ghz`: the FR2 high-speed train of TR 38.854 V18.0.0 as its system-level mobility
+  study sets it up (Table 6.3.8.1-1): one train with one roof-mounted CPE at 350 km/h on a straight track, an RRH
+  every 700 m on one side, 10 m from the track (Scenario-A), one panel of 8 x 8 elements with one SSB beam per RRH
+  pointing along the track at the next RRH, every RRH its own cell (L3 handover, no DPS), 28 GHz, 50 MHz,
+  120 kHz, 31 dBm, TR 38.901 RMa LOS only, no inter-cell interference, N310 = N311 = 2 and the TS 38.133
+  measurement periods of the legacy requirements (480 ms). Guide: `docs/guides/high-speed-train.md`, with the
+  pre-registered comparison against the TR's results.
+- `radio.beams.am_db`: A_m of the TR 38.901 Table 7.3-1 element pattern (default 30 dB, unchanged results); a
+  larger value lowers the back lobe, as the antenna "without back lobe" of the TR 38.854 mobility study.
+- Dual connectivity as an option (`protocol.dc`, off by default): NR-DC of TS 37.340 V19.3.0 with the master cell
+  group on the scenario's other carriers and a secondary cell group (one PSCell) on the cells of one layer of
+  `radio.layers`: SN addition on event A4 (clause 10.2), PSCell change on event A3 (clauses 10.5, 10.6) and SN
+  release (clause 10.4), each prepared between the nodes and sent over the MCG, random access on the PSCell under
+  T304; separate radio-link monitoring and SCG radio-link failure (TS 38.331 5.3.10.3); SCG failures reported to
+  the MN, which releases the SCG (clause 7.7); an MCG failure releases the SCG (TS 38.331 5.3.7.2); at an MCG
+  handover the SN is kept or released (`on_mcg_ho`, clause 10.7). The MCG behaves exactly as without the SCG.
+  New metrics `sn_additions_pm`, `sn_addition_failures_pm`, `pscell_changes_pm`, `pscell_change_failures_pm`,
+  `sn_releases_pm`, `scg_rlf_pm`, `scg_failures_pm`, `scg_released_by_mcg_pm`, `scg_time_share`,
+  `scg_rate_mbps`, `pscell_change_interruption_s_pm`, `dc_rrc_messages_pm` (zero without the option). Guide:
+  `docs/guides/dual-connectivity.md`, with what is left out.
 
 ### Not done
 

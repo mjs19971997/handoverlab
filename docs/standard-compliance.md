@@ -242,6 +242,37 @@ reading.
 | Re-establishment: the new gNB may fetch the data of the last serving gNB | 9.2.3.3 steps 6/7 | with `forwarding` the data move to the new cell, `xn_delay_s` after the re-establishment; without it they are lost in another cell | follows |
 | PDCP discard timer; its values | TS 38.323 V19.1.0 5.3; TS 38.331 PDCP-Config discardTimer | data older than `discard_timer_s` (a value of the list or infinity) are discarded | follows (the gNB uses the UE timer values: assumption) |
 | Xn delay, path switch | not specified | `xn_delay_s` (assumption); the path switches at the completion | abstraction |
+## High-speed train in FR2 (2.3.0, card `hst-fr2-28ghz`)
+
+Checked against TR 38.854 V18.0.0 (local text); behaviour compared with its system-level results in the
+[high-speed train guide](guides/high-speed-train.md).
+
+| What the text specifies | Clause | HandoverLab | Status |
+|---|---|---|---|
+| One train on one straight track, RRHs on one side; Ds 700 m, Dmin 10 m (Scenario 2 / Scenario-A), RRH 15 m, CPE 5 m | 5.1, Table 5.1-1, Table 5.2-1 | highway layout with one lane per direction 2 cm apart (one track), 12 one-side sites 700 m apart at 10 m, wrap-around | follows (wrap-around: assumption) |
+| One RRH panel per site pointing along the track at the next RRH; 1 beam (Scenario 2); panel [1, 1, 8, 8, 2]; element A_m 30 dB, G_E,max 8 dBi | Table 5.2-1, Table 6.1.1.1, Table 6.1.2.1, Table 6.3.8.1-1 | one sector with one SSB beam of an 8 x 8 panel (one polarisation), azimuth and tilt aimed at the track 700 m away (180.82 deg, 90.82 deg) | follows |
+| 28 GHz, 50 MHz, 120 kHz, 31 dBm, RMa LOS only, one CPE, no inter-cell interference, DL full buffer | 6.2.1, Table 6.3.8.1-1 | as specified; no background load; TR 38.901 RMa LOS shadowing (TR 38.854 is silent on it) | follows (shadowing: assumption) |
+| CPE: 2 panels of 4 x 4 elements of 5 dBi, one active, 1 beam per panel | 5.3, 6.1.3, 6.1.4, Table 6.3.8.1-1 | one scalar gain of 17.04 dB towards every RRH | abstraction |
+| A3 3 dB, TTT 80 ms; SMTC 20 ms; measurement period 480 ms (N = 8, no DRX); N310 = N311 = 2; Qout -8 dB, Qin -6 dB; T_Evaluate_out / in 600 / 300 ms | Table 6.3.8.1-1 | rule `{a3, 3, 0.08}`; TS 38.133 periods (480 ms at power class 3); RLM windows 0.6 / 0.3 s on the SSB link quality | follows (CSI-RS RLM: SSB instead) |
+| DRX 40-320 ms, DPS / SFN, multi-TRP, tunnels, Doppler, uplink timing, cell detection delay | 5.1, 6.2.2, 6.3.4, 7.2 | not modelled (DRX only emulated through longer periods in the guide) | not modelled |
+| Element back lobe in the mobility study ("antenna model without back lobe") | 6.3.4.1.3 | `radio.beams.am_db` raises A_m (default 30 dB, Table 6.1.1.1) | option |
+
+## Dual connectivity (2.3.0, `protocol.dc`)
+
+Checked against TS 37.340 V19.3.0 and TS 38.331 V18.11.0 (local texts). See the
+[dual connectivity guide](guides/dual-connectivity.md).
+
+| What the texts specify | Clause | HandoverLab | Status |
+|---|---|---|---|
+| NR-DC: one gNB as MN, another (or the same) as SN; MCG and SCG | TS 37.340 4.1.3.3 | the MCG on every carrier but one, the SCG (one PSCell) on the cells of `scg_layer` | follows (no SCells) |
+| SN addition initiated by the MN on its measurements: SN Addition Request / Acknowledge, RRC reconfiguration via the MN, random access to the PSCell | TS 37.340 7.2, 10.2.2 | event A4 above `add_thresh_dbm` for `add_ttt_s` -> `prep_s` -> reconfiguration over the MCG -> random access after `exec_s`, joined at SINR >= Qout while T304 runs | follows (A4 trigger: implementation choice) |
+| SN change (MN or SN initiated) and PSCell change within the SN, with random access; SN change signalling over the MCG SRB | TS 37.340 10.5.2, 10.6 | event A3 among SCG cells -> the same steps; every SCG reconfiguration over the MCG | follows (SRB3 not modelled) |
+| SN release (MN or SN initiated) | TS 37.340 10.4.2 | PSCell below `release_thresh_dbm` for `release_ttt_s` -> released after `prep_s` | follows |
+| RLF declared separately for MCG and SCG; SCG RLF on T310 expiry in the PSCell | TS 37.340 7.7; TS 38.331 5.3.10.3 | own RLM, N310/N311 indications and T310 on the PSCell with the protocol's constants | follows |
+| SCG failure (RLF, SN addition/change failure) reported with SCGFailureInformation instead of re-establishment; the MN may keep, change or release the SN | TS 37.340 7.7; TS 38.331 5.7.3 | reported; the MN always releases the SCG | follows (MN decision: one of the options) |
+| MCG RLF -> fast MCG link recovery if configured, otherwise re-establishment; re-establishment performs MR-DC release | TS 37.340 7.7; TS 38.331 5.3.7.2 | re-establishment (no T316), the SCG is released | follows (fast MCG recovery not modelled) |
+| Inter-MN handover: the target MN keeps, changes or releases the SN | TS 37.340 10.7 | `on_mcg_ho`: `keep` (SCG unchanged) or `release` | follows (change: not modelled) |
+| EN-DC / NGEN-DC / NE-DC, CPA / CPC, SCG deactivation, SCG LTM, CHO with candidate SCGs, split SRB / SRB3, bearer types and data forwarding, SCG measurement gaps | TS 37.340 4.1, 7.5, 7.6, 7.13, 10.2.3, 10.19, 10.20 | not modelled | not modelled |
 
 ## Beyond 5G: what is not modelled yet
 

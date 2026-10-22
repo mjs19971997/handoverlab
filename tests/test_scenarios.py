@@ -11,8 +11,9 @@ from handoverlab.scenarios import DEFAULT_SOURCES, card_markdown, layout_svg
 
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "scenarios")
 NAMES = ["dense-urban-2layer", "fr3-urban-15ghz", "highway-tr37885-30ghz", "highway-tr37885-4ghz",
-         "indoor-office-4ghz", "ns3-urban-3.5ghz", "ntn-leo600-2ghz", "open-area-10ghz", "rural-700mhz", "smoke",
-         "suburban-sma-7ghz", "urban-grid-10ghz", "urban-grid-28ghz-beams", "urban-macro-tr37885-4ghz"]
+         "hst-fr2-28ghz", "indoor-office-4ghz", "ns3-urban-3.5ghz", "ntn-leo600-2ghz", "open-area-10ghz",
+         "rural-700mhz", "smoke", "suburban-sma-7ghz", "urban-grid-10ghz", "urban-grid-28ghz-beams",
+         "urban-macro-tr37885-4ghz"]
 
 
 def test_builtin_names_and_cards():

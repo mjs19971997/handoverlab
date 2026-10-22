@@ -18,6 +18,7 @@ from .channel.source import RadioSource
 from .config import Experiment, Scenario
 from .engine.batch import EngineBatch
 from .engine.core import Engine
+from .engine.dual import DcEngine
 from .engine.extended import ExtEngine, uses_extended
 from .rules import Rule, make_rule, rule_key
 from .world import World, build_world
@@ -93,7 +94,7 @@ def run_world(world: World, rules: Sequence[RuleSpec], log_events: Union[bool, s
     t0 = time.perf_counter()
     objs = [_instantiate(s) for s in rules]
     ext = uses_extended(world)
-    cls = ExtEngine if ext else Engine
+    cls = DcEngine if world.scenario.protocol.dc is not None else ExtEngine if ext else Engine
     engines = [cls(world, r, log_events, debug) for r in objs]
     runners = [EngineBatch(engines)] if batch and EngineBatch.supported(engines) else engines
     t_radio = 0.0

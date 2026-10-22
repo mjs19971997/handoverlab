@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Base-station antenna of TR 38.901 clause 7.3 and the SSB beams of the beam model (since 1.10.0).
 
-* Element pattern of Table 7.3-1: A(theta, phi) = -min(-(A_V + A_H), 30 dB) with
-  A_V = -min(12 ((theta - 90) / 65)^2, 30), A_H = -min(12 (phi / 65)^2, 30),
-  plus the maximum directional gain G_E,max = 8 dBi (theta zenith angle, phi
-  azimuth from the boresight, degrees).
+* Element pattern of Table 7.3-1: A(theta, phi) = -min(-(A_V + A_H), A_m) with
+  A_V = -min(12 ((theta - 90) / 65)^2, SLA_V), A_H = -min(12 (phi / 65)^2, A_m),
+  SLA_V = A_m = 30 dB, plus the maximum directional gain G_E,max = 8 dBi (theta
+  zenith angle, phi azimuth from the boresight, degrees).  A larger A_m (since
+  2.3.0, ``radio.beams.am_db``) lowers the back lobe of the element.
 * Panel: a uniform rectangular array of M rows and N columns of
   single-polarised elements at d_V = d_H = lambda / 2 (Figure 7.3-1).
 * Beams: separable DFT weights.  The vertical weights are those of Eq. 7.3-1,
@@ -26,11 +27,12 @@ import numpy as np
 G_E_MAX_DB = 8.0          # TR 38.901 Table 7.3-1
 
 
-def element_gain_db(theta_deg, phi_deg):
-    """Gain of one element: 8 dBi + A(theta, phi) of Table 7.3-1 (3 dB beam widths 65 deg, 30 dB limits)."""
+def element_gain_db(theta_deg, phi_deg, am_db: float = 30.0):
+    """Gain of one element: 8 dBi + A(theta, phi) of Table 7.3-1 (3 dB beam widths 65 deg, SLA_V 30 dB, front-to-back
+    ratio A_m ``am_db``, 30 dB in the table)."""
     av = -np.minimum(12.0 * ((theta_deg - 90.0) / 65.0) ** 2, 30.0)
-    ah = -np.minimum(12.0 * (phi_deg / 65.0) ** 2, 30.0)
-    return 8.0 - np.minimum(-(av + ah), 30.0)
+    ah = -np.minimum(12.0 * (phi_deg / 65.0) ** 2, am_db)
+    return 8.0 - np.minimum(-(av + ah), am_db)
 
 
 def ula_gain(psi, n: int):
@@ -49,19 +51,20 @@ def beam_azimuths_deg(n_ssb: int, span_deg: float) -> np.ndarray:
     return -0.5 * span_deg + (np.arange(n_ssb) + 0.5) * span_deg / n_ssb
 
 
-def beam_gain_db(theta_deg, phi_deg, beam_phi_deg, tilt_deg: float, m: int, n: int):
+def beam_gain_db(theta_deg, phi_deg, beam_phi_deg, tilt_deg: float, m: int, n: int, am_db: float = 30.0):
     """Gain [dBi] of the SSB beams towards (theta, phi).
 
     ``theta_deg`` and ``phi_deg`` (any shape S) are the zenith angle and the azimuth
     from the sector boresight; ``beam_phi_deg`` (B,) the beam azimuths.  Returns
-    shape S + (B,): element gain + vertical + horizontal array gain.
+    shape S + (B,): element gain + vertical + horizontal array gain.  ``am_db`` is A_m of the element (Table 7.3-1:
+    30 dB).
     """
     dt = np.float32 if np.asarray(theta_deg).dtype == np.float32 else float
     th = np.radians(np.asarray(theta_deg, dtype=dt))
     ph = np.radians(np.asarray(phi_deg, dtype=dt))
     tt = math.radians(tilt_deg)
     pb = np.radians(np.asarray(beam_phi_deg, dtype=dt))
-    ge = element_gain_db(np.asarray(theta_deg, dtype=dt), np.asarray(phi_deg, dtype=dt))
+    ge = element_gain_db(np.asarray(theta_deg, dtype=dt), np.asarray(phi_deg, dtype=dt), am_db)
     gv = ula_gain(dt(math.pi) * (np.cos(th) - dt(math.cos(tt))), m)
     gh = ula_gain(dt(math.pi) * (np.sin(th) * np.sin(ph))[..., None] - dt(math.pi * math.sin(tt)) * np.sin(pb), n)
     return (ge + 10.0 * np.log10(np.maximum(gv, 1e-30)))[..., None] + 10.0 * np.log10(np.maximum(gh, 1e-30))

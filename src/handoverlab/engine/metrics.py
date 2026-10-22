@@ -97,6 +97,22 @@ METRICS: Dict[str, tuple] = {
     "pdcp_delay_ms": ("ms", "mean PDCP delay (arrival at the gNB to delivery, byte-weighted)"),
     "pdcp_delay_p95_ms": ("ms", "95th percentile of the PDCP delay (1 ms bins)"),
     "pdcp_delay_forwarded_ms": ("ms", "mean PDCP delay of the delivered data that were forwarded"),
+    # dual connectivity (since 2.3.0, protocol.dc; zero without it)
+    "sn_additions_pm": ("1/UE-min", "SN additions completed (the UE joined the PSCell)"),
+    "sn_addition_failures_pm": ("1/UE-min", "SN additions that failed (no PSCell access before T304 expired)"),
+    "pscell_changes_pm": ("1/UE-min", "PSCell changes completed"),
+    "pscell_change_failures_pm": ("1/UE-min", "PSCell changes that failed (no access to the target before T304 "
+                                              "expired)"),
+    "sn_releases_pm": ("1/UE-min", "SN releases by the MN on the release condition (no failure)"),
+    "scg_rlf_pm": ("1/UE-min", "radio-link failures of the SCG (T310 expiry in the PSCell)"),
+    "scg_failures_pm": ("1/UE-min", "SCG failures reported to the MN: SCG radio-link failures plus failed SN "
+                                    "additions and PSCell changes"),
+    "scg_released_by_mcg_pm": ("1/UE-min", "SCG released by an MCG failure (re-establishment) or an MCG handover"),
+    "scg_time_share": ("1", "share of the UE time with a PSCell carrying data"),
+    "scg_rate_mbps": ("Mbit/s", "mean rate per user on the SCG (full-buffer share of the PSCell)"),
+    "pscell_change_interruption_s_pm": ("s/UE-min", "SCG data interruption by the random access of PSCell changes"),
+    "dc_rrc_messages_pm": ("1/UE-min", "RRC messages of the SCG procedures: reconfigurations, completions and "
+                                       "SCG failure information"),
 }
 for _c in CAUSES:
     METRICS["fail_%s_pm" % _c] = ("1/UE-min", "failures with cause %s" % _c)
@@ -160,6 +176,19 @@ def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, 
     out["gap_share"] = acc.get("gap_time", 0.0) / ue_s
     for k in PDCP_METRICS:
         out[k] = acc.get(k, 0.0)
+    g = C.get
+    out["sn_additions_pm"] = g("dc_add_ok", 0) / ue_min
+    out["sn_addition_failures_pm"] = g("dc_add_fail", 0) / ue_min
+    out["pscell_changes_pm"] = g("dc_chg_ok", 0) / ue_min
+    out["pscell_change_failures_pm"] = g("dc_chg_fail", 0) / ue_min
+    out["sn_releases_pm"] = g("dc_rel", 0) / ue_min
+    out["scg_rlf_pm"] = g("dc_rlf", 0) / ue_min
+    out["scg_failures_pm"] = (g("dc_rlf", 0) + g("dc_add_fail", 0) + g("dc_chg_fail", 0)) / ue_min
+    out["scg_released_by_mcg_pm"] = g("dc_rel_mcg", 0) / ue_min
+    out["scg_time_share"] = acc.get("dc_time", 0.0) / ue_s
+    out["scg_rate_mbps"] = acc.get("dc_thr", 0.0) / max(acc["nmeas"], 1) / n_users / 1e6
+    out["pscell_change_interruption_s_pm"] = acc.get("dc_int", 0.0) / ue_min
+    out["dc_rrc_messages_pm"] = g("dc_rrc", 0) / ue_min
     for k, name in _COUNTS.items():
         out[name] = C[k]
     for o in OUTCOMES:

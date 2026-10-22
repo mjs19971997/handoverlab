@@ -65,6 +65,18 @@ Rates are per UE-minute of the measured part of the run (after the warm-up) and 
 | `pdcp_delay_ms` | ms | mean PDCP delay: arrival at the gNB to delivery, byte-weighted |
 | `pdcp_delay_p95_ms` | ms | 95th percentile of the PDCP delay (1 ms bins) |
 | `pdcp_delay_forwarded_ms` | ms | mean PDCP delay of the delivered data that a target sent after forwarding |
+| `sn_additions_pm` | 1/UE-min | SN additions completed: the UE joined the PSCell (since 2.3.0; 0 without `protocol.dc`, [guide](../guides/dual-connectivity.md)) |
+| `sn_addition_failures_pm` | 1/UE-min | SN additions that failed: no access to the PSCell before T304 expired (an SCG failure, TS 37.340 7.7) |
+| `pscell_changes_pm` | 1/UE-min | PSCell changes completed (SN change or change within the SN) |
+| `pscell_change_failures_pm` | 1/UE-min | PSCell changes that failed: no access to the target before T304 expired |
+| `sn_releases_pm` | 1/UE-min | SN releases by the MN on the release condition (no failure, TS 37.340 10.4) |
+| `scg_rlf_pm` | 1/UE-min | radio-link failures of the SCG: T310 expiry in the PSCell (TS 38.331 5.3.10.3) |
+| `scg_failures_pm` | 1/UE-min | SCG failures reported to the MN: SCG radio-link failures plus failed SN additions and PSCell changes |
+| `scg_released_by_mcg_pm` | 1/UE-min | SCGs released by an MCG failure (re-establishment, TS 38.331 5.3.7.2) or an MCG handover (`on_mcg_ho: release`) |
+| `scg_time_share` | 1 | share of the UE time with a PSCell carrying data |
+| `scg_rate_mbps` | Mbit/s | mean rate per user on the SCG: a full-buffer share of the PSCell, apart from `rate_mbps` |
+| `pscell_change_interruption_s_pm` | s/UE-min | SCG data interruption by the random access of PSCell changes |
+| `dc_rrc_messages_pm` | 1/UE-min | RRC messages of the SCG procedures: reconfigurations, their completions and SCG failure information (not in `rrc_messages_pm`) |
 | `fail_command_lost_pm` | 1/UE-min | failures with cause command_lost |
 | `fail_rlf_in_preparation_pm` | 1/UE-min | failures with cause rlf_in_preparation |
 | `fail_rlf_without_handover_pm` | 1/UE-min | failures with cause rlf_without_handover |
