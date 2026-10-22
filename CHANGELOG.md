@@ -7,6 +7,37 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Suburban macro (SMa) of TR 38.901 V19.5.0 (`radio.pathloss: sma`, 0.5-37 GHz): the LOS and NLOS path loss of
+  Table 7.4.1-1 (h = 10 m, W = 10 m; the NLOS row is used as printed, without a max() with the LOS loss, so for a
+  UT high up close to a site NLOS can lie below LOS) and the LOS probability of Table 7.4.2-1 with the vegetation
+  density `radio.vegetation` (0, 0.1, 0.2); heights checked against the applicability ranges (25-35 m, 1-14 m).
+- O2I building penetration loss of indoor users (TR 38.901 clause 7.4.3.1): a speed group with `indoor: true`
+  marks indoor users; each gets PL_tw + 0.5 d2D-in + N(0, sigma_P^2) on all its links, drawn once
+  (`radio.o2i_model`: `low`, `high`, `low_a` for SMa, or `mixed`; `radio.o2i_d_in_max_m`; SMa residential /
+  commercial buildings 90 % / 10 %), from its own random stream; an indoor user gets no car penetration loss.
+  The LOS state and the shadowing of an indoor user stay those of its position (stated abstraction, measured by
+  `verify`).
+- `radio.building_los: false` on the street grid: sites above the rooftops, the LOS state from the LOS probability
+  alone (TR 37.885 clause 6.2.1); `radio.env_height_m`: one effective environment height for the UMa / UMi
+  breakpoint (TR 37.885: 0.25 m).
+- Scenario cards `urban-macro-tr37885-4ghz` (the TR 37.885 urban grid below 6 GHz with 500 m macro sites on the
+  hexagonal layout of TR 36.885 Figure A.1.3-1, UMa at 4 GHz, h_E 0.25 m, vehicles at 60 km/h; the wrap-around is
+  replaced by the lattice sites within 1000 m of the grid) and `suburban-sma-7ghz` (11 SMa sites at 1299 m,
+  7 GHz, 80 % indoor users with the low-loss A model, 20 % in cars). Guide: `docs/guides/suburban-o2i.md`.
+- Optional `verify` group `scenarios` (`--only scenarios`; criteria fixed before the first run), reported as it
+  came: 7 pass, 3 fail. The urban macro coupling gain lies 0.3-1.2 dB below an independent computation around
+  the median in every block of seeds (cause open; the LOS share close to the sites is a little low); the check
+  of the outdoor SMa users fails on sampling noise (40 seeds pooled: within 0.54 dB); a TR-exact treatment of
+  indoor users (LOS at d2D-out, O2I shadowing 8 dB) gives a 2.0 dB wider upper tail (95 % point) than the
+  simulator's abstraction, with the median within 0.1 dB.
+
+### Not done
+
+- The 7 GHz large-scale calibration of TR 38.901 clause 7.8.1 (Table 7.8-1A): the TR gives the results only by
+  reference to R1-2506406, which this release does not include.
+
 ## [2.2.0] - 2026-10-22
 
 ### Added

@@ -280,9 +280,27 @@ class RadioConfig:
     time_var_tau_s: float = 1.0
     l1_error_db: float = 1.0            # error of one L1 RSRP sample
     # optional per-user penetration loss on all links, drawn once per user (since 1.2.0; TR 38.901
-    # clause 7.4.3.2: a user in a standard car has 9 dB mean and 5 dB standard deviation)
+    # clause 7.4.3.2: a user in a standard car has 9 dB mean and 5 dB standard deviation); since 2.3.0 only for
+    # the users outside buildings (an indoor user gets the building penetration loss instead)
     penetration_db: float = 0.0
     penetration_sd_db: float = 0.0
+    # O2I building penetration loss of the indoor users (since 2.3.0; users of a mobility group with
+    # ``indoor: true``; TR 38.901 clause 7.4.3.1, Eq. 7.4-2 and 7.4-3, Tables 7.4.3-1 and 7.4.3-2): "low", "high",
+    # "low_a" (SMa only) or "mixed" (each indoor user low or high loss with probability 1/2, the composition of the
+    # calibration, Table 7.8-1); o2i_d_in_max_m: upper end of the two uniform variables whose minimum is d2D-in
+    # (unset: 25 m for UMa and UMi, 10 m for RMa, SMa 10 m in residential and 25 m in commercial buildings)
+    o2i_model: str = "low"
+    o2i_d_in_max_m: Optional[float] = None
+    # LOS state on the street grid (since 2.3.0): True, a link through a building block is NLOS (sites at street
+    # level); False, the sites stand above the rooftops and the LOS state comes from the LOS probability alone,
+    # spatially consistent (TR 37.885 clause 6.2.1, base-station-to-vehicle links of the urban grid)
+    building_los: bool = True
+    # effective environment height h_E of the UMa and UMi breakpoint distance (since 2.3.0); unset: TR 38.901
+    # Table 7.4.1-1 note 1 (UMi 1 m; UMa 1 m, random for h_UT >= 13 m); TR 37.885 clause 6.2.1 sets 0.25 m for the
+    # base-station-to-vehicle links
+    env_height_m: Optional[float] = None
+    # SMa LOS probability (since 2.3.0): vegetation density r_veg of TR 38.901 Table 7.4.2-1 (0, 0.1 or 0.2)
+    vegetation: float = 0.0
     # site power for the energy metrics (since 1.5.0): EARTH model of a micro base station (Auer et al., IEEE
     # Wireless Communications 2011, Eq. 1 and Table 2: N_TRX 2, P0 56 W, slope 2.6, P_max 6.3 W per transceiver):
     # P_in = energy_ntrx x energy_p0_w + energy_slope x P_tx x load, with P_tx shared by the N_TRX transceivers
@@ -425,6 +443,9 @@ class SpeedGroup:
     # lane centres [m from the street centre line] (since 2.0.0): a user drives in one of them instead of at a
     # uniform lateral displacement (TR 37.885 Table A-1, urban: 2 lanes of 3.5 m per direction -> 1.75, 5.25 m)
     lanes_m: Optional[Tuple[float, ...]] = None
+    # users inside buildings (since 2.3.0): their links get the O2I building penetration loss of
+    # ``radio.o2i_model`` instead of the car penetration loss (TR 38.901 clause 7.4.3.1)
+    indoor: bool = False
 
 
 @dataclass
@@ -518,6 +539,9 @@ class Scenario:
                 for k in LAYER_LATE_KEYS:
                     if ly.get(k) is None:
                         ly.pop(k, None)
+            for g in d["mobility"].get("groups") or ():   # the speed-group key of 2.3.0, while false
+                if not g.get("indoor"):
+                    g.pop("indoor", None)
         return d
 
     @classmethod
@@ -609,6 +633,8 @@ class Scenario:
         _check(0.5 <= R.carrier_ghz <= 100.0, "radio.carrier_ghz", "TR 38.901 covers 0.5-100 GHz")
         _check(R.pathloss != "rma" or R.carrier_ghz <= 30.0, "radio.carrier_ghz",
                "the TR 38.901 RMa model covers 0.5-30 GHz")
+        _check(R.pathloss != "sma" or R.carrier_ghz <= 37.0, "radio.carrier_ghz",
+               "the TR 38.901 SMa model covers 0.5-37 GHz (Table 7.4.1-1 note 2)")
         _check(R.channel_detail in ("3gpp", "simple"), "radio.channel_detail", "must be '3gpp' or 'simple'")
         if R.channel_detail == "3gpp" and L.kind != "ntn" and not R.map_file:
             _check_heights(R.pathloss, R.bs_height_m, R.ue_height_m, "radio")
@@ -619,6 +645,17 @@ class Scenario:
         _check(R.soft_los_d_m > 0, "radio.soft_los_d_m", "must be positive")
         _check(R.shadow_los_far_db is None or R.shadow_los_far_db >= 0, "radio.shadow_los_far_db", "must be >= 0")
         _check(R.penetration_sd_db >= 0, "radio.penetration_sd_db", "must be >= 0")
+        _check(R.o2i_model in O2I_MODELS, "radio.o2i_model", "must be one of %s" % ", ".join(O2I_MODELS))
+        _check(R.o2i_d_in_max_m is None or R.o2i_d_in_max_m >= 0, "radio.o2i_d_in_max_m", "must be >= 0 or null")
+        _check(R.env_height_m is None or (R.pathloss in ("uma", "umi_street_canyon")
+                                          and 0.0 <= R.env_height_m < min(R.ue_height_m, R.bs_height_m)),
+               "radio.env_height_m", "applies to pathloss 'uma' and 'umi_street_canyon' and must be >= 0 and below "
+               "both antenna heights")
+        _check(R.vegetation in (0.0, 0.1, 0.2), "radio.vegetation",
+               "must be 0, 0.1 or 0.2 (TR 38.901 Table 7.4.2-1: no, sparse or dense vegetation)")
+        _check(R.building_los or (L.kind == "street_grid" and R.clutter_los), "radio.building_los",
+               "false needs layout.kind 'street_grid' and radio.clutter_los true (the LOS state then comes from "
+               "the LOS probability alone)")
         _check(R.energy_p0_w >= 0 and R.energy_slope >= 0, "radio.energy_p0_w", "energy parameters must be >= 0")
         _check(isinstance(R.energy_ntrx, int) and R.energy_ntrx >= 1, "radio.energy_ntrx", "must be an integer >= 1")
         if R.fast_fading is not None:
@@ -680,6 +717,15 @@ class Scenario:
         if M.groups is None:
             from .mobility import PROFILES
             _check(M.profile in PROFILES, "mobility.profile", "unknown profile; known: %s" % ", ".join(PROFILES))
+        elif any(g.indoor for g in M.groups):
+            # TR 38.901 clause 7.4.3.1: the O2I building penetration loss of UMa, UMi, RMa and SMa; "Only the
+            # low-loss model is applicable to RMa", the low-loss A model to SMa (since 2.3.0)
+            _check(L.kind != "ntn" and not R.map_file and R.pathloss in O2I_PATHLOSS, "mobility.groups",
+                   "indoor users need radio.pathloss %s (TR 38.901 clause 7.4.3.1)" % ", ".join(O2I_PATHLOSS))
+            _check(R.pathloss != "rma" or R.o2i_model == "low", "radio.o2i_model",
+                   "only the low-loss model is applicable to RMa (TR 38.901 clause 7.4.3.1)")
+            _check(R.o2i_model != "low_a" or R.pathloss == "sma", "radio.o2i_model",
+                   "the low-loss A model is applicable to SMa only (TR 38.901 clause 7.4.3.1)")
         _check(T.duration_s > T.warmup_s >= 0, "run.duration_s", "must exceed run.warmup_s (>= 0)")
         _check(T.backend in ("numpy", "numba"), "run.backend", "must be 'numpy' or 'numba'")
         if T.backend == "numba":
@@ -710,6 +756,7 @@ class Scenario:
             pl = ly.pathloss or R.pathloss
             _check(pl in PATHLOSS_MODELS, key + ".pathloss", "must be one of %s" % ", ".join(PATHLOSS_MODELS))
             _check(pl != "rma" or f <= 30.0, key + ".carrier_ghz", "the TR 38.901 RMa model covers 0.5-30 GHz")
+            _check(pl != "sma" or f <= 37.0, key + ".carrier_ghz", "the TR 38.901 SMa model covers 0.5-37 GHz")
             if R.channel_detail == "3gpp":
                 hb = R.bs_height_m if ly.bs_height_m is None else ly.bs_height_m
                 _check_heights(pl, hb, R.ue_height_m, key)
@@ -740,7 +787,9 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                          "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
                                                    "beams", "layers", "los_model", "map_file", "map_sha256",
                                                    "breakpoint_c_mps", "pl_min_distance_m", "channel_detail",
-                                                   "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db"),
+                                                   "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db",
+                                                   "o2i_model", "o2i_d_in_max_m", "building_los", "env_height_m",
+                                                   "vegetation"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
                                                       "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db")}
@@ -775,14 +824,20 @@ def _check(ok: bool, key: str, msg: str) -> None:
         raise ConfigError("scenario.%s: %s" % (key, msg))
 
 
-#: names of the path-loss models of ``radio.pathloss``
-PATHLOSS_MODELS: Tuple[str, ...] = ("umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open")
+#: names of the path-loss models of ``radio.pathloss`` ("sma" since 2.3.0)
+PATHLOSS_MODELS: Tuple[str, ...] = ("umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open", "sma")
+#: O2I building penetration models of ``radio.o2i_model`` (since 2.3.0) and the path-loss models they apply to
+O2I_MODELS: Tuple[str, ...] = ("low", "high", "low_a", "mixed")
+O2I_PATHLOSS: Tuple[str, ...] = ("uma", "umi_street_canyon", "rma", "sma")
 
 #: antenna heights [m] inside which TR 38.901 V19.5.0 Table 7.4.1-1 gives the formulas ("applicability range"):
 #: model -> (h_BS range or None, h_UT range); InH-Office has a 3D-distance range only (1 m <= d3D <= 150 m)
 HEIGHT_RANGES: Dict[str, Tuple[Optional[Tuple[float, float]], Optional[Tuple[float, float]]]] = {
     "umi_street_canyon": (None, (1.5, 22.5)), "uma": (None, (1.5, 22.5)), "rma": ((10.0, 150.0), (1.0, 10.0)),
-    "inh_office": (None, None), "inh_office_open": (None, None)}
+    "inh_office": (None, None), "inh_office_open": (None, None),
+    # SMa (since 2.3.0): 25 m < h_BS < 35 m and 1 m < h_UT < 14 m as printed; the end points are admitted, as
+    # Table 7.2-5 itself sets h_BS = 35 m
+    "sma": ((25.0, 35.0), (1.0, 14.0))}
 
 
 def _check_heights(model: str, h_bs: float, h_ut: float, key: str) -> None:

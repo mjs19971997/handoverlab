@@ -84,10 +84,12 @@ event D2 of Release 18:
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
   pitch, 20 m streets) with sites on the pavement, an open area with a hexagonal site grid, the
   TR 37.885 highway (since 1.11.0 with wrap-around, LOS-only links and both site layouts of
-  TR 36.885, below and above 6 GHz), the TR 38.901 indoor office, rural macro cells, a LEO satellite with
+  TR 36.885, below and above 6 GHz), the TR 37.885 urban grid with 500 m macro sites (since 2.3.0), the
+  TR 38.901 indoor office, rural and suburban (SMa, since 2.3.0) macro cells, a LEO satellite with
   earth-moving beams (since 2.0.0, TR 38.811 and TR 38.821), explicit site lists, and built-in scenario
   cards (`handoverlab scenarios`).
-- **Channel**: TR 38.901 UMi street canyon, UMa, RMa and InH-Office path loss (LOS/NLOS); line of sight from the
+- **Channel**: TR 38.901 UMi street canyon, UMa, RMa, SMa (since 2.3.0) and InH-Office path loss (LOS/NLOS); O2I
+  building penetration loss of indoor users (since 2.3.0); line of sight from the
   building geometry plus the spatially consistent LOS state, hard or soft; spatially correlated shadowing; a
   time-varying component; L1 measurement error; beam gain and load-coupled interference;
   optionally a penetration loss per user (in-car loss of TR 38.901); or, since 1.12.0, your own radio
@@ -131,8 +133,8 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 
 | Part | Modelled | Abstracted | Not modelled |
 |---|---|---|---|
-| Layouts | `street_grid` (TR 37.885 urban grid), `open_area`, `highway` (TR 37.885 / TR 36.885, wrap-around), `indoor` (TR 38.901 office), `ntn` (one LEO satellite, TR 38.821); explicit site lists | sites on the pavement with small cells (urban cards) | the 500 m macro grid of the TR 37.885 urban scenario, several satellites |
-| Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, InH), LOS from buildings, spatially consistent LOS and shadowing, penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step with a slow time-varying component; optional TDL fast fading with effective SINRs (clause 7.7.2, since 2.2.0) | CDL and the full fast-fading model of clause 7.5, MIMO |
+| Layouts | `street_grid` (TR 37.885 urban grid), `open_area`, `highway` (TR 37.885 / TR 36.885, wrap-around), `indoor` (TR 38.901 office), `ntn` (one LEO satellite, TR 38.821); explicit site lists | sites on the pavement with small cells (urban cards); the TR 37.885 urban macro grid without wrap-around (`urban-macro-tr37885-4ghz`) | several satellites |
+| Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, SMa, InH), LOS from buildings, spatially consistent LOS and shadowing, car and O2I building penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step with a slow time-varying component; indoor users keep the LOS state and shadowing of their position; optional TDL fast fading with effective SINRs (clause 7.7.2, since 2.2.0) | CDL and the full fast-fading model of clause 7.5, MIMO |
 | Beams and carriers | SSB beams per sector, cell quality from beams, beam failure detection and recovery, several carriers with gaps and Event A5 | the TR 38.901 antenna element and DFT beams; isotropic UE | UE-side beamforming, dual connectivity and PSCell change |
 | Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference | rate from SINR (Shannon-type mapping), no scheduler | slot scheduler, HARQ, RLC/PDCP, TCP and applications |
@@ -143,7 +145,8 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 
 Built-in cards: `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`, `urban-grid-28ghz-beams`, `dense-urban-2layer`,
 `open-area-10ghz`, `ns3-urban-3.5ghz`, `highway-tr37885-4ghz`, `highway-tr37885-30ghz`, `indoor-office-4ghz`,
-`rural-700mhz`, `ntn-leo600-2ghz`; each names the source of every value and its own limitations.
+`rural-700mhz`, `ntn-leo600-2ghz`, `urban-macro-tr37885-4ghz`, `suburban-sma-7ghz`; each names the source of
+every value and its own limitations.
 
 ## Scope: 5G-Advanced and beyond 5G
 

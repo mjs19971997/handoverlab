@@ -46,7 +46,7 @@ def test_path_loss_selects_state():
 
 def test_path_loss_unknown_model():
     with pytest.raises(ValueError):
-        pl.path_loss(np.array([10.0]), np.array([True]), "sma", 3.5, 10.0, 1.5)
+        pl.path_loss(np.array([10.0]), np.array([True]), "suburban", 3.5, 10.0, 1.5)
 
 
 def test_los_probability_umi():
@@ -107,7 +107,7 @@ def test_los_probability_rma_and_inh():
     assert float(pl.p_los(1.0, "inh_office")) == 1.0
     assert float(pl.p_los(4.0, "inh_office")) == pytest.approx(math.exp(-2.8 / 4.7))
     assert float(pl.p_los(39.1, "inh_office")) == pytest.approx(0.32 * math.exp(-1.0))
-    assert set(pl.MODELS) == {"umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open"}
+    assert set(pl.MODELS) == {"umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open", "sma"}
 
 
 # --- soft LOS state (since 1.7.0) ---------------------------------------------

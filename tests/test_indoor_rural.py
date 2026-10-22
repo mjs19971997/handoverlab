@@ -51,7 +51,7 @@ def test_rma_frequency_limit_and_model_names():
     with pytest.raises(ConfigError, match="radio.carrier_ghz"):
         hl.builtin_scenario("rural-700mhz").with_overrides({"radio.carrier_ghz": 40.0})
     with pytest.raises(ConfigError, match="radio.pathloss"):
-        Scenario().with_overrides({"radio.pathloss": "sma"})
+        Scenario().with_overrides({"radio.pathloss": "suburban"})
 
 
 @pytest.mark.parametrize("name,over", [

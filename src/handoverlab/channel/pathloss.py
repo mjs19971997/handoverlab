@@ -3,7 +3,9 @@
 
 Implemented: UMi street canyon and UMa, LOS and NLOS, outdoor users; since
 1.7.0 also RMa (rural macro) and InH-Office (indoor hotspot; LOS probability
-of the mixed office, since 2.1.0 also of the open office); since 2.1.0 the UMa
+of the mixed office, since 2.1.0 also of the open office); since 2.3.0 SMa
+(suburban macro, TR 38.901 V19.5.0, 0.5-37 GHz) and the O2I building
+penetration loss of clause 7.4.3.1; since 2.1.0 the UMa
 factor C'(h_UT) of the LOS probability and the effective environment height
 h_E of Table 7.4.1-1 note 1 (both only for h_UT >= 13 m).  Distances in metres, carrier frequency in GHz, results
 in dB.  The formulas are specified for 0.5-100 GHz, RMa for 0.5-30 GHz
@@ -77,7 +79,7 @@ def rma_breakpoint(fc_ghz: float, h_bs: float, h_ut: float, c: float = C_TR) -> 
     return 2.0 * math.pi * h_bs * h_ut * fc_ghz * 1e9 / c
 
 
-def _rma_pl1(d3, fc_ghz, h=RMA_H_M):
+def _rma_pl1(d3, fc_ghz, h=RMA_H_M):        # also PL1 of SMa (with h = 10 m)
     return (20.0 * np.log10(40.0 * math.pi * d3 * fc_ghz / 3.0) + min(0.03 * h ** 1.72, 10.0) * np.log10(d3)
             - min(0.044 * h ** 1.72, 14.77) + 0.002 * math.log10(h) * d3)
 
@@ -111,6 +113,38 @@ def rma_nlos(d2d, fc_ghz: float, h_bs: float = 35.0, h_ut: float = 1.5, c: float
     return np.maximum(rma_los(d2d, fc_ghz, h_bs, h_ut, c), _rma_nlos_prime(d2d, fc_ghz, h_bs, h_ut))
 
 
+SMA_W_M = 10.0          # street width W of the SMa NLOS model (Table 7.4.1-1)
+SMA_H_M = 10.0          # building height h of the SMa models (Table 7.4.1-1)
+#: SMa LOS probability (Table 7.4.2-1): clutter size d_clutter [m], heights h_x [m] and densities r_x of the
+#: commercial buildings, the residential buildings and the vegetation (r_veg: ``radio.vegetation``)
+SMA_D_CLUTTER_M = 30.0
+SMA_CLUTTER = {"commercial": (20.0, 0.02), "residential": (8.0, 0.18), "vegetation": (15.0, None)}
+
+
+def sma_los(d2d, fc_ghz: float, h_bs: float = 35.0, h_ut: float = 1.5, c: float = C_TR):
+    """SMa, LOS (since 2.3.0; TR 38.901 V19.5.0 Table 7.4.1-1): PL1 of the RMa form with h = 10 m below the
+    breakpoint d_BP = 2 pi h_BS h_UT f_c / c of note 5, PL2 = PL1(d_BP) + 40 log10(d3D / d_BP) from it on.
+
+    As for RMa, PL1(d_BP) is taken at the 3D distance of the breakpoint, so the loss is continuous.
+    """
+    d2d = np.asarray(d2d, dtype=float)
+    dh2 = (h_bs - h_ut) ** 2
+    d3 = np.sqrt(d2d * d2d + dh2)
+    dbp = rma_breakpoint(fc_ghz, h_bs, h_ut, c)
+    d3bp = math.sqrt(dbp * dbp + dh2)
+    pl2 = _rma_pl1(d3bp, fc_ghz, SMA_H_M) + 40.0 * np.log10(d3 / d3bp)
+    return np.where(d2d < dbp, _rma_pl1(d3, fc_ghz, SMA_H_M), pl2)
+
+
+def sma_nlos(d2d, fc_ghz: float, h_bs: float = 35.0, h_ut: float = 1.5, c: float = C_TR):
+    """SMa, NLOS (since 2.3.0): the formula of Table 7.4.1-1 with W = 10 m and h = 10 m.
+
+    Unlike RMa, UMa and UMi, the SMa row of TR 38.901 V19.5.0 has no max() with the LOS path loss; it is used as
+    printed.
+    """
+    return _rma_nlos_prime(d2d, fc_ghz, h_bs, h_ut, w=SMA_W_M, h=SMA_H_M)
+
+
 def inh_los(d2d, fc_ghz: float, h_bs: float = 3.0, h_ut: float = 1.0, c: float = C_TR):
     """InH-Office, LOS (since 1.7.0): 32.4 + 17.3 log10(d3D) + 20 log10(fc), 1 m <= d3D <= 150 m."""
     d3 = np.sqrt(np.asarray(d2d, dtype=float) ** 2 + (h_bs - h_ut) ** 2)
@@ -128,17 +162,18 @@ def inh_nlos(d2d, fc_ghz: float, h_bs: float = 3.0, h_ut: float = 1.0, c: float 
 
 
 _MODELS = {"umi_street_canyon": (umi_los, _umi_nlos_prime), "uma": (uma_los, _uma_nlos_prime)}
-_OTHER = {"rma": (rma_los, rma_nlos), "inh_office": (inh_los, inh_nlos), "inh_office_open": (inh_los, inh_nlos)}
+_OTHER = {"rma": (rma_los, rma_nlos), "inh_office": (inh_los, inh_nlos), "inh_office_open": (inh_los, inh_nlos),
+          "sma": (sma_los, sma_nlos)}
 
 #: names of all path-loss models ("inh_office_open", since 2.1.0: the InH-Office path loss with the LOS
 #: probability of the open office)
-MODELS = ("umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open")
+MODELS = ("umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open", "sma")
 _INDOOR = ("inh_office", "inh_office_open")
 
 #: upper ends of the distance ranges of TR 38.901 V19.5.0 Table 7.4.1-1 [m]: (LOS d2D, NLOS d2D) for RMa, UMa and
 #: UMi; InH-Office: the 3D distance (1 m <= d3D <= 150 m)
 MAX_DISTANCE_M = {"umi_street_canyon": (5000.0, 5000.0), "uma": (5000.0, 5000.0), "rma": (10000.0, 5000.0),
-                  "inh_office": (150.0, 150.0), "inh_office_open": (150.0, 150.0)}
+                  "inh_office": (150.0, 150.0), "inh_office_open": (150.0, 150.0), "sma": (5000.0, 5000.0)}
 
 
 def is_3gpp(radio) -> bool:
@@ -196,7 +231,7 @@ _COEF = {"umi_street_canyon": (32.4, 21.0, 9.5, 35.3, 22.4, 21.3, 0.3),
 
 
 def path_loss(d2d, los, model: str, fc_ghz: float, h_bs: float, h_ut: float, c: float = C_TR,
-              d_min: float = 0.0, h_e=None):
+              d_min: float = 0.0, h_e=None, h_e0=None):
     """Path loss of ``model`` (one of :data:`MODELS`) for a boolean LOS state.
 
     ``c`` is the speed of light in the breakpoint distances (TR 38.901 notes 1 and 5: 3.0e8 m/s; 1.x used the
@@ -204,7 +239,9 @@ def path_loss(d2d, los, model: str, fc_ghz: float, h_bs: float, h_ut: float, c: 
     lower end of the applicability range of RMa, UMa and UMi in Table 7.4.1-1; InH has d3D >= 1 m anyway and
     is not limited).  Both come from the scenario (:func:`radio_kwargs`).  ``h_e`` (since 2.1.0; UMa only) is
     the effective environment height of every link (an array of the shape of ``d2d``, see
-    :func:`uma_effective_height`); unset it is 1 m.
+    :func:`uma_effective_height`); unset it is 1 m.  ``h_e0`` (since 2.3.0; UMa and UMi,
+    ``radio.env_height_m``) is one effective environment height for every link instead (TR 37.885
+    clause 6.2.1: 0.25 m); it takes precedence over ``h_e``.
 
     For UMi and UMa it gives exactly the values of ``np.where(los, X_los(...), X_nlos(...))``,
     but computes the logarithm of the distance once, the second breakpoint
@@ -236,7 +273,7 @@ def path_loss(d2d, los, model: str, fc_ghz: float, h_bs: float, h_ut: float, c: 
     pl = b * lg
     pl += a                                             # same rounding as a + b * lg
     pl += lf
-    if h_e is not None and model == "uma" and np.any(np.asarray(h_e) != 1.0):
+    if h_e0 is None and h_e is not None and model == "uma" and np.any(np.asarray(h_e) != 1.0):
         # per-link effective environment height (Table 7.4.1-1 note 1, since 2.1.0)
         he = np.broadcast_to(np.asarray(h_e, dtype=float), d2d.shape)
         dbp_l = 4.0 * (h_bs - he) * (h_ut - he) * fc_ghz * 1e9 / c_light
@@ -244,7 +281,7 @@ def path_loss(d2d, los, model: str, fc_ghz: float, h_bs: float, h_ut: float, c: 
         if far.any():
             pl[far] = a + 40.0 * lg[far] + lf - c * np.log10(dbp_l[far] ** 2 + dh2)
     else:
-        dbp = breakpoint_distance(fc_ghz, h_bs, h_ut, c=c_light)
+        dbp = breakpoint_distance(fc_ghz, h_bs, h_ut, 1.0 if h_e0 is None else float(h_e0), c=c_light)
         far = d2d > dbp
         if far.any():
             pl[far] = a + 40.0 * lg[far] + lf - c * math.log10(dbp * dbp + dh2)
@@ -304,8 +341,10 @@ def p_los_inh_open(d2d):
 
 
 def radio_kwargs(radio) -> dict:
-    """Keyword arguments of :func:`path_loss` taken from a ``RadioConfig`` (breakpoint constant, minimum distance)."""
-    return {"c": getattr(radio, "breakpoint_c_mps", C_TR), "d_min": getattr(radio, "pl_min_distance_m", 0.0)}
+    """Keyword arguments of :func:`path_loss` taken from a ``RadioConfig`` (breakpoint constant, minimum distance,
+    since 2.3.0 the fixed effective environment height)."""
+    return {"c": getattr(radio, "breakpoint_c_mps", C_TR), "d_min": getattr(radio, "pl_min_distance_m", 0.0),
+            "h_e0": getattr(radio, "env_height_m", None)}
 
 
 def los_shadow_sd(d2d, radio):
@@ -318,7 +357,7 @@ def los_shadow_sd(d2d, radio):
     far = radio.shadow_los_far_db
     if far is None:
         return radio.shadow_los_db
-    if radio.pathloss == "rma":
+    if radio.pathloss in ("rma", "sma"):              # note 5 (SMa since 2.3.0)
         dbp = rma_breakpoint(radio.carrier_ghz, radio.bs_height_m, radio.ue_height_m,
                              getattr(radio, "breakpoint_c_mps", C_TR))
     else:
@@ -350,8 +389,36 @@ def mix_db(w, g_los_db, g_nlos_db):
                             np.log1p(-w) + k * np.asarray(g_nlos_db, dtype=float)) / k
 
 
-def p_los(d2d, model: str, h_ut=None):
-    """LOS probability for the named path-loss model; ``h_ut`` (UMa only, since 2.1.0): see :func:`p_los_uma`."""
+def p_los_sma(d2d, h_bs: float, h_ut: float, vegetation: float = 0.0):
+    """LOS probability, SMa (since 2.3.0; TR 38.901 V19.5.0 Table 7.4.2-1).
+
+    1 up to 10 m, then exp(-d / k_com) exp(-d / k_res) exp(-d / k_veg) with
+    1 / k_x = -(ln(1 - r_x) / d_clutter) (h_x - h_UT) / (h_BS - h_UT) (residential: max(h_res - h_UT, 0)),
+    d_clutter = 30 m, commercial 20 m and 2 %, residential 8 m and 18 %, vegetation 15 m and ``vegetation``
+    (0, 0.1 or 0.2).  ``d2d`` is the 2D distance outdoors.
+    """
+    d = np.asarray(d2d, dtype=float)
+    rate = 0.0
+    for name, (h_x, r_x) in SMA_CLUTTER.items():
+        r = vegetation if r_x is None else r_x
+        dh = max(h_x - h_ut, 0.0) if name == "residential" else h_x - h_ut
+        rate += -(math.log(1.0 - r) / SMA_D_CLUTTER_M) * dh / (h_bs - h_ut)
+    return np.where(d <= 10.0, 1.0, np.exp(-d * rate))
+
+
+def los_args(radio) -> dict:
+    """Keyword arguments of :func:`p_los` taken from a ``RadioConfig`` (since 2.3.0)."""
+    out = {"h_ut": los_ut_height(radio)}
+    if radio.pathloss == "sma":
+        out["sma"] = (radio.bs_height_m, radio.ue_height_m, getattr(radio, "vegetation", 0.0))
+    return out
+
+
+def p_los(d2d, model: str, h_ut=None, sma=None):
+    """LOS probability for the named path-loss model; ``h_ut`` (UMa only, since 2.1.0): see :func:`p_los_uma`;
+    ``sma`` (since 2.3.0): (h_BS, h_UT, vegetation) of :func:`p_los_sma`."""
+    if model == "sma":
+        return p_los_sma(d2d, *(sma or (35.0, 1.5, 0.0)))
     if model == "rma":
         return p_los_rma(d2d)
     if model == "inh_office":
@@ -359,3 +426,64 @@ def p_los(d2d, model: str, h_ut=None):
     if model == "inh_office_open":
         return p_los_inh_open(d2d)
     return p_los_umi(d2d) if model == "umi_street_canyon" else p_los_uma(d2d, h_ut)
+
+
+# ---------------------------------------------------------------------------
+# O2I building penetration loss (TR 38.901 V19.5.0 clause 7.4.3.1; since 2.3.0)
+# ---------------------------------------------------------------------------
+def material_loss_db(material: str, fc_ghz: float) -> float:
+    """Penetration loss a + b f of a material, TR 38.901 V19.5.0 Table 7.4.3-1 (f in GHz; IRR glass of Release 19)."""
+    a, b = {"glass": (2.0, 0.2), "irr_glass": (25.4, 0.11), "concrete": (5.0, 4.0), "plywood": (1.03, 0.17),
+            "wood": (4.85, 0.12)}[material]
+    return a + b * fc_ghz
+
+
+#: Table 7.4.3-2: model -> ((proportion, material), ...) of the external wall, and sigma_P [dB]; PL_npi = 5 dB
+O2I_WALLS = {"low": (((0.3, "glass"), (0.7, "concrete")), 4.4),
+             "high": (((0.7, "irr_glass"), (0.3, "concrete")), 6.5),
+             "low_a": (((0.3, "glass"), (0.7, "plywood")), 4.4)}
+O2I_PL_NPI_DB = 5.0
+#: SMa buildings (Table 7.2-5): 90 % residential (d2D-in up to 10 m), 10 % commercial (up to 25 m)
+SMA_RESIDENTIAL_SHARE = 0.9
+
+
+def o2i_wall_loss_db(model: str, fc_ghz: float) -> float:
+    """PL_tw = PL_npi - 10 log10(sum p_i 10^(-L_i / 10)) of Eq. (7.4-3) with the walls of Table 7.4.3-2."""
+    walls, _ = O2I_WALLS[model]
+    return O2I_PL_NPI_DB - 10.0 * math.log10(sum(p * 10.0 ** (-material_loss_db(m, fc_ghz) / 10.0)
+                                                  for p, m in walls))
+
+
+def o2i_d_in_max(radio):
+    """Upper end of the two uniform variables of d2D-in [m] (clause 7.4.3.1): ``radio.o2i_d_in_max_m``, else 25 m
+    for UMa and UMi, 10 m for RMa, and for SMa ``None`` (10 m residential, 25 m commercial)."""
+    if getattr(radio, "o2i_d_in_max_m", None) is not None:
+        return float(radio.o2i_d_in_max_m)
+    return {"rma": 10.0, "sma": None}.get(radio.pathloss, 25.0)
+
+
+def o2i_building_loss(rng, indoor, radio) -> np.ndarray:
+    """O2I building penetration loss [dB] of every user, 0 for the users outside (since 2.3.0).
+
+    PL_tw + PL_in + N(0, sigma_P^2) of Eq. (7.4-2), drawn once per user (UT-specific): ``radio.o2i_model``
+    ("mixed": low or high loss with probability 1/2), d2D-in = the minimum of two uniform variables between 0 and
+    :func:`o2i_d_in_max` (SMa: residential or commercial building, 90 % / 10 %), PL_in = 0.5 d2D-in.  Five
+    variables are drawn for every user, indoor or not, so that a user's loss does not depend on the others.
+    """
+    indoor = np.asarray(indoor, dtype=bool)
+    n = len(indoor)
+    u_model, u_bldg, u1, u2 = (rng.random(n) for _ in range(4))
+    z = rng.standard_normal(n)
+    fc = radio.carrier_ghz
+    if radio.o2i_model == "mixed":
+        high = u_model < 0.5
+        tw = np.where(high, o2i_wall_loss_db("high", fc), o2i_wall_loss_db("low", fc))
+        sd = np.where(high, O2I_WALLS["high"][1], O2I_WALLS["low"][1])
+    else:
+        tw = np.full(n, o2i_wall_loss_db(radio.o2i_model, fc))
+        sd = np.full(n, O2I_WALLS[radio.o2i_model][1])
+    a = o2i_d_in_max(radio)
+    if a is None:
+        a = np.where(u_bldg < SMA_RESIDENTIAL_SHARE, 10.0, 25.0)
+    d_in = np.minimum(u1, u2) * a
+    return np.where(indoor, tw + 0.5 * d_in + sd * z, 0.0)

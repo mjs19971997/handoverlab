@@ -209,16 +209,18 @@ output: results/metrics.csv
 | | `noise_figure_db` | `7` | UE noise figure |
 | | `isolation` | `0.3` | mean-to-peak gain of an interfering data beam (1 = no beam isolation) |
 | | `bs_height_m`, `ue_height_m` | `10`, `1.5` | antenna heights; with `channel_detail: 3gpp` they must lie in the applicability ranges of TR 38.901 Table 7.4.1-1 (UMa, UMi: 1.5 m <= h_UT <= 22.5 m; RMa: 10-150 m and 1-10 m) |
-| | `pathloss` | `umi_street_canyon` | or `uma`, `rma` (0.5-30 GHz), `inh_office` (TR 38.901 Table 7.4.1-1; the last two since 1.7.0; LOS probability of the mixed office), `inh_office_open` (since 2.1.0: InH-Office with the LOS probability of the open office, as ITU-R M.2412-0 Table A1-9) |
+| | `pathloss` | `umi_street_canyon` | or `uma`, `rma` (0.5-30 GHz), `inh_office` (TR 38.901 Table 7.4.1-1; the last two since 1.7.0; LOS probability of the mixed office), `inh_office_open` (since 2.1.0: InH-Office with the LOS probability of the open office, as ITU-R M.2412-0 Table A1-9), `sma` (since 2.3.0: suburban macro of TR 38.901 V19.5.0, 0.5-37 GHz; [guide](guides/suburban-o2i.md)) |
 | | `shadow_los_db`, `shadow_nlos_db` | `4`, `7.82` | shadowing standard deviation |
 | | `shadow_los_far_db` | none | optional (1.7.0): standard deviation of LOS links beyond the breakpoint distance (RMa: `6`) |
 | | `shadow_decorr_m` | `10` | shadowing decorrelation distance |
 | | `shadow_site_corr` | none | correlation of the shadowing between sites; unset (since 2.1.0): 0 with `channel_detail: 3gpp` (TR 38.901 clause 7.5 step 4), 0.5 with `simple` (the value of 2.0.0 and 1.x) |
 | | `place_share` | `1` | share of shadowing variance tied to place (rest moves with the user) |
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
+| | `building_los` | `true` | street grid: a link through a building block is NLOS; `false` (since 2.3.0): sites above the rooftops, the LOS state comes from the LOS probability alone (TR 37.885 clause 6.2.1, urban base-station-to-vehicle links); needs `clutter_los: true` |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
 | | `breakpoint_c_mps` | `3.0e8` | speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1 notes 1 and 5; since 2.0.0, 1.x: 299792458) |
 | | `pl_min_distance_m` | `10` | smallest 2D distance the RMa, UMa and UMi formulas are evaluated at (their applicability range; since 2.0.0, 1.x: 0) |
+| | `env_height_m` | none | UMa and UMi: one effective environment height h_E for every link in the breakpoint distance (since 2.3.0; TR 37.885 clause 6.2.1: `0.25` for base-station-to-vehicle links); unset: TR 38.901 Table 7.4.1-1 note 1 |
 | | `channel_detail` | `3gpp` | since 2.1.0: `3gpp` -- place-tied shadowing and LOS fields with the exponential autocorrelation exp(-d / d_cor) of TR 38.901 Eq. (7.4-5), shadowing uncorrelated between sites, UMa with C'(h_UT) and the random effective environment height (h_UT >= 13 m), height and co-sited-layer checks, the tabled NTN beamwidth; `simple` -- the model of 2.0.0 and 1.x (part of `LEGACY_1X`) |
 | | `map_file` | none | radio map from a file: path gain of every site and pixel from a ray tracer or measurements (TR 38.901 clause 8; since 1.12.0; see [your own radio map](guides/radio-maps.md)); `map_sha256` is filled on loading |
 | | `los_model` | `probability` | `los`: every link LOS (TR 37.885 Table 6.2.1-2, highway); not on the street grid (since 1.11.0) |
@@ -227,7 +229,8 @@ output: results/metrics.csv
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
 | | `energy_p0_w`, `energy_slope`, `energy_ntrx` | `56`, `2.6`, `2` | cell power for the energy metrics (1.5.0; `energy_ntrx` since 2.1.0): EARTH model of a micro base station, Auer et al. 2011 Eq. 1 and Table 2 |
 | | `fast_fading`, `delay_spread_ns`, `fading_k_db` | `null`, `100`, `null` | (2.2.0) TDL fast fading of TR 38.901 clause 7.7.2 (`tdl-a` .. `tdl-e`), its RMS delay spread and an optional K-factor; radio-link monitoring and the rate then use effective SINRs ([guide](guides/fading.md)) |
-| | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car) |
+| | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car); since 2.3.0 not for indoor users |
+| | `o2i_model`, `o2i_d_in_max_m` | `low`, none | (2.3.0) O2I building penetration loss of the users of an `indoor: true` speed group (TR 38.901 clause 7.4.3.1): `low`, `high`, `low_a` (SMa) or `mixed` (half low, half high); upper end of the uniform variables of d2D-in (unset: 25 m UMa/UMi, 10 m RMa, SMa 10 m residential / 25 m commercial) ([guide](guides/suburban-o2i.md)) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
 | | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)) |
@@ -265,7 +268,7 @@ output: results/metrics.csv
 | | `ftp_file_bytes`, `ftp_rate_hz` | `500000`, `0.1` | `ftp3`: file size (FTP model 3, 0.5 Mbyte as TR 38.821 Table 6.1.1.1-7) and file arrivals per user and second |
 | `mobility` | `users` | `40` | number of users |
 | | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120` (about 3 and 120 km/h, +-10 %); `p3`, `v30`, `v120` (since 2.1.0: exactly 3, 30, 120 km/h, the fixed speeds of ITU-R M.2412-0 Tables 5a-5c); highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h with up to 0.5 m lateral offset, since 1.11.0), `v140c`, `v70c` (since 2.1.0: the same on the lane centre) |
-| | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]` |
+| | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]`; `lanes_m` (2.0.0) lane centres; `indoor: true` (2.3.0) users inside buildings, with the O2I building penetration loss of `radio.o2i_model` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
 | `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
 | | `backend` | `numpy` | `numba`: compiled kernel of the step loop, bit-identical results, needs `pip install handoverlab[fast]` (since 1.11.0; see [performance](performance.md)); not part of the job IDs |
