@@ -7,6 +7,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- UE receive beams as an option of the beam model (`radio.beams.ue_panels` 1, 2 or 4, off by default): UE panels
+  of TR 38.802 V14.2.0 Table A.2.1-4 (Config 1: two panels 180 deg apart, Config 2: four at 90 deg; `ue_panel`
+  [M, N] = [2, 4] at half a wavelength, one polarisation) with the element of Table A.2.1-8 (model 1, 5 dBi;
+  = ITU-R M.2412-0 Table 11), `ue_beams` DFT receive beams per panel over `ue_beam_span_deg`, bearing uniform
+  per UE (`ue_orientation: random`) or along the direction of travel (`heading`). Measurements use the best
+  receive beam of the best panel (`ue_rx: best`; TS 38.215 5.1.1 receiver branches) or a sweep over the beams,
+  one per L1 instant, with the highest of the last samples reported (`sweep`); data, RLM, beam failure
+  detection and recovery and the interference use the serving receive beam. The FR2 time scaling of the sweep
+  was already in `protocol.meas_periods: ts38133` (Mmeas_period_w/o_gaps = 24, TS 38.133 V19.6.0 9.2.5.1) and is
+  not applied twice; `sweep` is refused with `ts38133`. New random stream `ue_beams`. Not combined with
+  `protocol.dc`. With the option off every result is unchanged. Guide: `docs/guides/ue-beams.md`.
+
 ## [2.3.0] - 2026-10-22
 
 ### Added

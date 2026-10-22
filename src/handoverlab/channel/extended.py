@@ -36,6 +36,17 @@ Measurements (SS-RSRP per resource element, TS 38.215 clause 5.1.1)
 Interference
     Only cells on the same carrier interfere; the noise is that of the
     carrier's bandwidth and the layer's noise figure.
+
+UE receive beams (since 2.4.0, ``radio.beams.ue_panels`` > 0)
+    The UE gain towards a site is that of a receive beam of a UE panel
+    (:func:`~handoverlab.channel.antenna.ue_beam_gains_db`) in the direction of
+    the site (the geometric direction, LOS or not: the model has no multipath
+    angles).  ``ExtChunk.rg`` holds the gains of every receive beam towards
+    every site at the L1 instants; the measurements add the best of them
+    (``ue_rx`` "best") or the beam of the current sweep step, with the highest
+    of the last ``ue_beams`` samples reported (``"sweep"``); the engine adds the
+    gain of the UE's serving receive beam to the desired and interfering powers.
+    Sites of a layer without UE beams give 0 dB (the isotropic UE).
 """
 from __future__ import annotations
 
@@ -49,7 +60,7 @@ import numpy as np
 from ..config import BeamConfig, LayoutConfig, RadioConfig, Scenario
 from ..layout import make_layout
 from ..seeds import streams
-from .antenna import beam_azimuths_deg, beam_gain_db, wrap_deg
+from .antenna import beam_azimuths_deg, beam_gain_db, ue_beam_gains_db, wrap_deg
 from .radiomap import RadioMap
 
 LN10_10 = np.log(10.0) / 10.0
@@ -117,6 +128,14 @@ class Layer:
             self.boresight = np.zeros(1)
         self.re_off = re_offset_db(radio.bandwidth_mhz, scs_khz, radio.carrier_ghz, radio.channel_detail)
         self.p0 = radio.tx_power_dbm + radio.ue_gain_db          # + antenna gain of the beam or the abstraction
+        # UE receive beams (since 2.4.0): panels x beams per panel; 0 panels: the isotropic UE
+        self.ue_panels = beams.ue_panels if beams else 0
+        self.ue_q = beams.ue_beams if self.ue_panels else 1
+        self.n_rx = self.ue_panels * self.ue_q if self.ue_panels else 1
+        if self.ue_panels:
+            from ..config import UE_PANEL_STEP_DEG
+            self.ue_step = UE_PANEL_STEP_DEG[self.ue_panels]
+            self.ue_beam_az = beam_azimuths_deg(beams.ue_beams, beams.ue_beam_span_deg)
 
 
 def _layer_radio(base: RadioConfig, ly) -> RadioConfig:
@@ -201,6 +220,14 @@ class ExtendedRadio:
             L = lay[cl[c]]
             self.beam_az[c, :L.n_beams] = L.beam_az
         self.base_layout, self.base_rmap = layout, rmap
+        # UE receive beams (since 2.4.0)
+        self.site_layer = np.concatenate([np.full(L.n_sites, L.index) for L in lay])
+        self.site_hb = np.array([lay[i].radio.bs_height_m for i in self.site_layer])
+        self.ue_rx = any(L.ue_panels for L in lay)
+        self.R = max(L.n_rx for L in lay)
+        # sweep window of every cell: the beams per panel of its layer with ue_rx "sweep", else 1
+        self.sweep_w = np.array([lay[i].ue_q if lay[i].ue_panels and lay[i].beams.ue_rx == "sweep" else 1
+                                 for i in cl])
 
     # ---------------------------------------------------------------- geometry and gains
     def _angles(self, x, y, cells):
@@ -257,6 +284,36 @@ class ExtendedRadio:
                                                      b.tilt_deg, b.panel[0], b.panel[1], b.am_db)
         return out
 
+    def ue_gains_db(self, x, y, bearing) -> np.ndarray:
+        """Gains (P, S, R) [dB] of the UE receive beams at the points (P,) towards every site, the first panel
+        facing ``bearing`` (P, S) or (P,) [deg] (since 2.4.0).  Index r = panel x beams per panel + beam; 0 dB
+        for the sites of a layer without UE beams, NO_BEAM_DB for indices a layer does not have."""
+        x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+        P = len(x)
+        out = np.zeros((P, self.n_sites, self.R), dtype=np.float32)
+        brg = np.asarray(bearing, dtype=float)
+        if brg.ndim == 1:
+            brg = np.broadcast_to(brg[:, None], (P, self.n_sites))
+        s0 = 0
+        for L in self.layers:
+            sites = slice(s0, s0 + L.n_sites)
+            s0 += L.n_sites
+            if not L.ue_panels:
+                continue
+            sp = self.site_pos[sites]
+            dx, dy = x[:, None] - sp[None, :, 0], y[:, None] - sp[None, :, 1]       # site -> UE
+            if self.base_layout.period_x:
+                dx, dy = self.base_layout.nearest_image(dx, dy)
+            d2 = np.maximum(np.hypot(dx, dy), 1.0)
+            theta = 90.0 - np.degrees(np.arctan2(self.site_hb[sites][None, :] - self.hu, d2))   # arrival zenith
+            az = np.degrees(np.arctan2(-dy, -dx))                                     # UE -> site
+            b = L.beams
+            g = ue_beam_gains_db(theta, az, brg[:, sites], L.ue_panels, L.ue_step, b.ue_panel[0], b.ue_panel[1],
+                                 L.ue_beam_az, b.ue_tilt_deg)
+            out[:, sites, :L.n_rx] = g.reshape(P, L.n_sites, L.n_rx)
+            out[:, sites, L.n_rx:] = NO_BEAM_DB
+        return out
+
     def mean_gain_db(self, g_all: np.ndarray) -> np.ndarray:
         """Interference gain (P, C) from (P, C, B): mean linear gain over the cell's beams, or the abstraction."""
         lin = np.exp(g_all * LN10_10)
@@ -286,12 +343,15 @@ class ExtChunk:
     ``l1`` (nm, U, C) cell quality, SS-RSRP per RE with L1 error [dBm]; ``bl1`` (nm, U, C, B) beam L1
     values per RE [dBm]; ``site_db`` (n, U, S) site gains; ``x``, ``y`` (n, U) user positions; ``bg``
     (nm, U, C, B) antenna gains of every beam at the L1 instants [dBi], held over the L1 period.
+    With UE receive beams (since 2.4.0) ``rg`` (nm, U, S, R) holds the gains of the UE receive beams towards
+    every site [dB] at the L1 instants and ``rgb`` (nm, U, S) the best of them; otherwise both are None.
     """
-    __slots__ = ("k0", "n", "rsrp", "lin", "l1", "mp", "bl1", "site_db", "x", "y", "bg")
+    __slots__ = ("k0", "n", "rsrp", "lin", "l1", "mp", "bl1", "site_db", "x", "y", "bg", "rg", "rgb")
 
-    def __init__(self, k0, n, lin, l1, mp, bl1, site_db, x, y, bg):
+    def __init__(self, k0, n, lin, l1, mp, bl1, site_db, x, y, bg, rg=None, rgb=None):
         self.k0, self.n, self.lin, self.l1, self.mp = k0, n, lin, l1, mp
         self.bl1, self.site_db, self.x, self.y, self.bg = bl1, site_db, x, y, bg
+        self.rg, self.rgb = rg, rgb
         self.rsrp = None
 
 
@@ -313,11 +373,52 @@ class ExtendedSource:
         self.rng = streams(world.seed, "beams", 1)[0]
         self.err = sc.radio.l1_error_db
         self.beam_cfg = [L.beams for L in ext.layers]
+        if ext.ue_rx:                                         # UE receive beams (since 2.4.0)
+            # bearing of the first panel: once per UE, uniform in [0, 360) deg (TR 38.802 Table A.2.1-4), or the
+            # direction of travel (per site, as layers may differ)
+            self.bearing0 = streams(world.seed, "ue_beams", 1)[0].uniform(0.0, 360.0, self.U)
+            head = np.array([bool(L.ue_panels) and L.beams.ue_orientation == "heading" for L in ext.layers])
+            self.site_head = head[ext.site_layer]
+            self.heading = world.heading
+            self.sweep_cells = [(int(w), np.nonzero(ext.sweep_w == w)[0]) for w in sorted(set(ext.sweep_w)) if w > 1]
+
+    def _ue_gains(self, k0, n, xm, ym):
+        """UE receive-beam gains (nm, U, S, R) at the L1 instants of steps k0 .. k0 + n - 1."""
+        ext, mp, U = self.ext, self.mp, self.U
+        nm = len(xm)
+        if self.site_head.any():
+            hd = np.degrees(self.heading[k0:k0 + n:mp])                              # (nm, U)
+            brg = np.where(self.site_head[None, None, :], hd[:, :, None], self.bearing0[None, :, None])
+            brg = brg.reshape(nm * U, ext.n_sites)
+        else:
+            brg = np.tile(self.bearing0, nm)
+        return ext.ue_gains_db(xm.ravel(), ym.ravel(), brg).reshape(nm, U, ext.n_sites, ext.R)
+
+    def _sweep(self, bl1, k0, rg):
+        """Receive-beam sweep (``ue_rx`` "sweep"): at L1 instant j the UE receives on beam j mod Q of every panel
+        (the best panel counts: each panel is a receiver branch, TS 38.215 clause 5.1.1); the value of an SSB is
+        the highest of its last Q samples."""
+        ext = self.ext
+        j0 = k0 // self.mp
+        W = self.hist.shape[0]
+        for j in range(bl1.shape[0]):
+            jg = j0 + j
+            for w, cells in self.sweep_cells:
+                L = ext.layers[ext.cell_layer[cells[0]]]
+                q = jg % w
+                g = rg[j][:, :, [p * L.ue_q + q for p in range(L.ue_panels)]].max(-1)     # (U, S)
+                v = bl1[j][:, cells]
+                v = np.where(v <= NO_BEAM_DB, NO_BEAM_DB, v + g[:, ext.cell_site[cells]][:, :, None])
+                self.hist[jg % W][:, cells] = v
+                idx = [(jg - t) % W for t in range(w)]
+                bl1[j][:, cells] = self.hist[idx][:, :, cells].max(0)
 
     def chunks(self) -> Iterator[ExtChunk]:
         ext, mp, U = self.ext, self.mp, self.U
         C, B = ext.n_cells, ext.B
         gens = [s.raw_chunks() for s in self.sources]
+        if ext.ue_rx and self.sweep_cells:                    # the last samples of the receive-beam sweep
+            self.hist = np.full((int(ext.sweep_w.max()), U, C, B), NO_BEAM_DB)
         while True:
             parts = [next(g, None) for g in gens]
             if parts[0] is None:
@@ -342,8 +443,17 @@ class ExtendedSource:
             bl1 -= ext.re_off[None, None, :, None]
             bl1 += self.err * self.rng.standard_normal(bl1.shape)
             bl1[:, :, ext.n_beams[:, None] <= np.arange(B)[None, :]] = NO_BEAM_DB
+            rg = rgb = None
+            if ext.ue_rx:                                     # UE receive beams (since 2.4.0)
+                rg = self._ue_gains(k0, n, xm, ym)
+                rgb = rg.max(-1)
+                best = ext.sweep_w == 1
+                bl1[:, :, best] += rgb[:, :, ext.cell_site[best]][..., None]
+                bl1[:, :, ext.n_beams[:, None] <= np.arange(B)[None, :]] = NO_BEAM_DB
+                if self.sweep_cells:
+                    self._sweep(bl1, k0, rg)
             l1 = cell_quality(bl1, ext, self.beam_cfg)
-            yield ExtChunk(k0, n, lin, l1, mp, bl1, site_db, x, y, bg)
+            yield ExtChunk(k0, n, lin, l1, mp, bl1, site_db, x, y, bg, rg, rgb)
 
 
 def cell_quality(bl1: np.ndarray, ext: ExtendedRadio, cfgs) -> np.ndarray:

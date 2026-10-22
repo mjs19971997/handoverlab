@@ -38,6 +38,7 @@ nav:
       - Indoor and rural scenarios: guides/indoor-rural.md
       - Mobility robustness optimisation: guides/mro.md
       - Beams and several carriers: guides/beams-layers.md
+      - UE receive beams: guides/ue-beams.md
       - Dual connectivity: guides/dual-connectivity.md
       - Fast fading and effective SINR: guides/fading.md
       - Slot scheduler, MCS and HARQ: guides/scheduler.md
