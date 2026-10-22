@@ -7,6 +7,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Documentation
+
+- `docs/comparison.md`: HandoverLab next to ns-3 with 5G-LENA and the mmWave module, Simu5G, the Vienna 5G System
+  Level Simulator, the MATLAB 5G Toolbox, OpenAirInterface and Sionna on the points that matter for handover
+  studies (A3, CHO, DAPS, LTM, radio-link failure, dual connectivity, NTN, beams, fast fading and link-to-system
+  mapping, scheduler, speed and scale, licence, language, last release, validation against 3GPP). Every cell
+  about another tool cites its official documentation, repository or paper (accessed 2026-10-22); facts not
+  found are marked "not stated"; a section lists where the other tools are stronger.
+
 ## [2.3.0] - 2026-10-22
 
 ### Added

@@ -376,6 +376,10 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 - [Scenario cards](https://github.com/mjs19971997/handoverlab/tree/main/docs/scenarios): the built-in scenarios with the source of every parameter.
 - [Verification](https://github.com/mjs19971997/handoverlab/blob/main/docs/verification.md), [failure-model calibration](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md) and
   [performance](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md).
+- [Comparison with other simulators](https://github.com/mjs19971997/handoverlab/blob/main/docs/comparison.md): ns-3 with 5G-LENA
+  and the mmWave module, Simu5G, the Vienna 5G System Level Simulator, the MATLAB 5G Toolbox, OpenAirInterface
+  and Sionna on handover procedures, failure model, NTN, beams, PHY abstraction, scheduler, scale and validation,
+  each cell with its source, including where the other tools are stronger.
 - [Changelog](https://github.com/mjs19971997/handoverlab/blob/main/CHANGELOG.md), [contribution guide](https://github.com/mjs19971997/handoverlab/blob/main/CONTRIBUTING.md) and [releasing](https://github.com/mjs19971997/handoverlab/blob/main/docs/RELEASING.md).
 
 ## Roadmap
