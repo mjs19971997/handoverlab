@@ -135,6 +135,47 @@ in the matrix products, which the kernel does not touch. Timings on this machine
 between runs (the NumPy batched and one-by-one times above are in the opposite order of the 0.3.0a1
 table), so read the ratios as approximate.
 
+## Changes in 2.4.0: a compiled slot scheduler
+
+The slot scheduler of 2.2.0 (`protocol.scheduler`) plays every slot of a measurement interval in
+Python on arrays as small as the number of users; a profile of the ns-3 card (10 users, 6 s) put
+90-97 % of a run in that loop (2-5 ms of interpreter overhead per 0.5 ms slot). With
+`run.backend: numba` the slots now run in one compiled loop (`handoverlab.engine._kernels.sched_slots`).
+What needs a logarithm, an interpolation or the normal tail of the block-error model stays in the
+NumPy functions of the reference: per interval they fill tables of MCS, TBS and block error
+probability per user and PRB count, and of the block error probability of every later HARQ
+transmission (its combined SINR is a fixed sequence of additions of the user's SINR, which is
+constant within the interval). When the loop needs an entry that is not there yet (round robin with
+a new PRB share), it stops before changing anything in that slot and continues once the entry is
+filled. The loop itself does only basic arithmetic in the reference order, without fast-math, so
+the results are bit-identical: `tests/test_sched_kernel.py` compares delivered data, PRB shares,
+HARQ state and PF averages over random intervals and fingerprint and every metric of whole runs
+(round robin, proportional fair, fast fading, buffers) with `==`.
+
+Engine time on the ns-3 card (`full_buffer`, 6 s with 1 s warm-up, seed 1, rule a3; world built
+once, median of three runs after the kernel is compiled; Numba 0.68, NumPy 2.4, SciPy 1.18, one
+process on the same modest virtual machine, which other jobs shared at the time):
+
+| Case | NumPy | Numba | Ratio |
+|---|---|---|---|
+| Rate model (no scheduler), 10 users | 1.01 s | 0.38 s | 2.7 |
+| `pf`, 10 users | 60.0 s | 1.01 s | 59 |
+| `rr`, 10 users | 58.7 s | 1.19 s | 49 |
+| Rate model, 30 users | 0.93 s | 0.60 s | 1.5 |
+| `pf`, 30 users | 69.3 s | 1.69 s | 41 |
+| `rr`, 30 users | 77.1 s | 3.30 s | 23 |
+
+With Numba a scheduler run costs about 2.7-3.2 times the rate model with 10 users and 2.8-5.5
+times with 30 users, instead of 50-80 times. An earlier measurement on a less loaded machine, before
+the MCS look-up was vectorised (`SlotScheduler.select_all`, same values as `select`), gave ratios of
+10.9-23 with 10 users; the load of the machine changes the NumPy times by up to a factor of two, so
+read the ratios as approximate. The remaining time is mostly the MCS look-ups and block error
+probabilities in NumPy (per interval) and, for `rr`, the stops of the loop at new PRB shares.
+
+Fast fading and the user-plane buffers were profiled too and left as they are: the fading step is
+one BLAS matrix product per step (already compiled; a loop would not reproduce its summation
+order), and the buffers take well under a second per run.
+
 ## Next steps
 
 - Compiled kernels for the measurement instants (A3 entry times, the prepared set of conditional

@@ -19,6 +19,12 @@ All notable changes to this project are documented in this file. The format foll
   the company mean is 1.65-2.88 dB, so the second criterion (at most 1.5 dB) fails for all six cases. It is
   reported as a note. The checks against R1-165974 are unchanged. `simulate_drops` takes the IRR-glass loss of
   the case's reference when `irr_glass` is not given (unchanged for the old cases).
+- Compiled slot scheduler: with `run.backend: numba` (`pip install handoverlab[fast]`) the slots of
+  `protocol.scheduler` are played by a compiled loop (`handoverlab.engine._kernels.sched_slots`). The MCS
+  look-ups, logarithms and block error probabilities still come from the NumPy functions of the reference loop
+  (per-interval tables), and the loop uses only basic arithmetic in the reference order, so every result is
+  bit-identical to the NumPy loop (`tests/test_sched_kernel.py`, which also runs the loop's logic as plain Python
+  without Numba). On the ns-3 card the engine time with the scheduler drops by a factor of 8 to 60 (case and machine load) (about 3 times the rate model instead of 50-80 times; see `docs/performance.md`). The NumPy loop stays the reference and the default and runs in debug mode.
 
 ### Documentation
 

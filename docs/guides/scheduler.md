@@ -46,9 +46,11 @@ table of another simulator is used.
 
 ## 3. Cost and limits
 
-- Every slot is played: about 45 times the time of the default rate model (10 users on the ns-3
-  card: about 90 s instead of 2 s for 20 s simulated). Use it for focused studies; a compiled loop
-  is planned.
+- Every slot is played: with the NumPy loop about 45 times the time of the default rate model
+  (10 users on the ns-3 card: about 90 s instead of 2 s for 20 s simulated). Since 2.4.0
+  `run.backend: numba` (`pip install handoverlab[fast]`) plays the slots in a compiled loop with
+  bit-identical results (see [performance](../performance.md)); the NumPy loop stays the reference
+  and is used in debug mode.
 - The channel is held for the 10 ms step; mobility decisions stay on the 10 ms grid.
 - This version needs the base engine (no beams, layers, NTN or TS 38.133 periods).
 - Data of a user stop during a handover interruption and wait in its buffer; forwarding between

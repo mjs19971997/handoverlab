@@ -179,6 +179,9 @@ class Engine:
         self.log: List[tuple] = []
         self.trace_log: Optional[List[tuple]] = [] if self.level == "full" else None
         self.debug = inv.debug_from_env() if debug is None else bool(debug)
+        if self.sched is not None and not self.debug and getattr(sc.run, "backend", "numpy") == "numba":
+            from ._kernels import sched_slots                             # compiled slot loop (2.4.0), same values
+            self.sched.use_kernel(sched_slots)
         self.last_t_end = -INF
         U = self.U
         self.ar = np.arange(U)
