@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-22
+
 ### Added
 
 - 7 GHz large-scale calibration (TR 38.901 V19.5.0 clause 7.8.1, Table 7.8-1A) in the `verify` group
@@ -1062,7 +1064,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/mjs19971997/handoverlab/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mjs19971997/handoverlab/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mjs19971997/handoverlab/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mjs19971997/handoverlab/compare/v2.0.0...v2.1.0
