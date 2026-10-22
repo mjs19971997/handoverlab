@@ -61,6 +61,7 @@ RULE_DOMAINS: Dict[str, Dict[str, str]] = {
     "a3_mro": {"off_db": "a3sum", "ttt_s": "ttt", "step_db": "cio_walk"},
     "a3_bandit": {"arms_db": "a3sum", "ttt_s": "ttt"},
     "dqn": {"offsets_db": "a3sum", "ttt_s": "ttt"},
+    "a3_pred": {"off_db": "a3sum", "ttt_s": "ttt"},
     "a3a5": {"off_db": "a3sum", "ttt_s": "ttt", "a5_thresh1_dbm": "rsrp", "a5_thresh2_dbm": "rsrp", "a5_hys_db": "hys",
              "a5_ttt_s": "ttt", "a5_down_thresh1_dbm": "rsrp", "a5_down_thresh2_dbm": "rsrp"},
     "daps": {"off_db": "a3sum", "ttt_s": "ttt"},

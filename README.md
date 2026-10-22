@@ -139,7 +139,7 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 | Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, a train at 350 km/h (TR 38.854), random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference | rate from SINR (Shannon-type mapping), no scheduler | slot scheduler, HARQ, RLC/PDCP, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
-| Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
+| Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `a3_pred`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
 | Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; absolute failure rates are not calibrated: compare rules with each other |
 | Time | 10 ms step by default (`protocol.step_s`); the effect of the step is measured in [time step](https://github.com/mjs19971997/handoverlab/blob/main/docs/time-step.md) | events rounded to the step | sub-slot timing |
 
@@ -160,7 +160,8 @@ networks with small cells 50-300 m apart. Three paths lead beyond 5G:
 - **Non-terrestrial networks**: a LEO satellite with earth-moving beams (TR 38.811, TR 38.821) and conditional
   handover with condEventD2 (TS 38.331 Release 18).
 - **Learning-based mobility**: the rule interface gives a rule every measurement and the outcome of every
-  attempt; `a3_bandit` and `dqn` are examples, `a3_mro` the fair tuned baseline.
+  attempt; `a3_bandit` and `dqn` are examples, `a3_mro` the fair tuned baseline, and `a3_pred` follows the
+  RRM measurement prediction of TR 38.744 (Release 19).
 
 6G itself is at the stage of requirements: TR 38.914 V20.1.0 (Release 20, last changed at RAN #113 in September
 2026) sets scenarios and key performance requirements but specifies no handover procedure, timer or measurement

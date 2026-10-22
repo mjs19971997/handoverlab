@@ -2,8 +2,9 @@
 """Handover rules and their registry.
 
 Built-in rules are registered under ``"a3"``, ``"cho"``, ``"daps"``, ``"ltm"``,
-``"cltm"``, ``"a3_bandit"``, ``"a3_mro"`` (since 1.7.0), ``"a3a5"`` (since 1.10.0) and ``"dqn"`` (since 1.11.0;
-needs PyTorch: ``pip install handoverlab[torch]``).  Your own rule can
+``"cltm"``, ``"a3_bandit"``, ``"a3_mro"`` (since 1.7.0), ``"a3a5"`` (since 1.10.0), ``"dqn"`` (since 1.11.0;
+needs PyTorch: ``pip install handoverlab[torch]``) and ``"a3_pred"`` (since 2.4.0; RRM measurement prediction of
+TR 38.744).  Your own rule can
 be registered in code::
 
     from handoverlab.rules import BaselineRule, register_rule
@@ -28,11 +29,12 @@ from .base import (EARLY, LATE, MAX_CONDITIONAL_CELLS, UNNECESSARY, USEFUL, Base
 from .builtin import A3, A3A5, CHO, CHOD2, CLTM, DAPS, LTM, BanditA3
 from .dqn import DQNA3
 from .mro import MROA3
+from .predict import PredA3
 
 ENTRY_POINT_GROUP = "handoverlab.rules"
 _REGISTRY: Dict[str, Type[Rule]] = {"a3": A3, "cho": CHO, "daps": DAPS, "ltm": LTM, "cltm": CLTM,
                                    "a3_bandit": BanditA3, "a3_mro": MROA3, "a3a5": A3A5, "dqn": DQNA3,
-                                   "cho_d2": CHOD2}
+                                   "cho_d2": CHOD2, "a3_pred": PredA3}
 
 #: base classes a rule must derive from (DAPSRule derives from BaselineRule)
 RULE_BASES = (BaselineRule, ConditionalRule, LTMRule)
@@ -108,5 +110,5 @@ def make_rule(spec: Dict[str, Any]) -> Rule:
 
 __all__ = ["Rule", "BaselineRule", "ConditionalRule", "DAPSRule", "LTMRule", "CLTMRule", "RuleContext", "Observation",
            "OutcomeRecord", "FailureRecord", "USEFUL", "UNNECESSARY", "EARLY", "LATE", "MAX_CONDITIONAL_CELLS", "A3",
-           "CHO", "CHOD2", "DAPS", "LTM", "CLTM", "BanditA3", "MROA3", "A3A5", "DQNA3", "RULE_BASES",
+           "CHO", "CHOD2", "DAPS", "LTM", "CLTM", "BanditA3", "MROA3", "A3A5", "DQNA3", "PredA3", "RULE_BASES",
            "register_rule", "get_rule_class", "available_rules", "make_rule", "rule_key"]

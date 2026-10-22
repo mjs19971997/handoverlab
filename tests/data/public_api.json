@@ -66,6 +66,7 @@
    "MROA3",
    "Observation",
    "OutcomeRecord",
+   "PredA3",
    "RULE_BASES",
    "Rule",
    "RuleContext",
