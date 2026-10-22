@@ -22,11 +22,38 @@ registered (2.1.0 defaults gave the same verdicts):
 | Recovery: time without connection per failure | 0.09 s | 1.0 s (`reest_s`) | ratio 0.67-1.5 | fails |
 | Execution failures | none in any cell | 0-5 % | needs 10 in ns-3 | not measurable |
 
-The two failing parts explain much of the failure gap: HandoverLab's full-buffer load always fills
-every cell, so interference is far higher than with ns-3's offered traffic (ns-3 has fewer failures
-at full traffic, 90 to 34 and 13 to 3; HandoverLab many more, 18 to 521 and 4 to 175), and a
-re-establishment takes a fixed second. A traffic-driven load and a recovery time from the standard
-texts are the next steps; they need new ns-3 runs to be judged, as these runs have now been seen.
+ns-3's full traffic is an overload too (more than a cell can carry), so both simulators fill the
+cells; the difference is what link monitoring sees. In ns-3 its SINR hardly moves with the data
+load; in HandoverLab it follows the data load by default (ns-3 has fewer failures at full traffic,
+90 to 34 and 13 to 3; HandoverLab many more, 18 to 521 and 4 to 175). TS 38.133 V19.6.0 clause 8.1
+evaluates the link on a hypothetical PDCCH, and the neighbours' control channels and reference
+signals are sent whatever the data load; `protocol.lm_load` gives link monitoring such a fixed
+interferer load.
+
+On recovery, the standard does not fix one value: TS 38.133 V19.6.0 clause 6.2.1.2.1 bounds the
+re-establishment delay by 50 ms + T_identify_intra_NR (known FR1 cell: max(200 ms, 5 T_SMTC), Table
+6.2.1.2.1-1) + T_SI-NR + T_PRACH (at most the SSB-to-PRACH association period + 10 ms, TS 38.213
+Table 8.1-1), followed by RRCReestablishment processing of 10 ms (TS 38.331 V19.4.0 Table 12.1-1).
+That is about 0.28 s when the system information is already held and about 1.55 s with the T_SI of
+1280 ms of the test case A.6.3.2.1.1.2. HandoverLab's `reest_s` of 1.0 s lies inside; ns-3 (ideal
+RRC) takes 0.09 s, below both. The recovery time was therefore not changed towards ns-3.
+
+**Fresh held-out check N3 (2.3.0).** One setting was chosen on the light-traffic N2 cells above
+(`protocol.lm_load` 0.15, with `protocol.exec_can_fail` false, as ns-3 has ideal execution) and
+tested on 40 new ns-3 runs (seeds 301-305, ISD 200 / 400 m, 12 / 24 m/s, TTT 100 / 640 ms, light
+traffic), with limits fixed before the runs:
+
+| Check | Limit | Fixed link-monitoring load 0.15 | Default link monitoring |
+|---|---|---|---|
+| Failure level, sum HandoverLab / sum ns-3 | 0.67-1.5 | 0.47, fails | 0.16, fails |
+| Failure order over the 8 cells (Spearman) | at least 0.8 | 0.95, passes | 0.78, fails |
+| Handover rate, median ratio | 0.8-1.25 | 0.93, passes | 0.96, passes |
+| Direction of the TTT effect on failures | 3 of 4 | 4, passes | 4, passes |
+
+At TTT 100 ms the fixed load gives ns-3's failure counts (17 against 14, 11 against 10); at
+TTT 640 ms it gives about half of them (84 against 180, 68 against 193), the known effect of ns-3's
+slow out-of-sync detection (below). As fixed in advance, the setting is not adopted because the
+level check fails; it is reported here, and no further tuning was done on these runs.
 
 **Summary (1.5.0).** Handover and unnecessary-handover rates of HandoverLab agree with ns-3 /
 5G-LENA. For failure rates, the order of settings and conditions agrees on part A and on both

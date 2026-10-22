@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-22
+
 ### Added
 
 - User-plane buffers at handover as an option (`protocol.buffers`: `am` or `um`, off by default): one downlink
@@ -62,6 +64,14 @@ All notable changes to this project are documented in this file. The format foll
   `sn_releases_pm`, `scg_rlf_pm`, `scg_failures_pm`, `scg_released_by_mcg_pm`, `scg_time_share`,
   `scg_rate_mbps`, `pscell_change_interruption_s_pm`, `dc_rrc_messages_pm` (zero without the option). Guide:
   `docs/guides/dual-connectivity.md`, with what is left out.
+
+### Documentation
+
+- Fresh held-out check N3 of the failure model on 40 new ns-3 runs, limits fixed before the runs: a fixed
+  link-monitoring interferer load (`protocol.lm_load` 0.15, chosen on the earlier runs) raises the failure level
+  from 0.16 to 0.47 of ns-3's and the failure order from 0.78 to 0.95; the level check (0.67-1.5) fails, so the
+  setting is reported, not adopted. The recovery time after a failure is set against the bounds of TS 38.133
+  clause 6.2.1.2.1 (about 0.28-1.55 s), which the default 1.0 s meets. `docs/calibration.md`.
 
 ### Not done
 
@@ -995,7 +1005,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/mjs19971997/handoverlab/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mjs19971997/handoverlab/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mjs19971997/handoverlab/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/mjs19971997/handoverlab/compare/v1.12.0...v2.0.0
