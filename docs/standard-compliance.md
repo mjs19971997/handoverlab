@@ -91,6 +91,7 @@ checks) and is part of `handoverlab.stability.LEGACY_1X`.
 | Soft LOS state, Eqs. (7.6-18), (7.6-19) | 7.6.3.3 | `radio.soft_los`: power weights LOS_soft^2 and 1 - LOS_soft^2 (no fast fading, so no cross term) | follows (power level) |
 | Multi-frequency: the same LOS state (Step 2) and LSPs (Step 4) on all frequencies of one link | 7.6.5 | layers with `cosited: true` reuse the random fields of the first layer; their `pathloss`, `los_corr_m` and `shadow_decorr_m` must equal those of the first layer (checked since 2.1.0); soft LOS may differ with the frequency, as 7.6.5 allows | follows |
 | O2I car penetration loss N(9, 5^2) per UT | 7.4.3.2 | `radio.penetration_db`, `penetration_sd_db` | follows (option) |
+| Fast fading: TDL-A .. TDL-E taps, Jakes Doppler per tap with f_D = \|v\| / lambda_0, LOS tap of TDL-D / -E at f_S = 0.7 f_D with K1 13.3 / 22 dB, delay scaling Eq. 7.7-1, K-factor change Eq. 7.7.6-1/-2 | 7.7.2 (Tables 7.7.2-1 to -5), 7.7.3, 7.7.6 | `radio.fast_fading` (2.2.0, off by default), `delay_spread_ns`, `fading_k_db`: one TDL per scenario, independent per user-cell link, 32 sinusoids per Rayleigh tap, channel at 4 points of the PDCCH band and 8 of the carrier ([guide](guides/fading.md)); MIMO extension 7.7.5 and CDL not used | follows (option; single-link TDL) |
 
 ## Map-based channel model (1.12.0, `radio.map_file`)
 
@@ -152,6 +153,7 @@ measurements can be read in the same format, but they are outside TR 38.901 (**a
 | T312 (optional, useT312) | TS 38.331 5.3.10, 5.5.4.1 | not modelled | not modelled (optional feature) |
 | Link monitoring restarts on a newly joined cell: the quality is evaluated over the last T_Evaluate_out | TS 38.133 8.1.2.2 (interpretation; no clause defines a hold-off) | `protocol.rlm_holdoff_s` (0.2 s, default since 2.0.0): no out-of-sync for this time after joining a cell, whatever the frequency range | abstraction (interpretation of 8.1.2.2) |
 | In-car penetration loss per user, 9 dB +- 5 dB | TR 38.901 7.4.3.2 | `radio.penetration_db`, `penetration_sd_db`, any speed | follows (option) |
+| Qout / Qin as the BLER of a hypothetical PDCCH on the faded channel | TS 38.133 8.1, Tables 8.1.2.1-1/-2 (QPSK, 24 PRBs) | with `radio.fast_fading` (2.2.0): the MIESM effective SINR of QPSK over the 24-PRB band against `qout_db` / `qin_db` (flat-channel SINRs); without it the wideband SINR | abstraction (no link-level BLER curve) |
 
 ## Handover procedure
 
@@ -203,6 +205,17 @@ and the FR2 limit of 64 SSBs. The evaluation periods of TS 38.133 are minimum re
 longest time a UE may take); HandoverLab uses them as the averaging time constants, a conservative
 reading.
 
+## Data plane (2.2.0, `protocol.scheduler`)
+
+| What the texts specify | Clause | HandoverLab | Status |
+|---|---|---|---|
+| Slots: 2^mu slots per 1 ms subframe | TS 38.211 Table 4.3.2-1 | slot length 1 ms / 2^mu of the carrier's subcarrier spacing | follows |
+| MCS index table 1 for PDSCH (Q_m, target code rate) | TS 38.214 Table 5.1.3.1-1 | the 29 rows; the highest MCS with a block-error probability of at most 10 % at the reported SINR | follows (table); link adaptation: implementation |
+| Transport block size | TS 38.214 5.1.3.2, Table 5.1.3.2-1 | steps 1 to 4; 12 PDSCH symbols, 12 DMRS REs per PRB, xOverhead 0, one layer | follows |
+| HARQ entity per serving cell, parallel processes, retransmission decoded with the earlier data | TS 38.321 5.3.2.1, 5.3.2.2 | 8 processes per user (TS 38.331: absent nrofHARQ-ProcessesForPDSCH), chase combining, at most `harq_max_tx` transmissions after `harq_rtt_slots` | follows (combining and the number of transmissions: implementation choices) |
+| Block errors of a transport block | not specified (receiver property) | normal approximation of the finite-blocklength error probability on the BICM bit channel, with an implementation loss | abstraction |
+| Scheduling | not specified (gNB) | round robin in frequency or proportional fair in time | abstraction |
+
 ## Beyond 5G: what is not modelled yet
 
 | Rule | Clause | Status |
@@ -235,7 +248,7 @@ The ns-3 / 5G-LENA build of the comparison study was read at the source (contrib
 | CHO, DAPS, LTM, conditional LTM (Rel-16 to 19) | none | all four |
 | Beam failure recovery | none | none |
 | Large-scale channel calibration (TR 38.901 7.8.1) | calibrated by its authors | calibrated (see [radio calibration](calibration-3gpp.md)) |
-| Fast fading, packet-level PHY/MAC/RLC | yes | no (received-power level) |
+| Fast fading, packet-level PHY/MAC/RLC | yes | options since 2.2.0: TDL fast fading, a slot scheduler with MCS, TBS and HARQ; no RLC / PDCP |
 
 **Reading.** On the rules of the handover procedure and on the procedures of Releases 16 to 19,
 HandoverLab with the 3GPP profile follows the normative texts more closely; on the physical layer

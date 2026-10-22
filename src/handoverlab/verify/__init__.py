@@ -15,10 +15,11 @@ Check groups (all run by default, in this order):
                   3GPP evaluations (since 1.10.0)
 ``highway``       the TR 37.885 highway cards: geometry, wrap-around, coupling gain against an independent
                   computation, LOS-only links (since 1.11.0)
+``values``        RRC parameter values of the built-in cards and rules against TS 38.331 V18.11.0 (since 2.1.0)
+``fading``        the optional fast fading (TR 38.901 TDL models) and the link-to-system mapping (since 2.2.0)
 
 Optional:
 
-``values``        RRC parameter values of the built-in cards and rules against TS 38.331 V18.11.0 (since 2.1.0)
 ``learning``      the learning rule a3_bandit against an exhaustive search over its arms (``--only learning``;
                   about 20 minutes; since 1.11.0)
 ``ntn``           NTN link budget, antenna and orbit against TR 38.821 / TR 38.811 (``--only ntn``; since 2.0.0)
@@ -35,7 +36,7 @@ from typing import Callable, Optional, Sequence
 from .report import FAIL, NOTE, PASS, Check, Report, header
 
 GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended", "highway",
-          "values")
+          "values", "fading")
 OPTIONAL_GROUPS = ("learning", "ntn")
 
 
@@ -82,6 +83,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "values" in groups:
         from .values import values_checks
         values_checks(rep)
+    if "fading" in groups:
+        from .fading import fading_checks
+        fading_checks(rep)
     if "ntn" in groups:
         from .ntn import ntn_checks
         ntn_checks(rep)

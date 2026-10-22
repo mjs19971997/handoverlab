@@ -226,6 +226,7 @@ output: results/metrics.csv
 | | `time_var_db`, `time_var_tau_s` | `1.5`, `1` | time-varying component (moving blockers) |
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
 | | `energy_p0_w`, `energy_slope`, `energy_ntrx` | `56`, `2.6`, `2` | cell power for the energy metrics (1.5.0; `energy_ntrx` since 2.1.0): EARTH model of a micro base station, Auer et al. 2011 Eq. 1 and Table 2 |
+| | `fast_fading`, `delay_spread_ns`, `fading_k_db` | `null`, `100`, `null` | (2.2.0) TDL fast fading of TR 38.901 clause 7.7.2 (`tdl-a` .. `tdl-e`), its RMS delay spread and an optional K-factor; radio-link monitoring and the rate then use effective SINRs ([guide](guides/fading.md)) |
 | | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
@@ -245,6 +246,8 @@ output: results/metrics.csv
 | | `cfg_loss_as_failure` | `false` | check mode: a lost conditional configuration fails like a lost handover command |
 | | `lm_load`, `lm_load_per_ue` | `null`, `0` | optional (1.1.0): interferer load at link monitoring, plus a part per user served by the interfering cell; `null` and `0` keep the load of the data channel ([calibration](calibration.md)) |
 | | `exec_can_fail` | `true` | `false`: the execution always joins the target (ideal random access) |
+| | `rrc_detail` | `3gpp` | since 2.1.0: `3gpp` -- the procedures as audited against TS 38.331 / TS 38.133 / TS 38.300 (RLM counters and indication interval, DAPS source monitoring, LTM candidates kept, CHO at TTT expiry, outcome classes, RRC messages one by one, ...); `simple` -- the engine of 2.0.0 (part of `LEGACY_1X`) |
+| | `scheduler`, `harq_max_tx`, `harq_rtt_slots`, `l2s_loss_db` | `null`, `4`, `8`, `1.0` | (2.2.0) slot scheduler `rr` or `pf` with MCS table 1 and the TBS of TS 38.214, HARQ with 8 processes and chase combining; null keeps the rate model ([guide](guides/scheduler.md)) |
 | | `rlm_holdoff_s` | `0.2` | no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (an interpretation of TS 38.133 8.1.2.2; since 1.3.0, default since 2.0.0; 1.x: `0`) |
 | | `cmd_during_t310` | `receive` | (1.9.0; default since 2.0.0, 1.x: `lost`) a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); since 2.0.0 a CHO or LTM candidate configuration is received the same way, without stopping T310 (5.3.5.13) |
 | | `t304_s` | `1.0` | T304 (1.9.0; default since 2.0.0, 1.x: none): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
@@ -817,8 +820,10 @@ intervals are wide; the report shows them next to every estimate.
 
 ## 12. Limitations
 
-- Received-power level only: no link-level physical layer, no fast fading, no HARQ, no beam
-  management (one beam gain and one isolation factor), no packet-level protocol stack.
+- Received-power level by default: no link-level physical layer, no HARQ, no beam management (one
+  beam gain and one isolation factor), no packet-level protocol stack; fast fading with effective
+  SINRs and a slot scheduler with MCS and HARQ are options since 2.2.0 ([fading](guides/fading.md),
+  [scheduler](guides/scheduler.md)).
 - The failure model uses the SINR thresholds and timers of TR 36.839 with the procedures of TS 38.331 and
   TS 38.133 (see [standard compliance](standard-compliance.md)); it is not calibrated in absolute terms, so
   failure rates are best read relative to each other.

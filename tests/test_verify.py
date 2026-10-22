@@ -111,7 +111,7 @@ def test_ns3_compare_and_holdout_logic(monkeypatch):
 
 def test_groups_listed():
     assert GROUPS == ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended",
-                      "highway", "values")
+                      "highway", "values", "fading")
     assert OPTIONAL_GROUPS == ("learning", "ntn")
 
 

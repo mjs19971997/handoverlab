@@ -289,6 +289,12 @@ class RadioConfig:
     energy_p0_w: float = 56.0
     energy_slope: float = 2.6
     energy_ntrx: int = 2                # N_TRX of Eq. 1 (since 2.1.0; 1.x and 2.0.0: 1)
+    # optional fast fading (since 2.2.0; see handoverlab.channel.fading): a TDL model of TR 38.901 clause 7.7.2
+    # ("tdl-a" .. "tdl-e"; None: off), its RMS delay spread (Table 7.7.3-1: nominal 100 ns) and, for TDL-D / -E,
+    # an optional K-factor (clause 7.7.6); radio-link monitoring and the rate then use effective SINRs
+    fast_fading: Optional[str] = None
+    delay_spread_ns: float = 100.0
+    fading_k_db: Optional[float] = None
     map_res_m: float = 1.0
     # optional SSB beams and further carriers (since 1.10.0)
     scs_khz: Optional[float] = None
@@ -340,6 +346,13 @@ class ProtocolConfig:
     # handover command and execution as TS 38.331 specifies them (since 1.9.0; the defaults keep the model of 1.x):
     # "receive": a command that reaches a UE while T310 runs is received at the first step with link-monitoring
     # SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); "lost": it is lost at once
+    # optional slot scheduler with MCS and HARQ (since 2.2.0; see handoverlab.engine.scheduler): None keeps the
+    # rate model; "rr" round robin, "pf" proportional fair; HARQ transmissions per TB and round trip in slots,
+    # implementation loss of the BLER model [dB]
+    scheduler: Optional[str] = None
+    harq_max_tx: int = 4
+    harq_rtt_slots: int = 8
+    l2s_loss_db: float = 1.0
     cmd_during_t310: str = "receive"     # TS 38.331 5.3.5.5.2 (since 2.0.0; 1.x: "lost")
     t304_s: Optional[float] = 1.0       # T304 (TS 38.331 5.3.5.8.3; since 2.0.0; 1.x: None, no T304)
     # measurement periods and evaluation periods of TS 38.133 (since 1.10.0; the defaults keep the model of 1.x):
@@ -608,6 +621,17 @@ class Scenario:
         _check(R.penetration_sd_db >= 0, "radio.penetration_sd_db", "must be >= 0")
         _check(R.energy_p0_w >= 0 and R.energy_slope >= 0, "radio.energy_p0_w", "energy parameters must be >= 0")
         _check(isinstance(R.energy_ntrx, int) and R.energy_ntrx >= 1, "radio.energy_ntrx", "must be an integer >= 1")
+        if R.fast_fading is not None:
+            from .channel.fading import MODELS as TDL_MODELS
+            _check(R.fast_fading in TDL_MODELS, "radio.fast_fading",
+                   "must be null or one of %s (TR 38.901 clause 7.7.2)" % ", ".join(TDL_MODELS))
+            _check(R.delay_spread_ns > 0, "radio.delay_spread_ns", "must be positive")
+            _check(R.fading_k_db is None or R.fast_fading in ("tdl-d", "tdl-e"), "radio.fading_k_db",
+                   "a K-factor applies to tdl-d and tdl-e only (TR 38.901 clause 7.7.6)")
+            _check(R.beams is None and not R.layers and self.layout.kind != "ntn"
+                   and self.protocol.meas_periods == "sample" and self.protocol.rlm_eval == "fixed",
+                   "radio.fast_fading", "needs the base engine in this version: no beams, layers, NTN or "
+                   "TS 38.133 periods (meas_periods: sample, rlm_eval: fixed)")
         _check(P.step_s > 0, "protocol.step_s", "must be positive")
         mp = P.l1_period_s / P.step_s
         _check(abs(mp - round(mp)) < 1e-9 and mp >= 1, "protocol.l1_period_s",
@@ -626,6 +650,15 @@ class Scenario:
         _check(P.meas_periods in ("sample", "ts38133"), "protocol.meas_periods", "must be 'sample' or 'ts38133'")
         _check(P.rlm_eval in ("fixed", "ts38133"), "protocol.rlm_eval", "must be 'fixed' or 'ts38133'")
         _check(P.rrc_detail in ("3gpp", "simple"), "protocol.rrc_detail", "must be '3gpp' or 'simple'")
+        _check(P.scheduler in (None, "rr", "pf"), "protocol.scheduler", "must be null, 'rr' or 'pf'")
+        if P.scheduler is not None:
+            _check(isinstance(P.harq_max_tx, int) and P.harq_max_tx >= 1, "protocol.harq_max_tx",
+                   "must be an integer >= 1")
+            _check(isinstance(P.harq_rtt_slots, int) and P.harq_rtt_slots >= 1, "protocol.harq_rtt_slots",
+                   "must be an integer >= 1")
+            _check(self.radio.beams is None and not self.radio.layers and self.layout.kind != "ntn"
+                   and P.meas_periods == "sample" and P.rlm_eval == "fixed", "protocol.scheduler",
+                   "needs the base engine in this version: no beams, layers, NTN or TS 38.133 periods")
         _check(P.ssb_period_s > 0, "protocol.ssb_period_s", "must be positive")
         _check(0 <= P.gap_pattern <= 25, "protocol.gap_pattern", "TS 38.133 Table 9.1.2-1 defines the ids 0-25")
         _check(1 <= P.fr2_power_class <= 5, "protocol.fr2_power_class", "must be 1-5")
@@ -707,9 +740,10 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                          "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
                                                    "beams", "layers", "los_model", "map_file", "map_sha256",
                                                    "breakpoint_c_mps", "pl_min_distance_m", "channel_detail",
-                                                   "energy_ntrx"),
+                                                   "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
-                                                      "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail")}
+                                                      "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
+                                                      "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")

@@ -55,6 +55,9 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011, Table 2): 56 W |
 | `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011, Table 2): 2.6 |
 | `radio.energy_ntrx` | 2 | EARTH model, micro base station (Auer et al. 2011, Eq. 1 and Table 2): 2 transceivers |
+| `radio.fast_fading` | none | off by default; TR 38.901 clause 7.7.2 (TDL-A .. TDL-E) |
+| `radio.delay_spread_ns` | 100 | TR 38.901 Table 7.7.3-1 (nominal delay spread; used with fast_fading) |
+| `radio.fading_k_db` | none | TR 38.901 clause 7.7.6 (unset: the K-factor of the table) |
 | `radio.map_res_m` | **4** | numerical setting (coarser map for the long road) |
 | `protocol.step_s` | 0.01 | numerical setting |
 | `protocol.l1_period_s` | 0.04 | assumption (L1 sample period) |
@@ -78,6 +81,10 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
 | `protocol.rlm_holdoff_s` | 0.2 | 0.2 s since 2.0.0: an interpretation of TS 38.133 8.1.2.2 (evaluation over the last T_Evaluate_out, 200 ms in FR1) on a newly joined cell |
+| `protocol.scheduler` | none | off by default (rate model); rr / pf slot scheduler with TS 38.214 MCS and TBS |
+| `protocol.harq_max_tx` | 4 | assumption (transmissions per TB; the network's choice) |
+| `protocol.harq_rtt_slots` | 8 | assumption (HARQ round trip in slots) |
+| `protocol.l2s_loss_db` | 1 | assumption (implementation loss of the block-error model) |
 | `protocol.rrc_detail` | 3gpp |  |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |

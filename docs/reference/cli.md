@@ -60,8 +60,8 @@ options:
   -h, --help            show this help message and exit
   --only GROUP [GROUP ...]
                         check groups: pathloss radio calibration invariants equivalences
-                        fingerprints extended highway (default: all of them); on request only:
-                        learning ntn
+                        fingerprints extended highway values fading (default: all of them); on
+                        request only: learning ntn
   --full                longer checks (three seeds for the radio statistics)
   --ns3                 compare with the stored ns-3 / 5G-LENA results (several minutes); only
                         this check unless --only names groups

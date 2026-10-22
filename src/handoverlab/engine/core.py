@@ -46,6 +46,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
+from ..channel.l2s import capacity_esm, miesm_qpsk
 from ..eventlog import EVENT_FIELDS, TRACE_FIELDS, event_level, fingerprint
 from ..measurement import EPS, INF, L3Filter
 from ..rules.base import EARLY, LATE, UNNECESSARY, USEFUL, FailureRecord, Observation, OutcomeRecord, RuleContext
@@ -150,6 +151,12 @@ class Engine:
         self.lm0 = 0.0 if P.lm_load is None else float(P.lm_load)
         self.rc_lm = self.rc.copy()
         self.lm_ln = None                                             # radio sample of the current step
+        self.fad_now, self.n_rlm = None, 0                            # fast fading of the step (2.2.0)
+        self.sched = None                                             # slot scheduler (2.2.0)
+        if P.scheduler is not None:
+            from .scheduler import SlotScheduler
+            self.sched = SlotScheduler(world, self.M, self.U, P.scheduler, self.mdt, P.harq_max_tx,
+                                       P.harq_rtt_slots, P.l2s_loss_db)
         self.a_rho = 1.0 - np.exp(-self.mdt / T.load_tau_s)
         svc = world.services
         self.tmin, self.thq, self.rate, self.gbr = svc.t_min, svc.theta_q, svc.rate, svc.gbr
@@ -368,6 +375,16 @@ class Engine:
         self.w_mcf[u] = 0; self.w_mcff[u] = False; self.w_pp[u] = pp
         self.f_on[u] = False
 
+    def _eff_sinr(self, ln, g, rc, pts, esm) -> np.ndarray:
+        """Effective SINR of every user's serving link with fast fading (since 2.2.0): the SINR at the frequencies
+        ``pts`` of the relative gains ``g`` (U, M, F), every link with its own fading, mapped to one value by
+        ``esm`` (:func:`~handoverlab.channel.l2s.miesm_qpsk` or :func:`~handoverlab.channel.l2s.capacity_esm`)."""
+        ar, serv = self.ar, self.serv
+        gp = g[:, :, pts]
+        ls = ln[ar, serv][:, None] * gp[ar, serv]
+        tot = np.einsum("um,umf,m->uf", ln, gp, rc)
+        return esm(ls / (tot - rc[serv][:, None] * ls + self.noise))
+
     def _sinr_lm(self, u, cell, ln) -> float:
         """SINR of user ``u`` on ``cell`` as link monitoring sees it (interferer weights ``rc_lm``)."""
         lc = ln[u, cell]
@@ -555,7 +572,8 @@ class Engine:
         qo, qi = self.qo, self.qi
         simple = P.n310 == 1 and P.n311 == 1
         cnz = np.count_nonzero
-        kern = None if self.debug else rlm_kernel(self)
+        fad = getattr(ch, "fad", None)                     # fast fading (since 2.2.0): effective SINRs
+        kern = None if (self.debug or fad is not None) else rlm_kernel(self)
         if kern is not None:                               # 2-D views for the kernel (one engine = one row)
             v = (state[None], qo[None], qi[None], run[None], self.t310[None], self.k310[None], self.rlm_t0[None])
             t310_lim = P.t310_s - EPS
@@ -566,6 +584,8 @@ class Engine:
             tot = ln @ self.rc
             if self.lm:
                 self.lm_ln = ln
+            if fad is not None:
+                self.fad_now, self.n_rlm = fad[i], ch.n_rlm
             # --- end of an execution or of a re-establishment
             if cnz(state):
                 for u in np.nonzero((state != CONNECTED) & (t >= self.t_done - EPS))[0]:
@@ -595,7 +615,9 @@ class Engine:
             sinr = ls / (tot - self.rc[serv] * ls + noise)
             con = state == CONNECTED
             # --- radio-link monitoring
-            if self.lm:
+            if fad is not None:                            # hypothetical PDCCH band, MIESM (QPSK)
+                sl = self._eff_sinr(ln, fad[i], self.rc_lm if self.lm else self.rc, slice(0, ch.n_rlm), miesm_qpsk)
+            elif self.lm:
                 rl = self.rc_lm
                 sl = ls / (ln @ rl - rl[serv] * ls + noise)
             else:
@@ -704,23 +726,30 @@ class Engine:
             con = con | ((state == EXECUTING) & self.daps_u)
         ls = ln[ar, serv]
         sinr = ls / (tot - self.rc[serv] * ls + self.noise)      # tot = ln @ rc of this step (rc unchanged)
+        if self.fad_now is not None:                             # fast fading: capacity over the carrier
+            sinr = self._eff_sinr(ln, self.fad_now, self.rc, slice(self.n_rlm, None), capacity_esm)
         ok = con & (sinr >= self.qout)
         se = np.minimum(np.log2(1.0 + sinr), self.se_max)
         rate = self.rate
         if self.backlog is not None:                             # buffered traffic: arrivals, then demand
             self.backlog += self.offered[min(self.nmeas, len(self.offered) - 1)]
             rate = np.minimum(self.r_peak, self.backlog / self.mdt)
-        need = np.where(ok, rate / (self.W * np.maximum(se, 1e-3)), 0.0)
-        G = np.bincount(serv, weights=need * self.gbr, minlength=self.M)
-        B = np.bincount(serv, weights=need * ~self.gbr, minlength=self.M)
         free = np.maximum(1.0 - self.bg, 0.0)
-        gs = np.minimum(1.0, free / np.maximum(G, 1e-12))
-        rem = np.maximum(free - G * gs, 0.0)
-        bs = np.minimum(1.0, rem / np.maximum(B, 1e-12))
-        thr = np.where(ok, rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
+        if self.sched is not None:                               # slot scheduler, MCS and HARQ (2.2.0)
+            got, used = self.sched.serve(sinr, rate * self.mdt, con, serv, free)
+            thr = got / self.mdt
+            rho_new = np.minimum(1.0, self.bg + used)
+        else:
+            need = np.where(ok, rate / (self.W * np.maximum(se, 1e-3)), 0.0)
+            G = np.bincount(serv, weights=need * self.gbr, minlength=self.M)
+            B = np.bincount(serv, weights=need * ~self.gbr, minlength=self.M)
+            gs = np.minimum(1.0, free / np.maximum(G, 1e-12))
+            rem = np.maximum(free - G * gs, 0.0)
+            bs = np.minimum(1.0, rem / np.maximum(B, 1e-12))
+            thr = np.where(ok, rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
+            rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
         if self.backlog is not None:
             self.backlog = np.maximum(self.backlog - thr * self.mdt, 0.0)
-        rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
         self.rho += self.a_rho * (rho_new - self.rho)
         np.multiply(self.chi, self.rho, out=self.rc)
         if self.lm:

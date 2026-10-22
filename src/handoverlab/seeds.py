@@ -15,6 +15,8 @@ Purposes and the generators each one provides (in this order):
 ``radio``  time-varying component, own-path shadowing, L1 error, open-area LOS
 ``rule``   one generator for a rule that needs randomness of its own
 ``beams``  L1 error of the SSB beams of the optional beam model (since 1.10.0)
+``fading`` arrival angles and phases of the optional fast fading (since 2.2.0)
+``harq``   decoding draws of the optional slot scheduler (since 2.2.0)
 =========  ================================================================
 
 A further layer of the optional multi-carrier model (since 1.10.0) draws its
@@ -29,7 +31,7 @@ from typing import List
 import numpy as np
 
 _PURPOSE = {"world": 3, "map": 11, "radio": 29, "rule": 71, "penetration": 97, "traffic": 101, "beams": 113,
-            "ntn": 127}
+            "ntn": 127, "fading": 131, "harq": 137}
 _STRIDE = 1000003
 
 

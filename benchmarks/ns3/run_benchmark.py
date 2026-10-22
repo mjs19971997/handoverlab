@@ -12,8 +12,11 @@ three parts and writes the results in the same format:
   part C   6 dB / 100 ms with one parameter changed per cell (users, preparation delay, T310, site distance, run
            length, speed), --runs-c runs each
 
-  python run_benchmark.py --exe PATH_TO_BUILT_PROGRAM [--parts A B C] [--workers 6] [--out results]
+  python run_benchmark.py --exe PATH_TO_BUILT_PROGRAM [--parts A B C] [--workers 6] [--out results] [--fading]
   handoverlab verify --ns3 --ns3-reference results/reference.json
+
+With --fading every run uses the TR 38.901 fast fading of ns-3 (program option --fading=1; run tags end in "f"),
+for the comparison with the optional fast fading of HandoverLab (radio.fast_fading, since 2.2.0).
 
 Finished runs are kept (one JSON file per run in OUT/runs); running the script again only runs what is missing.
 No dependency beyond the Python standard library.
@@ -57,7 +60,7 @@ SITES = {"200": [[0, 0], [200, 0], [-200, 0], [100, 250], [-100, 250], [100, -25
          "400": [[0, 0], [400, 0], [-400, 0], [200, 250], [-200, 250], [200, -250], [-200, -250]]}
 
 
-def jobs(parts, runs_b, runs_c):
+def jobs(parts, runs_b, runs_c, fading=False):
     out = []
     if "A" in parts:
         for isd, v, seed in PART_A_TRACES:
@@ -73,8 +76,9 @@ def jobs(parts, runs_b, runs_c):
             for k, (isd, v, opts, ov, sim) in enumerate(PART_C_CELLS):
                 out.append(dict(part="C", cell=k, isd=isd, speed=v, h=6, t=100, seed=seed, sim=sim, opts=opts, ov=ov))
     for j in out:
-        j["tag"] = "%s%s_h%g_t%d_d%d_v%d_s%d" % (j["part"], j.get("cell", ""), j["h"], j["t"], j["isd"], j["speed"],
-                                                 j["seed"])
+        j["tag"] = "%s%s_h%g_t%d_d%d_v%d_s%d%s" % (j["part"], j.get("cell", ""), j["h"], j["t"], j["isd"], j["speed"],
+                                                   j["seed"], "f" if fading else "")
+        j["fading"] = fading
     return out
 
 
@@ -84,14 +88,15 @@ def run_one(job, exe, rundir, env):
         return job["tag"], "kept"
     args = [exe, "--scen=urban", "--rule=a3", "--hyst=%g" % job["h"], "--ttt=%d" % job["t"], "--isd=%d" % job["isd"],
             "--speed=%d" % job["speed"], "--rngRun=%d" % job["seed"], "--simTime=%g" % job["sim"],
-            "--discard=%g" % DISCARD, "--nUe=%d" % N_UE, "--udpInterval=%d" % UDP_INTERVAL_MS, "--fading=0",
+            "--discard=%g" % DISCARD, "--nUe=%d" % N_UE, "--udpInterval=%d" % UDP_INTERVAL_MS,
+            "--fading=%d" % int(job.get("fading", False)),
             "--tag=" + job["tag"], "--outDir=" + rundir.replace("\\", "/")] + job["opts"]
     with open(os.path.join(rundir, job["tag"] + ".log"), "w") as log:
         rc = subprocess.call(args, stdout=log, stderr=subprocess.STDOUT, env=env)
     return job["tag"], "ok" if rc == 0 and os.path.exists(path) else "FAILED (exit %d)" % rc
 
 
-def reference(all_jobs, rundir):
+def reference(all_jobs, rundir, fading=False):
     """The runs in the format of handoverlab/verify/data/ns3_urban_a3.json."""
     groups = {}
     for j in all_jobs:
@@ -113,8 +118,9 @@ def reference(all_jobs, rundir):
             row.update(overrides=j["ov"], duration_s=j["sim"])
         rows.append(row)
     return dict(description="ns-3 / 5G-LENA results written by benchmarks/ns3/run_benchmark.py (program "
-                            "handoverlab-ns3-a3.cc, urban scenario); same format as the stored reference.",
-                sites=SITES, rows=rows)
+                            "handoverlab-ns3-a3.cc, urban scenario%s); same format as the stored reference."
+                            % (", TR 38.901 fast fading" if fading else ""),
+                sites=SITES, rows=rows, fading=bool(fading))
 
 
 def main(argv=None):
@@ -127,8 +133,9 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2), help="runs at a time")
     ap.add_argument("--path", help="folders to put in front of PATH for the program (ns-3 libraries, runtime)")
     ap.add_argument("--dry-run", action="store_true", help="list the runs and stop")
+    ap.add_argument("--fading", action="store_true", help="TR 38.901 fast fading in ns-3 (--fading=1)")
     a = ap.parse_args(argv)
-    todo = jobs(a.parts, a.runs_b, a.runs_c)
+    todo = jobs(a.parts, a.runs_b, a.runs_c, a.fading)
     rundir = os.path.abspath(os.path.join(a.out, "runs"))
     os.makedirs(rundir, exist_ok=True)
     if a.dry_run:
@@ -144,7 +151,7 @@ def main(argv=None):
         for i, (tag, status) in enumerate(pool.map(lambda j: run_one(j, a.exe, rundir, env), todo)):
             failed += status.startswith("FAILED")
             print("%4d/%d %s %s" % (i + 1, len(todo), tag, status), flush=True)
-    ref = reference(todo, rundir)
+    ref = reference(todo, rundir, a.fading)
     path = os.path.join(a.out, "reference.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(ref, f, indent=1)

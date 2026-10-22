@@ -7,6 +7,37 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-22
+
+### Added
+
+- Fast fading as an option (`radio.fast_fading`: `tdl-a` .. `tdl-e`, off by default): the tapped delay line
+  models of TR 38.901 V19.5.0 clause 7.7.2 with the delay scaling of Eq. 7.7-1 (`radio.delay_spread_ns`, 100 ns
+  by default) and the K-factor change of clause 7.7.6 (`radio.fading_k_db`); each user-cell link fades on its own
+  with 32 sinusoids per Rayleigh tap (Jakes spectrum, f_D from the user's speed) and the LOS tap of TDL-D / -E at
+  0.7 f_D. Link-to-system mapping (`handoverlab.channel.l2s`): radio-link monitoring compares the MIESM effective
+  SINR of QPSK over the 24 PRBs of the hypothetical PDCCH (TS 38.133 Tables 8.1.2.1-1/-2) with Qout / Qin, and
+  the rate uses the capacity-equivalent SINR over the carrier. Base engine only in this version. With the option
+  off every result is unchanged. Guide: `docs/guides/fading.md`; `verify` group `fading` (criteria fixed before
+  the model was written; 32 sinusoids instead of 16 after the Rayleigh test failed with 16).
+- Slot scheduler as an option (`protocol.scheduler`: `rr` or `pf`, off by default): every slot of the interval is
+  played (slot length of TS 38.211 Table 4.3.2-1), the free PRBs of a cell go to its users with data, the MCS is
+  the highest of TS 38.214 Table 5.1.3.1-1 with a block-error probability of at most 10 % at the reported SINR,
+  the TBS follows TS 38.214 clause 5.1.3.2, and HARQ runs with 8 processes per user, chase combining and at most
+  `protocol.harq_max_tx` transmissions after `protocol.harq_rtt_slots`. The block-error probability is the normal
+  approximation of the finite-blocklength error probability on the BICM bit channel of the modulation
+  (`handoverlab.linklevel`), with an implementation loss `protocol.l2s_loss_db`. Base engine only; about 45
+  times slower than the rate model. Guide: `docs/guides/scheduler.md`.
+- `benchmarks/ns3/run_benchmark.py --fading`: the ns-3 runs with ns-3's TR 38.901 fast fading.
+
+### Documentation
+
+- Fast fading against ns-3 runs with fading (96 runs, criterion fixed before the runs): `tdl-c` passes
+  (handover ratio 1.04, unnecessary-handover ratio 1.24, ranks 0.97 / 0.98); `docs/guides/fading.md`.
+- Held-out check of the failure-model parts on 40 new ns-3 runs, limits fixed before the runs: execution time
+  passes; the load effect on link monitoring and the time without connection after a failure fail; execution
+  failures are not measurable (none in ns-3). Reported as is in `docs/calibration.md`.
+
 ## [2.1.0] - 2026-10-21
 
 A clause-by-clause audit of the protocol engine against TS 38.331 V18.11.0, TS 38.133, TS 38.300 V18.11.0 and
@@ -903,7 +934,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/mjs19971997/handoverlab/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mjs19971997/handoverlab/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/mjs19971997/handoverlab/compare/v1.12.0...v2.0.0
 [1.12.0]: https://github.com/mjs19971997/handoverlab/compare/v1.11.0...v1.12.0

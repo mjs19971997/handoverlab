@@ -40,11 +40,16 @@ class Chunk:
 
     ``rsrp`` (n, U, M) received power [dBm]; ``lin`` the same in mW; ``l1`` the
     noisy L1 samples at the measurement instants (steps with ``k % mp == 0``).
+    With fast fading (since 2.2.0) ``rsrp`` contains the mean fading gain over the
+    band of the hypothetical PDCCH and ``fad`` (n, U, M, F) the gain at each of the
+    F frequencies relative to that mean (the first ``n_rlm`` points span the PDCCH
+    band, the others the carrier); otherwise ``fad`` is None.
     """
-    __slots__ = ("k0", "n", "rsrp", "lin", "l1", "mp")
+    __slots__ = ("k0", "n", "rsrp", "lin", "l1", "mp", "fad", "n_rlm")
 
-    def __init__(self, k0, n, rsrp, lin, l1, mp):
+    def __init__(self, k0, n, rsrp, lin, l1, mp, fad=None, n_rlm=0):
         self.k0, self.n, self.rsrp, self.lin, self.l1, self.mp = k0, n, rsrp, lin, l1, mp
+        self.fad, self.n_rlm = fad, n_rlm
 
     @classmethod
     def from_rsrp(cls, k0: int, rsrp: np.ndarray, mp: int, l1: np.ndarray = None) -> "Chunk":
@@ -93,6 +98,16 @@ class RadioSource:
             rng_he = streams(world.seed, "radio", 5, sub)[4]
             self.he_u = (rng_he.random((self.U, self.M)), rng_he.random((self.U, self.M)))
         self.p0 = R.tx_power_dbm + R.bs_gain_db + R.ue_gain_db
+        self.fading = None
+        if getattr(R, "fast_fading", None):             # TDL fast fading (since 2.2.0; own stream)
+            from .extended import default_scs_khz, n_rb
+            from .fading import C0, TdlFading, frequencies
+            scs = R.scs_khz or default_scs_khz(R.carrier_ghz)
+            f_rlm, f_data = frequencies(R.bandwidth_mhz, scs, n_rb(R.bandwidth_mhz, scs, R.carrier_ghz))
+            self.n_rlm = len(f_rlm)
+            fd = self.V * (R.carrier_ghz * 1e9 / C0)                # maximum Doppler shift per user [Hz]
+            self.fading = TdlFading(streams(world.seed, "fading", 1, sub)[0], self.U, self.M, R.fast_fading,
+                                    R.delay_spread_ns * 1e-9, np.concatenate([f_rlm, f_data]), dt, fd, R.fading_k_db)
         self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
         if R.penetration_db or R.penetration_sd_db:     # per-user loss on all links (own stream)
             rng = streams(world.seed, "penetration", 1)[0]
@@ -142,8 +157,16 @@ class RadioSource:
         for k0, n, rs in self._large_scale():
             nm = -(-n // self.mp)
             rs += self.p0
+            fad = None
+            if self.fading is not None:
+                g = np.empty((n, self.U, self.M, self.fading.n_f))
+                for i in range(n):
+                    g[i] = self.fading.gains()
+                band = g[..., :self.n_rlm].mean(axis=-1)                   # mean gain over the PDCCH band
+                rs += 10.0 * np.log10(np.maximum(band, 1e-30))
+                fad = g / np.maximum(band, 1e-30)[..., None]
             l1 = rs[::self.mp] + self.R.l1_error_db * self.rng_m.standard_normal((nm, self.U, self.M))
-            yield Chunk(k0, n, rs, np.exp(rs * LN10_10), l1, self.mp)
+            yield Chunk(k0, n, rs, np.exp(rs * LN10_10), l1, self.mp, fad, getattr(self, "n_rlm", 0))
 
     def raw_chunks(self) -> Iterator[tuple]:
         """``(k0, n, gain)`` per chunk: the site gain [dB] of every step, user and site without the transmit

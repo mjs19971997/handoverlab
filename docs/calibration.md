@@ -10,6 +10,24 @@ rates agree (median ratios 0.93 and 0.95, ranks 0.97), and the failure level agr
 0.84, limit 0.67-1.5), but the order of the failure rates does not (rank 0.68, limit 0.8). See
 [standard compliance](standard-compliance.md#fresh-ns-3-hold-out-190).
 
+**Held-out check of the failure-model parts (2.2.0).** 40 new ns-3 runs (seeds 201-210, urban,
+20 users, A3 3 dB / 300 ms, ISD 200 and 400 m at 16 m/s, light traffic and 12 Mbit/s full traffic)
+tested each part of the failure model against limits fixed before the runs, with the 2.0.0 engine as
+registered (2.1.0 defaults gave the same verdicts):
+
+| Part | ns-3 | HandoverLab | Limit | Result |
+|---|---|---|---|---|
+| Load: link-monitoring SINR, light to full traffic | -2.1 / -1.8 dB | -13.3 / -13.4 dB | within 2 dB | fails |
+| Execution: command to completion | median 4.1 ms | `exec_s` 10 ms | within 10 ms | passes |
+| Recovery: time without connection per failure | 0.09 s | 1.0 s (`reest_s`) | ratio 0.67-1.5 | fails |
+| Execution failures | none in any cell | 0-5 % | needs 10 in ns-3 | not measurable |
+
+The two failing parts explain much of the failure gap: HandoverLab's full-buffer load always fills
+every cell, so interference is far higher than with ns-3's offered traffic (ns-3 has fewer failures
+at full traffic, 90 to 34 and 13 to 3; HandoverLab many more, 18 to 521 and 4 to 175), and a
+re-establishment takes a fixed second. A traffic-driven load and a recovery time from the standard
+texts are the next steps; they need new ns-3 runs to be judged, as these runs have now been seen.
+
 **Summary (1.5.0).** Handover and unnecessary-handover rates of HandoverLab agree with ns-3 /
 5G-LENA. For failure rates, the order of settings and conditions agrees on part A and on both
 hold-out sets when the in-car loss of ns-3 and the restart of link monitoring are switched on
