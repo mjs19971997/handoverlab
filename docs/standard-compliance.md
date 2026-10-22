@@ -78,7 +78,7 @@ TR 38.821 V16.2.0 and ITU-R M.2412-0:
 |---|---|---|
 | `urban-macro-tr37885-4ghz` | TR 37.885 Tables 6.1.1-1, 6.1.3-1, 6.1.4-1, 6.2.1-2, clause 6.2.1 (UMa LOS/NLOS from the probability, spatially consistent, h_E 0.25 m), Table A-1; TR 36.885 A.1.3 (ISD 500 m) | no wrap-around (the lattice sites within 1000 m of the 3 x 3 blocks instead); lattice position read from TR 36.885 Figure A.1.3-1 (no numbers); antenna abstraction; one SF correlation distance |
 | `suburban-sma-7ghz` | TR 38.901 V19.5.0 Tables 7.2-5, 7.4.1-1, 7.4.2-1, 7.4.3-2, 7.5-6 Part-4, 7.6.3.1-2, 7.8-1A | 11 sites without sectors or wrap-around; indoor users keep the LOS state and shadowing of their position and one UT height |
-| 7 GHz large-scale calibration (TR 38.901 7.8.1, Table 7.8-1A) | not done: the results are only in R1-2506406, which is not included | -- |
+| 7 GHz large-scale calibration (TR 38.901 7.8.1, Table 7.8-1A) | since 2.4.0: UMa, UMi (6 and 7 GHz) and SMa (ISD 1299 m, 1732 m) at 7 GHz against the companies of R1-2506406; every percentile 5-95 % inside the company range, the largest distance from the company mean 1.65-2.88 dB (the pre-registered 1.5 dB is not met) | `verify` group `calibration`; [radio calibration](calibration-3gpp.md) |
 
 ## Large-scale channel (TR 38.901 V19.5.0 clause 7; 2.1.0, `radio.channel_detail`)
 
