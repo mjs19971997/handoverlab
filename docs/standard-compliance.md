@@ -209,7 +209,7 @@ measurements can be read in the same format, but they are outside TR 38.901 (**a
 | Interference of a cell | (not specified) | a cell with beams interferes with the mean gain of its beams towards the user (a cell serving on all its beams), scaled by its load; without beams the abstraction of 1.x | abstraction |
 
 What the beam model leaves out: CSI-RS beams and their refinement (data beams equal SSB beams),
-UE receive beamforming (only the factor N of TS 38.133), two BFD-RS sets (multi-TRP), SCell beam
+UE receive beamforming unless `ue_panels` is set (next section), two BFD-RS sets (multi-TRP), SCell beam
 failure recovery, DRX, measurement gaps that overlap the serving SSBs (P = 1), and fast fading.
 FR3 (7.125-24.25 GHz) has no RRM requirements yet; there HandoverLab uses the FR1 formulas (N = 1)
 and the FR2 limit of 64 SSBs. The evaluation periods of TS 38.133 are minimum requirements (the
@@ -273,6 +273,24 @@ Checked against TS 37.340 V19.3.0 and TS 38.331 V18.11.0 (local texts). See the
 | MCG RLF -> fast MCG link recovery if configured, otherwise re-establishment; re-establishment performs MR-DC release | TS 37.340 7.7; TS 38.331 5.3.7.2 | re-establishment (no T316), the SCG is released | follows (fast MCG recovery not modelled) |
 | Inter-MN handover: the target MN keeps, changes or releases the SN | TS 37.340 10.7 | `on_mcg_ho`: `keep` (SCG unchanged) or `release` | follows (change: not modelled) |
 | EN-DC / NGEN-DC / NE-DC, CPA / CPC, SCG deactivation, SCG LTM, CHO with candidate SCGs, split SRB / SRB3, bearer types and data forwarding, SCG measurement gaps | TS 37.340 4.1, 7.5, 7.6, 7.13, 10.2.3, 10.19, 10.20 | not modelled | not modelled |
+
+## UE receive beams (2.4.0, `radio.beams.ue_panels`)
+
+| Rule | Clause | HandoverLab | Status |
+|---|---|---|---|
+| UE antenna element: A_V = -min(12 ((theta - 90) / 90)^2, 25), A_H = -min(12 (phi / 90)^2, 25), A = -min(-(A_V + A_H), 25), G_E,max = 5 dBi | TR 38.802 V14.2.0 Table A.2.1-8 (model 1); ITU-R M.2412-0 Table 11 (the same pattern for 30 and 70 GHz) | exactly this element on every UE panel | follows |
+| UE panels: panel model 1 (Mg = Ng = 1); Config 1 (Mg, Ng) = (1, 2), Omega_0,1 = Omega_0,0 + 180 deg; Config 2 (1, 4) at 90 deg steps; Theta = 90 deg; Config a (M, N, P) = (2, 4, 2), d = lambda / 2; up to 32 elements at 30 and 70 GHz | TR 38.802 Table A.2.1-4 | `ue_panels` 1, 2 or 4 with these bearings, `ue_panel` [M, N] (default [2, 4]) at lambda / 2, at most 32 elements over the panels; one polarisation per panel (P = 2 not modelled) | follows (polarisation: abstraction) |
+| UE orientation of a mobile device: (Omega_0,0, Theta_0,0) = (U(0 deg, 360 deg), 90 deg) | TR 38.802 Table A.2.1-4 | `ue_orientation: random` (default): once per UE, fixed; `heading`: the first panel faces the direction of travel (an assumption, e.g. a vehicle-mounted UE) | follows (`random`) |
+| Handheld UT model: antennas at the corners and edge centres of a 15 x 7 cm device, element of Table 7.3-2 (125 deg, 22.5 dB, 5.3 dBi), UT rotations for calibration | TR 38.901 V19.5.0 clause 7.3, Table 7.3-2 | not modelled (panel model of TR 38.802 instead) | not modelled |
+| Receive beams of a panel | TR 38.802 6.1.6.1 (beam management P-1 / P-3: UE Rx beam sweep from a set of beams; codebook not specified) | `ue_beams` DFT beams per panel (default 4), weights of the form of Eq. 7.3-1, steered to `ue_tilt_deg` (90 deg) and azimuths spread over `ue_beam_span_deg` (120 deg) | follows (codebook: assumption) |
+| FR2 SS-RSRP from the combined signal of the antenna elements of a receiver branch; with receiver diversity not lower than any branch | TS 38.215 V18.5.0 5.1.1 | every panel is a receiver branch: `ue_rx: best` measures every SSB with the best beam of the best panel; `sweep` with beam j mod `ue_beams` of every panel at L1 instant j, reporting the highest of the last `ue_beams` samples | follows (ideal selection in `best`) |
+| Time cost of the receive-beam sweep in FR2: Mmeas_period_w/o_gaps = 24 (PC 3) in max(400 ms, ceil(M Kp K_layer1) T_SMTC); for a UE with FastRx-BSF-MeasDelayReduction-r19 M = 3 x N_reduced_Rx_BSF; N = 8 / 12 in RLM, BFD and L1-RSRP | TS 38.133 V19.6.0 9.2.5.1, Table 9.2.5.2-2, 8.1, 8.5, 9.5.4.1 | already in `protocol.meas_periods` / `rlm_eval: ts38133` and the beam model (our reading: 24 = 3 samples x 8 receive beams); the option adds the gain, not a second time scaling, so `ue_rx: sweep` (which spends the sweep time itself) is refused with `meas_periods: ts38133` | follows |
+| Serving receive beam (P-3 on the serving beam) | TR 38.802 6.1.6.1 | the best receive beam towards the serving site, re-chosen at every L1 instant, turned to the new cell when a handover or a re-establishment completes; desired power, RLM, BFD, BFR and the interference of every co-channel cell use it | abstraction (no receive-beam failure, no delay) |
+| Direction of arrival | TR 38.901 7.5 (cluster angles, fast fading) | the geometric direction of the site, LOS or NLOS (HandoverLab has no multipath angles) | abstraction |
+
+The option is off by default (`ue_panels: 0`, the isotropic UE of 2.3.0); it is not combined with
+`protocol.dc` in this version, and layers on one carrier must share the UE settings. Radio-map and
+dashboard plots do not show the UE gains.
 
 ## Beyond 5G: what is not modelled yet
 

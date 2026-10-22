@@ -142,6 +142,26 @@ class BeamConfig:
     FR3, 8 in FR2-1, 12 in FR2-2).  ``am_db`` (since 2.3.0) is A_m of the element
     pattern of TR 38.901 Table 7.3-1, its front-to-back ratio (30 dB in the
     table); a larger value lowers the back lobe.
+
+    UE receive beams (since 2.4.0, off by default: ``ue_panels`` 0 keeps the
+    isotropic UE): the UE carries ``ue_panels`` directional panels (TR 38.802
+    Table A.2.1-4: 1, 2 with Omega_0,1 = Omega_0,0 + 180 deg (Config 1) or 4 at
+    90 deg steps (Config 2); Theta = 90 deg), each a uniform rectangular array of
+    ``ue_panel = (M, N)`` elements of one polarisation at half a wavelength with
+    the element of TR 38.802 Table A.2.1-8 (model 1), and ``ue_beams`` DFT
+    receive beams per panel steered to the zenith angle ``ue_tilt_deg`` and to
+    azimuths spread evenly over ``ue_beam_span_deg`` (a codebook of the
+    simulator's own).  ``ue_orientation`` "random" draws the bearing of the
+    first panel once per UE, uniform in [0, 360) deg (TR 38.802 Table A.2.1-4,
+    mobile device); "heading" turns it with the direction of travel.
+    ``ue_rx`` "best" measures every SSB with the best receive beam of the best
+    panel (each panel a receiver branch, TS 38.215 clause 5.1.1); "sweep"
+    measures at every L1 instant with one beam index on all panels in turn and
+    reports for every SSB the highest of the last ``ue_beams`` samples.  Data,
+    radio-link monitoring and beam failure detection use the UE's serving
+    receive beam, the best one towards the serving cell, chosen again at every
+    L1 instant; interference arrives through the same beam.  See
+    :mod:`handoverlab.channel.antenna` and ``docs/guides/ue-beams.md``.
     """
     sectors: int = 3
     sector_az0_deg: float = 30.0
@@ -164,11 +184,26 @@ class BeamConfig:
     preamble_max: int = 10
     rlm_rs: str = "tci"
     am_db: float = 30.0
+    # UE receive beams (since 2.4.0; 0 panels: the isotropic UE)
+    ue_panels: int = 0
+    ue_panel: Tuple[int, int] = (2, 4)
+    ue_beams: int = 4
+    ue_beam_span_deg: float = 120.0
+    ue_tilt_deg: float = 90.0
+    ue_orientation: str = "random"
+    ue_rx: str = "best"
 
 
 #: keys of :class:`BeamConfig` added after 1.10.0 and their defaults, left out of :meth:`Scenario.to_dict` while
 #: they have them
-BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0}
+BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0, "ue_panels": 0, "ue_panel": [2, 4], "ue_beams": 4,
+                                  "ue_beam_span_deg": 120.0, "ue_tilt_deg": 90.0, "ue_orientation": "random",
+                                  "ue_rx": "best"}
+#: UE panel counts of TR 38.802 Table A.2.1-4 (one panel, Config 1, Config 2) and the bearing step of the panels
+UE_PANEL_STEP_DEG: Dict[int, float] = {1: 0.0, 2: 180.0, 4: 90.0}
+#: the UE receive-beam keys of :class:`BeamConfig` (since 2.4.0)
+UE_BEAM_KEYS: Tuple[str, ...] = ("ue_panels", "ue_panel", "ue_beams", "ue_beam_span_deg", "ue_tilt_deg",
+                                 "ue_orientation", "ue_rx")
 
 
 @dataclass
@@ -850,6 +885,20 @@ class Scenario:
                 _check_beams(ly.beams, f, key + ".beams")
             if ly.sites_file and ly.sites is None:
                 ly.sites = read_sites(ly.sites_file)
+        # UE receive beams (since 2.4.0)
+        ue = {}                                          # carrier -> UE beam settings of its layers
+        layers = [(R.carrier_ghz, R.beams)] + [(R.carrier_ghz if ly.carrier_ghz is None else ly.carrier_ghz,
+                                                ly.beams) for ly in R.layers or ()]
+        for f, b in layers:
+            u = None if b is None or not b.ue_panels else tuple(getattr(b, k) for k in UE_BEAM_KEYS)
+            _check(ue.setdefault(round(f, 9), u) == u, "radio.layers",
+                   "layers on one carrier need the same UE beam settings (%s)" % ", ".join(UE_BEAM_KEYS))
+        if any(u is not None for u in ue.values()):
+            _check(self.protocol.dc is None, "protocol.dc", "is not combined with UE receive beams in this version")
+            sweep = any(u is not None and u[UE_BEAM_KEYS.index("ue_rx")] == "sweep" for u in ue.values())
+            _check(not sweep or self.protocol.meas_periods == "sample", "protocol.meas_periods",
+                   "ue_rx 'sweep' needs 'sample': the periods of TS 38.133 already contain the receive-beam sweep "
+                   "(Mmeas_period_w/o_gaps = 3 x the sweeping factor, clause 9.2.5.1)")
 
 
     def _validate_dc(self) -> None:
@@ -972,6 +1021,16 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     _check(b.ra_attempt_s > 0, key + ".ra_attempt_s", "must be positive")
     _check(b.rlm_rs in ("tci", "beams"), key + ".rlm_rs", "must be 'tci' or 'beams'")
     _check(b.am_db > 0.0, key + ".am_db", "must be positive (TR 38.901 Table 7.3-1: A_m = 30 dB)")
+    _check(b.ue_panels == 0 or b.ue_panels in UE_PANEL_STEP_DEG, key + ".ue_panels",
+           "must be 0 (isotropic UE) or 1, 2 or 4 panels (TR 38.802 Table A.2.1-4)")
+    _check(b.ue_panel[0] >= 1 and b.ue_panel[1] >= 1, key + ".ue_panel", "needs at least 1 x 1 elements")
+    _check(b.ue_panels * b.ue_panel[0] * b.ue_panel[1] <= 32, key + ".ue_panel",
+           "at most 32 UE antenna elements over all panels (TR 38.802 Table A.2.1-4, above 6 GHz)")
+    _check(b.ue_beams >= 1, key + ".ue_beams", "must be >= 1")
+    _check(0.0 < b.ue_beam_span_deg <= 360.0, key + ".ue_beam_span_deg", "must be in (0, 360]")
+    _check(0.0 < b.ue_tilt_deg < 180.0, key + ".ue_tilt_deg", "must be between 0 and 180 degrees")
+    _check(b.ue_orientation in ("random", "heading"), key + ".ue_orientation", "must be 'random' or 'heading'")
+    _check(b.ue_rx in ("best", "sweep"), key + ".ue_rx", "must be 'best' or 'sweep'")
 
 
 # ---------------------------------------------------------------------------

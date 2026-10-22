@@ -32,6 +32,12 @@ What changes against :class:`Engine`
   and receives no data during the gaps (TS 38.133 clause 9.1.2).
 * RLM evaluation (``ts38133``): the Qout / Qin windows of the serving cell's
   frequency range (TS 38.133 Tables 8.1.2.2-1/-2).
+* UE receive beams (since 2.4.0, ``radio.beams.ue_panels``): the UE receives
+  on its serving receive beam, the best one towards the serving cell, chosen
+  again at every L1 instant and turned to the new cell when a handover or a
+  re-establishment completes; the desired power, radio-link monitoring, beam
+  failure detection and recovery and the interference of every co-channel
+  cell carry the gain of that beam towards the transmitting site.
 """
 from __future__ import annotations
 
@@ -163,6 +169,11 @@ class ExtEngine(Engine):
             self.bfr_n = np.zeros(U, dtype=int)                # PREAMBLE_TRANSMISSION_COUNTER - 1
             self.bfr_t0 = np.zeros(U)
             self.rep_next = 0.0
+        # UE receive beams (since 2.4.0): serving receive beam of every UE, an index into ExtChunk.rg
+        self.ue_rx = ext is not None and ext.ue_rx
+        if self.ue_rx:
+            self.rb = np.zeros(U, dtype=int)
+        self._ln = self._totc = None
         for k in ("beam_switch", "bfr", "bfr_ok", "bfr_fail", "ho_inter"):
             self.C[k] = 0
         self.acc["bfr_time"] = 0.0
@@ -176,10 +187,41 @@ class ExtEngine(Engine):
         return ln @ (rc[:, None] * self.mask)
 
     def _beam_power(self, i, ch, users, cells, beams):
-        """Received power [mW] of ``beams`` of ``cells`` at ``users`` in step ``i`` of chunk ``ch``."""
+        """Received power [mW] of ``beams`` of ``cells`` at ``users`` in step ``i`` of chunk ``ch`` (with UE
+        receive beams: on the users' serving receive beams)."""
         ext = self.ext
         g = ch.bg[i // ch.mp, users, cells, beams]
+        if self.ue_rx:
+            g = g + ch.rg[i // ch.mp, users, ext.cell_site[cells], self.rb[users]]
         return np.exp((ch.site_db[i, users, ext.cell_site[cells]] + ext.p0[cells] + g) * LN10_10)
+
+    # ------------------------------------------------------------------ UE receive beams (since 2.4.0)
+    def _step_ln(self, i, ch):
+        """Interference reference powers (U, C) of step ``i``: with UE receive beams through each UE's serving
+        receive beam, re-chosen at the L1 instants towards the serving cell."""
+        ln = ch.lin[i]
+        if self.ue_rx:
+            j = i // ch.mp
+            if i % ch.mp == 0:
+                self.rb[:] = np.argmax(ch.rg[j, self.ar, self.ext.cell_site[self.serv]], axis=-1)
+            g = ch.rg[j, self.ar, :, self.rb]                                    # (U, S)
+            ln = ln * np.exp(g[:, self.ext.cell_site] * LN10_10)
+        self._ln = ln
+        return ln
+
+    def _point_rx(self, u, cell):
+        """UE ``u`` turns its serving receive beam to the best one towards ``cell``; its rows of the powers and
+        interference sums of the current step follow."""
+        ch, i = self._ch, self._i
+        j = i // ch.mp
+        r = int(np.argmax(ch.rg[j, u, self.ext.cell_site[cell]]))
+        if r == self.rb[u]:
+            return
+        self.rb[u] = r
+        if self._ln is not None:
+            self._ln[u] = ch.lin[i][u] * np.exp(ch.rg[j, u, self.ext.cell_site, r] * LN10_10)
+            if self._totc is not None:
+                self._totc[u] = self._tot(self._ln[u:u + 1], self.rc)[0]
 
     def _desired(self, i, ch, ln, serv):
         """Power of the serving cell on the serving beam (U,)."""
@@ -205,6 +247,8 @@ class ExtEngine(Engine):
 
     # ------------------------------------------------------------------ overrides of Engine
     def _attach(self, u, cell, s, t=None):
+        if self.ue_rx and self._ln is not None:
+            self._point_rx(u, cell)
         super()._attach(u, cell, s, t)
         if self.rlm38:
             T = req.rlm_evaluation_periods(self.P.ssb_period_s, self._sweep_n(cell))
@@ -217,7 +261,7 @@ class ExtEngine(Engine):
             if self.has_b[cell] and getattr(self, "_ch", None) is not None:
                 # monitoring starts from the quality of the beam the UE joined on
                 ch, i = self._ch, self._i
-                ln = ch.lin[i]
+                ln = self._ln if self.ue_rx else ch.lin[i]
                 rcx = self.rc_lm if self.lm else self.rc
                 tl = self._tot(ln, rcx)
                 p = self._beam_power(i, ch, np.array([u]), np.array([cell]), np.array([self.sb[u]]))[0]
@@ -258,6 +302,8 @@ class ExtEngine(Engine):
         tgt = int(self.f_tgt[u])
         if self.uniform:
             return super()._end_exec(u, t, ln, tot[:, 0] if tot.ndim == 2 else tot)
+        if self.ue_rx:
+            self._point_rx(u, tgt)
         b = self._best_beam(u, tgt)
         p = None
         if self.beams and self.has_b[tgt]:
@@ -298,6 +344,8 @@ class ExtEngine(Engine):
         if self.uniform:
             return super()._fallback(u, t, ln, tot[:, 0] if tot.ndim == 2 else tot)
         src = int(self.serv[u])
+        if self.ue_rx:
+            self._point_rx(u, src)
         p = None
         if self.beams and self.has_b[src]:
             p = self._beam_power(self._i, self._ch, np.array([u]), np.array([src]), np.array([self.sb[u]]))[0]
@@ -339,11 +387,11 @@ class ExtEngine(Engine):
             t0 = ch.k0 * self.dt
             for u in range(self.U):
                 self.trace_event(t0, u, "serve", -1, self.serv[u])
-        ln = ch.lin[0]
         if self.beams:
             for u in range(self.U):
                 self.sb[u] = self._best_beam(u, int(self.serv[u]))
         self._i, self._ch = 0, ch
+        ln = self._step_ln(0, ch)
         totc = self._tot(ln, self.rc_lm if self.lm else self.rc)
         ls_ref = ln[self.ar, self.serv]
         ls = self._desired(0, ch, ln, self.serv)
@@ -373,9 +421,9 @@ class ExtEngine(Engine):
         for i in range(ch.n):
             k = ch.k0 + i
             t = k * dt
-            ln = ch.lin[i]
             self._i, self._ch = i, ch
-            totc = self._tot(ln, self.rc)
+            ln = self._step_ln(i, ch)
+            totc = self._totc = self._tot(ln, self.rc)
             if self.lm:
                 self.lm_ln = ln
             # --- end of an execution or of a re-establishment
@@ -389,6 +437,8 @@ class ExtEngine(Engine):
                             lc = ln[u, c]
                             s = lc / (totc[u, 0] - self.rc[c] * lc + self.noise)
                         else:
+                            if self.ue_rx:
+                                self._point_rx(u, c)
                             b = self._best_beam(u, c)
                             p = None
                             if self.beams and self.has_b[c]:
@@ -664,6 +714,8 @@ class ExtEngine(Engine):
         if self.beams:                                        # best beam of every cell, no L1 error
             ch, i = self._ch, self._i
             g = ch.bg[i // ch.mp, ia].max(-1)
+            if self.ue_rx:                                    # and the best UE receive beam towards it
+                g = g + ch.rgb[i // ch.mp, ia][:, self.ext.cell_site]
             lb = np.exp((ch.site_db[i][ia][:, self.ext.cell_site] + self.ext.p0 + g) * LN10_10)
         else:
             lb = lr
