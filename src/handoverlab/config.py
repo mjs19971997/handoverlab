@@ -353,6 +353,17 @@ class ProtocolConfig:
     harq_max_tx: int = 4
     harq_rtt_slots: int = 8
     l2s_loss_db: float = 1.0
+    # optional user-plane buffers at handover (since 2.3.0; see handoverlab.engine.buffers): None keeps the
+    # model without buffers; "am" / "um": one downlink DRB per user with that RLC mode, PDCP FIFOs at the gNB,
+    # data forwarding (TS 38.300 9.2.3.2.3; CHO / LTM late unless early_forwarding), Xn forwarding delay
+    # (assumption), PDCP discard timer (None: infinity, else a value of TS 38.331 PDCP-Config) and the SDU size
+    # for the SDU counts (None: traffic.packet_bytes for periodic traffic, 1500 bytes otherwise)
+    buffers: Optional[str] = None
+    forwarding: bool = True
+    early_forwarding: bool = False
+    xn_delay_s: float = 0.005
+    discard_timer_s: Optional[float] = None
+    sdu_bytes: Optional[int] = None
     cmd_during_t310: str = "receive"     # TS 38.331 5.3.5.5.2 (since 2.0.0; 1.x: "lost")
     t304_s: Optional[float] = 1.0       # T304 (TS 38.331 5.3.5.8.3; since 2.0.0; 1.x: None, no T304)
     # measurement periods and evaluation periods of TS 38.133 (since 1.10.0; the defaults keep the model of 1.x):
@@ -659,6 +670,22 @@ class Scenario:
             _check(self.radio.beams is None and not self.radio.layers and self.layout.kind != "ntn"
                    and P.meas_periods == "sample" and P.rlm_eval == "fixed", "protocol.scheduler",
                    "needs the base engine in this version: no beams, layers, NTN or TS 38.133 periods")
+        _check(P.buffers in (None, "am", "um"), "protocol.buffers", "must be null, 'am' or 'um'")
+        if P.buffers is not None:
+            from .engine.buffers import DISCARD_TIMERS
+            _check(isinstance(P.forwarding, bool), "protocol.forwarding", "must be true or false")
+            _check(isinstance(P.early_forwarding, bool), "protocol.early_forwarding", "must be true or false")
+            _check(P.xn_delay_s >= 0, "protocol.xn_delay_s", "must be >= 0")
+            _check(P.discard_timer_s is None or any(abs(P.discard_timer_s - v) < 1e-9 for v in DISCARD_TIMERS),
+                   "protocol.discard_timer_s", "must be null (infinity) or a discardTimer of TS 38.331 PDCP-Config "
+                   "(%s s)" % ", ".join("%g" % v for v in DISCARD_TIMERS))
+            _check(P.sdu_bytes is None or (isinstance(P.sdu_bytes, int) and P.sdu_bytes >= 1), "protocol.sdu_bytes",
+                   "must be null or an integer >= 1")
+            _check(self.traffic.model != "full_buffer", "protocol.buffers",
+                   "needs a traffic model with arrivals (fixed, periodic or ftp3), not full_buffer")
+            _check(self.radio.beams is None and not self.radio.layers and self.layout.kind != "ntn"
+                   and P.meas_periods == "sample" and P.rlm_eval == "fixed", "protocol.buffers",
+                   "needs the base engine in this version: no beams, layers, NTN or TS 38.133 periods")
         _check(P.ssb_period_s > 0, "protocol.ssb_period_s", "must be positive")
         _check(0 <= P.gap_pattern <= 25, "protocol.gap_pattern", "TS 38.133 Table 9.1.2-1 defines the ids 0-25")
         _check(1 <= P.fr2_power_class <= 5, "protocol.fr2_power_class", "must be 1-5")
@@ -743,7 +770,9 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                    "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
-                                                      "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db")}
+                                                      "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db",
+                                                      "buffers", "forwarding", "early_forwarding", "xn_delay_s",
+                                                      "discard_timer_s", "sdu_bytes")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")

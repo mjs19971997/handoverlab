@@ -101,6 +101,12 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.harq_max_tx` | 4 | assumption (transmissions per TB; the network's choice) |
 | `protocol.harq_rtt_slots` | 8 | assumption (HARQ round trip in slots) |
 | `protocol.l2s_loss_db` | 1 | assumption (implementation loss of the block-error model) |
+| `protocol.buffers` | none | off by default; am / um: PDCP / RLC buffers and data forwarding at handover (TS 38.300 9.2.3.2.2, 9.2.3.2.3) |
+| `protocol.forwarding` | true | TS 38.300 9.2.3.2.3 (the network may forward; with buffers) |
+| `protocol.early_forwarding` | false | TS 38.300 9.2.3.4.4 / 9.2.3.5.2 (CHO and LTM: late forwarding unless set) |
+| `protocol.xn_delay_s` | 0.005 | assumption (Xn forwarding delay; with buffers) |
+| `protocol.discard_timer_s` | none | TS 38.331 PDCP-Config discardTimer (unset: infinity; with buffers) |
+| `protocol.sdu_bytes` | none | assumption (SDU size for the SDU counts; unset: packet_bytes or 1500 bytes) |
 | `protocol.rrc_detail` | 3gpp |  |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |

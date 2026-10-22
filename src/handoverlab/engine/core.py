@@ -157,6 +157,13 @@ class Engine:
             from .scheduler import SlotScheduler
             self.sched = SlotScheduler(world, self.M, self.U, P.scheduler, self.mdt, P.harq_max_tx,
                                        P.harq_rtt_slots, P.l2s_loss_db)
+        self.buf = None                                               # user-plane buffers (2.3.0)
+        if P.buffers is not None:
+            from .buffers import Buffers
+            sdu = P.sdu_bytes or (T.packet_bytes if T.model == "periodic" else 1500)
+            self.buf = Buffers(self.U, self.mdt, P.buffers, P.forwarding, P.early_forwarding, P.xn_delay_s,
+                               P.discard_timer_s, 8.0 * sdu, sc.run.warmup_s)
+        self.t_load = 0.0                                             # time of the current measurement instant
         self.a_rho = 1.0 - np.exp(-self.mdt / T.load_tau_s)
         svc = world.services
         self.tmin, self.thq, self.rate, self.gbr = svc.t_min, svc.theta_q, svc.rate, svc.gbr
@@ -165,7 +172,7 @@ class Engine:
         if T.model == "full_buffer":
             self.rate = np.full(self.U, self.r_peak)
         self.offered = world.offered
-        self.backlog = np.zeros(self.U) if world.offered is not None else None
+        self.backlog = np.zeros(self.U) if world.offered is not None and self.buf is None else None
         self.t0c = sc.run.warmup_s
         self.level = event_level(log_events)
         self.keep_events = self.level != "off"
@@ -321,6 +328,10 @@ class Engine:
             self.run[u] = False
         self.src_rlf[u] = False
         self.proc.cancel_command(u)
+        if self.buf is not None:
+            dual = bool(self.proc.dual and self.daps_u[u])
+            kind = "daps" if dual else "cond" if self.kind in ("cho", "ltm", "cltm") else "ho"
+            self.buf.leave(u, t, tgt, kind, 0.0 if dual else self._flush(u))
         if t >= self.t0c:
             self.C["exec"] += 1
             self.acc["int_exec"] += min(self.proc.exec_interruption(u, d), self.S * self.dt - t)
@@ -366,6 +377,10 @@ class Engine:
         self.proc.after_execution(u, tgt, t)
         self.prev[u] = src
         self.last_ho[u] = t
+        if self.buf is not None:
+            if self.proc.dual and self.daps_u[u]:
+                self._flush(u)               # source released: the target has the forwarded copies
+            self.buf.join(u, t, tgt)
         self._attach(u, tgt, s, t)
         # open the evaluation window
         self.w_on[u] = True; self.w_t0[u] = t; self.w_ta[u] = self.f_t[u]; self.w_tx[u] = self.f_tx[u]
@@ -411,12 +426,18 @@ class Engine:
             return False
         self.rec_t0[u] = INF                                  # T304 expired: re-establishment
         self.re_cell[u] = int(np.argmax(self.meas[u]))
+        if self.buf is not None:
+            self.buf.rec[u] = False
         self.t_done[u] = t + self.P.reest_s
         if t >= self.t0c:
             self.acc["int_fail"] += min(self.P.reest_s, self.S * self.dt - t)
         if self.trace_log is not None:
             self.trace_event(t, u, "recovery_failed", self.serv[u], self.re_cell[u])
         return False
+
+    def _flush(self, u) -> float:
+        """MAC reset of user ``u`` with the slot scheduler: its HARQ data [bit] (0 without the scheduler)."""
+        return self.sched.flush(u) if self.sched is not None else 0.0
 
     def msg(self, t, n=1) -> None:
         """Count ``n`` RRC messages sent at ``t`` (since 2.1.0): MeasurementReport, RRCReconfiguration (one per
@@ -447,6 +468,8 @@ class Engine:
         if self.trace_log is not None:
             self.trace_event(t, u, "fallback", src, self.f_tgt[u], 10.0 * np.log10(max(float(s), 1e-30)))
         self._close_flight(u, t, "too_early", "daps_fallback")
+        if self.buf is not None:
+            self.buf.fallback(u)
         self.state[u] = CONNECTED
         self.proc.on_attach(u)
         return True
@@ -540,12 +563,16 @@ class Engine:
         self.run[u] = False
         if self.std:                     # a re-establishment is no handover: no ping-pong across it (2.1.0)
             self.prev[u] = -1
+        if self.buf is not None:
+            self.buf.fail(u, t, rec, self._flush(u))
         self.proc.on_failure(u)
 
     # ------------------------------------------------------------------ main loop
     def _init(self, ch):
         self.l3.reset(ch.l1[0])
         self.serv[:] = np.argmax(self.meas, axis=1)
+        if self.buf is not None:
+            self.buf.anchor[:] = self.serv
         self.started = True
         if self.lm:
             self._update_lm(self.state == CONNECTED)
@@ -596,6 +623,8 @@ class Engine:
                         lc = ln[u, c]
                         s = lc / (tot[u] - self.rc[c] * lc + noise)
                         if self._recovery_joins(u, s, t):
+                            if self.buf is not None:
+                                self.buf.rejoin(u, t, c)
                             self._attach(u, c, s, t)
             serv = self.serv
             if kern is not None:                           # compiled kernel (run.backend: numba), same values
@@ -694,6 +723,7 @@ class Engine:
 
     def _measure(self, ch, j, k, t, ln, tot):
         counted = self._measure_rule(ch, j, k, t, ln)
+        self.t_load = t
         self._load(ln, tot, counted)
         self.nmeas += 1
 
@@ -722,8 +752,9 @@ class Engine:
         ar, acc, state = self.ar, self.acc, self.state
         serv = self.serv
         con = state == CONNECTED
+        buf = self.buf
         if self.proc.dual:                                       # DAPS: the source serves during the execution
-            con = con | ((state == EXECUTING) & self.daps_u)
+            con = con | ((state == EXECUTING) & self.daps_u & (~self.src_rlf if buf is not None else True))
         ls = ln[ar, serv]
         sinr = ls / (tot - self.rc[serv] * ls + self.noise)      # tot = ln @ rc of this step (rc unchanged)
         if self.fad_now is not None:                             # fast fading: capacity over the carrier
@@ -731,12 +762,25 @@ class Engine:
         ok = con & (sinr >= self.qout)
         se = np.minimum(np.log2(1.0 + sinr), self.se_max)
         rate = self.rate
-        if self.backlog is not None:                             # buffered traffic: arrivals, then demand
+        if buf is not None:                                      # user-plane buffers (2.3.0): arrivals, discard
+            t = self.t_load
+            buf.arrive(t, rate * self.mdt if self.offered is None
+                       else self.offered[min(self.nmeas, len(self.offered) - 1)])
+            buf.discard_old(t)
+            frac = buf.start_fraction(t)
+            avail = buf.q if self.sched is None else np.maximum(buf.q - self.sched.inflight(), 0.0)
+            rate = np.minimum(self.r_peak * frac, avail / self.mdt)
+        elif self.backlog is not None:                           # buffered traffic: arrivals, then demand
             self.backlog += self.offered[min(self.nmeas, len(self.offered) - 1)]
             rate = np.minimum(self.r_peak, self.backlog / self.mdt)
         free = np.maximum(1.0 - self.bg, 0.0)
         if self.sched is not None:                               # slot scheduler, MCS and HARQ (2.2.0)
-            got, used = self.sched.serve(sinr, rate * self.mdt, con, serv, free)
+            if buf is not None:
+                first = np.ceil((1.0 - frac) * self.sched.n_slots - 1e-9).astype(np.int64)
+                got, used = self.sched.serve(sinr, avail, con, serv, free, first)
+                buf.harq_lost(t, self.sched.lost_bits)
+            else:
+                got, used = self.sched.serve(sinr, rate * self.mdt, con, serv, free)
             thr = got / self.mdt
             rho_new = np.minimum(1.0, self.bg + used)
         else:
@@ -748,7 +792,10 @@ class Engine:
             bs = np.minimum(1.0, rem / np.maximum(B, 1e-12))
             thr = np.where(ok, rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
             rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
-        if self.backlog is not None:
+        if buf is not None:                                      # FIFO order, delays (round-robin share rate)
+            n_act = np.bincount(serv, weights=thr > 0, minlength=self.M)
+            thr = buf.deliver(t, thr * self.mdt, self.W * se * free[serv] / np.maximum(n_act[serv], 1.0)) / self.mdt
+        elif self.backlog is not None:
             self.backlog = np.maximum(self.backlog - thr * self.mdt, 0.0)
         self.rho += self.a_rho * (rho_new - self.rho)
         np.multiply(self.chi, self.rho, out=self.rc)
@@ -779,6 +826,9 @@ class Engine:
         p_tx = 10.0 ** (R.tx_power_dbm / 10.0) / 1000.0              # transmit power per cell [W]
         if self.acc.get("load", 0.0) > 0 and "load_ptx" in self.acc:  # layers with their own power (2.1.0)
             p_tx = self.acc["load_ptx"] / self.acc["load"]           # load-weighted mean over the cells
+        if self.buf is not None:                                     # user-plane buffers (2.3.0)
+            self.buf.check()
+            self.acc.update(self.buf.metrics(ue_min))
         return summarize(C, self.acc, ue_min, ue_s, self.U, self.dt, self.proc.open_preparations(),
                          n_sites=self.M, power=(R.energy_ntrx * R.energy_p0_w, R.energy_slope * p_tx))
 

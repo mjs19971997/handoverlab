@@ -110,6 +110,13 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.harq_max_tx": "assumption (transmissions per TB; the network's choice)",
     "protocol.harq_rtt_slots": "assumption (HARQ round trip in slots)",
     "protocol.l2s_loss_db": "assumption (implementation loss of the block-error model)",
+    "protocol.buffers": "off by default; am / um: PDCP / RLC buffers and data forwarding at handover (TS 38.300 "
+                        "9.2.3.2.2, 9.2.3.2.3)",
+    "protocol.forwarding": "TS 38.300 9.2.3.2.3 (the network may forward; with buffers)",
+    "protocol.early_forwarding": "TS 38.300 9.2.3.4.4 / 9.2.3.5.2 (CHO and LTM: late forwarding unless set)",
+    "protocol.xn_delay_s": "assumption (Xn forwarding delay; with buffers)",
+    "protocol.discard_timer_s": "TS 38.331 PDCP-Config discardTimer (unset: infinity; with buffers)",
+    "protocol.sdu_bytes": "assumption (SDU size for the SDU counts; unset: packet_bytes or 1500 bytes)",
     "radio.delay_spread_ns": "TR 38.901 Table 7.7.3-1 (nominal delay spread; used with fast_fading)",
     "radio.fading_k_db": "TR 38.901 clause 7.7.6 (unset: the K-factor of the table)",
     "traffic.services": "TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions",

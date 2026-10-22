@@ -21,6 +21,10 @@ data each user has to receive and the free share of every cell; the scheduler th
 
 The decoding draws come from the world's own stream ``harq``, one uniform number per user and slot whatever the
 decisions, so every rule compared on one seed sees the same draws.
+
+With the user-plane buffers (``protocol.buffers``, since 2.3.0) the engine also uses the first slot a user may be
+served in (forwarded data still on their way), the data of TBs lost after the last transmission, the data in the
+HARQ processes and their flush at a MAC reset.
 """
 from __future__ import annotations
 
@@ -60,6 +64,7 @@ class SlotScheduler:
         self.sinr_rep = np.full(n_users, np.nan)             # reported SINR (previous instant) [dB]
         self.slot = 0
         self.stats = dict(tb=0, tb_ok=0, tb_lost=0, retx=0)
+        self.lost_bits = np.zeros(n_users)                   # data of TBs lost in the last interval [bit]
         self._sel: Dict[Tuple[int, int], Tuple[int, int, int]] = {}
 
     def select(self, sinr_db: float, n_prb: int) -> Tuple[int, int, int]:
@@ -108,9 +113,20 @@ class SlotScheduler:
                 self._pmemo[(int(n[i]), int(m[i]), int(t[i]))] = v
         return p
 
+    def inflight(self) -> np.ndarray:
+        """Data in the HARQ processes of every user [bit]."""
+        return np.where(self.h_bits > 0, self.h_data, 0.0).sum(axis=1)
+
+    def flush(self, u) -> float:
+        """MAC reset of user ``u``: the HARQ processes are emptied; returns the data they held [bit]."""
+        bits = float(np.where(self.h_bits[u] > 0, self.h_data[u], 0.0).sum())
+        self.h_bits[u] = 0
+        return bits
+
     def serve(self, sinr: np.ndarray, demand_bits: np.ndarray, con: np.ndarray, serv: np.ndarray,
-              free: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Play the slots of one interval: delivered data per user [bit] and used share of the PRBs per cell."""
+              free: np.ndarray, first_slot=None) -> Tuple[np.ndarray, np.ndarray]:
+        """Play the slots of one interval: delivered data per user [bit] and used share of the PRBs per cell
+        (``first_slot``: per user, the first slot it may be served in)."""
         U, M = self.U, self.M
         sinr_db = 10.0 * np.log10(np.maximum(sinr, 1e-30))
         rep = np.where(np.isnan(self.sinr_rep), sinr_db, self.sinr_rep)
@@ -122,6 +138,7 @@ class SlotScheduler:
         prb_cell = np.floor(np.clip(free, 0.0, 1.0) * self.n_prb).astype(np.int64)
         idx = np.arange(U)
         big = np.iinfo(np.int64).max
+        self.lost_bits = np.zeros(U)
         self._pmemo = {}                                     # BLER of a new TB per (user, MCS, TBS) this interval
         self._tbmemo = {}                                    # MCS / TBS per (user, PRBs) this interval
         share_memo = {}                                      # round-robin shares per set of active users
@@ -131,6 +148,8 @@ class SlotScheduler:
             has_re = due.any(axis=1)
             has_free = (self.h_bits == 0).any(axis=1)
             want = con & (has_re | ((left > 0) & has_free)) & (prb_cell[serv] > 0)
+            if first_slot is not None:
+                want &= first_slot <= s
             if not want.any():
                 continue
             nprb = np.zeros(U, dtype=np.int64)
@@ -176,6 +195,7 @@ class SlotScheduler:
                 got[r[ok]] += self.h_data[r[ok], h[ok]]
                 rate_slot[r[ok]] = self.h_data[r[ok], h[ok]]
                 lost = ~ok & (self.h_tx[r, h] >= self.max_tx)
+                np.add.at(self.lost_bits, r[lost], self.h_data[r[lost], h[lost]])
                 self.stats["tb_ok"] += int(ok.sum())
                 self.stats["tb_lost"] += int(lost.sum())
                 self.h_bits[r[ok | lost], h[ok | lost]] = 0
@@ -199,6 +219,7 @@ class SlotScheduler:
                     got[n[ok]] += data[ok]
                     rate_slot[n[ok]] = data[ok]
                     lost = ~ok & (self.max_tx <= 1)
+                    np.add.at(self.lost_bits, n[lost], data[lost])
                     self.stats["tb_ok"] += int(ok.sum())
                     self.stats["tb_lost"] += int(lost.sum())
                     self.h_bits[n[ok | lost], h[ok | lost]] = 0
