@@ -31,6 +31,7 @@ nav:
       - Reproduce and check results: guides/reproduce.md
       - DAPS handover and LTM: guides/daps-ltm.md
       - A learning-based rule: guides/learning-rule.md
+      - AI/ML mobility (TR 38.744): guides/ai-mobility.md
       - The upper mid-band: guides/upper-mid-band.md
       - A highway: guides/highway.md
       - Urban macro, suburban macro and indoor users: guides/suburban-o2i.md

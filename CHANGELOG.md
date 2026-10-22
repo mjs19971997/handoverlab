@@ -7,6 +7,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- AI/ML-based mobility after 3GPP TR 38.744 V19.0.1 (Release 19) as an optional rule, `a3_pred` (NumPy only, off
+  unless a run names it): prediction of the L3 cell-level RSRP of a cell from its own past L3 results (RRM
+  sub-use case 2), in case A (prediction window ahead; handover on the predicted Event A3, handover model
+  option 2 with the preparation started at the report) and case B (measurement skipping with MRRT =
+  skip / (skip + 1), L3 filtering options 1-3, Event A3 on the measured-and-predicted series, option 3).
+  Predictors: sample and hold (the non-AI baseline of TR 38.744 clause 5.1) and a ridge-regression
+  autoregressive model trained on runs of training seeds (`handoverlab.rules.predict.fit_predictor`,
+  `collect`, JSON weights), or a user object. Statistics after a run (`PredA3.stats`, `Recorder`): prediction
+  accuracy per horizon against the fully measured L3 result, MRRT, and the counters n1, n2, n3 and F1 score of
+  the indirect A3 event prediction (clause 5.3.1). With `act: false` and in case B without skipping the rule
+  gives the event log of `a3`. `handoverlab verify --only learning` gained four checks (P1-P4). Guide
+  `docs/guides/ai-mobility.md` with the evaluation against TR 38.744 and what is not modelled (RLF
+  prediction, frequency- and spatial-domain prediction, beam-level prediction, option 1, LCM); compliance rows
+  in `docs/standard-compliance.md`. Pre-registered evaluation (FR1 case B, FR2 case A): ridge more accurate
+  than sample and hold, errors rising with speed, PW and MRRT as TR 38.744 observes; MRRT 50 % costs
+  +0.7-0.9 percentage points of HOF rate; option 2 cuts the HOF rate from 2.4 % to 0.3 % but with 55 % more
+  attempts and three times the ping-pongs, and sample and hold does the same; generalization criterion G2
+  failed. Every existing result is unchanged.
+
 ## [2.3.0] - 2026-10-22
 
 ### Added

@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 """The learning rule ``a3_bandit`` against an exhaustive search (since 1.11.0): ``handoverlab verify --only learning``.
 
+Since 2.4.0 the group also checks the RRM measurement prediction of ``a3_pred`` (see
+:mod:`handoverlab.verify.aimobility`).
+
 The bandit learns, per cell, which of its A3 offsets (arms) earns the highest
 reward per outcome (useful +1, unnecessary -w_unnecessary, early, late or a
 link failure -w_failure).  Its own objective can also be measured for every
@@ -110,3 +113,5 @@ def learning_checks(rep, duration_s: float = DURATION_S) -> None:
     lim = obj.max() - 0.5 * (obj.max() - obj.min())
     rep.check("B3: reward per outcome in the second half >= best - 0.5 x (best - worst)", r["bandit_late"] >= lim,
               "%.3f against %.3f (best %.3f, worst %.3f)" % (r["bandit_late"], lim, obj.max(), obj.min()))
+    from .aimobility import ai_mobility_checks          # the rule a3_pred (since 2.4.0)
+    ai_mobility_checks(rep)

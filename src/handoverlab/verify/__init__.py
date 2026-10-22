@@ -20,8 +20,9 @@ Check groups (all run by default, in this order):
 
 Optional:
 
-``learning``      the learning rule a3_bandit against an exhaustive search over its arms (``--only learning``;
-                  about 20 minutes; since 1.11.0)
+``learning``      the learning rule a3_bandit against an exhaustive search over its arms, and the RRM
+                  measurement prediction of a3_pred (TR 38.744, since 2.4.0) (``--only learning``; about 20
+                  minutes; since 1.11.0)
 ``ntn``           NTN link budget, antenna and orbit against TR 38.821 / TR 38.811 (``--only ntn``; since 2.0.0)
 ``scenarios``     the TR 37.885 urban macro card, the SMa model and card, the O2I building penetration loss
                   (``--only scenarios``; about 30 minutes; since 2.3.0; three coupling-gain checks fail as

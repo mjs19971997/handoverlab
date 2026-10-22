@@ -274,6 +274,34 @@ Checked against TS 37.340 V19.3.0 and TS 38.331 V18.11.0 (local texts). See the
 | Inter-MN handover: the target MN keeps, changes or releases the SN | TS 37.340 10.7 | `on_mcg_ho`: `keep` (SCG unchanged) or `release` | follows (change: not modelled) |
 | EN-DC / NGEN-DC / NE-DC, CPA / CPC, SCG deactivation, SCG LTM, CHO with candidate SCGs, split SRB / SRB3, bearer types and data forwarding, SCG measurement gaps | TS 37.340 4.1, 7.5, 7.6, 7.13, 10.2.3, 10.19, 10.20 | not modelled | not modelled |
 
+## AI/ML-based mobility (2.4.0, rule `a3_pred`)
+
+Checked against TR 38.744 V19.0.1 and TR 38.843 V19.0.0 (local texts). Results against the TR in the
+[AI/ML mobility guide](guides/ai-mobility.md).
+
+| What the text specifies | Clause | HandoverLab | Status |
+|---|---|---|---|
+| RRC_CONNECTED; goal 1 measurement reduction, goal 2 handover performance | TR 38.744 4.1 | case B (skipping) and case A (prediction ahead) | follows |
+| RRM sub-use case 2: L3 cell-level result predicted from actual L3 cell-level results | TR 38.744 4.2 | one cell at a time from its own L3 series (single-cell approach) | follows (sub-use cases 1, 3-6 and the cluster approach: not modelled) |
+| Case B filtering options 1, 2, 3 for the result after skipped instants | TR 38.744 4.2 | `filter_option` 1, 2, 3 | follows |
+| Indirect event prediction: predicted results, then the event without further AI/ML; events A1-A6 | TR 38.744 4.3 | Event A3 from actual results up to the origin and predicted ones after it | follows (A3 only; direct prediction: not modelled) |
+| RLF prediction | TR 38.744 4.4 | - | not modelled |
+| Different random seeds for training and test; no traffic model | TR 38.744 5.1 | `fit_predictor` on training seeds; the evaluation uses disjoint seeds | follows (traffic model of the card kept) |
+| Non-AI baseline: sample and hold (temporal), pathloss offset (frequency); ARIMA allowed | TR 38.744 5.1 | `predictor: hold`; ridge autoregression | follows (frequency domain: not modelled) |
+| Sliding L1/L3 filtering: a filtered result every sample period; L3 filter of TS 38.331 5.5.3.2 | TR 38.744 5.1 | the engine's L3 filter every L1 period; the rule reproduces it bit for bit with `skip: 0` | follows |
+| FR1: UMa 4 GHz, 20 MHz, ISD 500 m, 7 sites x 3 sectors with wrap-around, sampling 40 ms; FR2: UMi 30 GHz, 80 MHz, ISD 200 m, sampling 80 ms | TR 38.744 Table 5.1-1 | FR1: card `urban-macro-tr37885-4ghz` (UMa 4 GHz, 20 MHz, 500 m lattice, omni sites, no wrap-around), 40 ms; FR2: card `urban-grid-28ghz-beams` (UMi 28 GHz, 3 sectors x 8 SSB beams, 100 m site spacing), 80 ms | approximation |
+| UE trajectory: TR 38.843 6.3.1 options 1-3 (straight segments, direction change in [-45, 45] deg) | TR 38.744 Table 5.1-1; TR 38.843 6.3.1 | street-grid trajectories of the cards (turns of 90 deg at crossings) | approximation |
+| Accuracy: average L3 RSRP difference between predicted and ground-truth L3 result of the same cell; MRRT = skipped / total instants | TR 38.744 5.2.1.1 | mean absolute difference per horizon on the 4 strongest cells; MRRT counted after the warm-up | follows (cell set: assumption) |
+| FilterCoefficient 4 (FR1 and FR2) | TR 38.744 Table 5.2.1.1-2 | `protocol.l3_k: 4` (the default) | follows |
+| Generalization over UE speed: baseline, GC#1, GC#2 | TR 38.744 5.2.1.2, Table 5.2.1.2-1 | models per speed and on mixed speeds (`collect` data sets added) | follows |
+| F1 = 2PR/(P+R) with counters n1, n2, n3 and maximum ETD | TR 38.744 5.3.1 | `stats()` of case A | follows (instants around a serving-cell change left out) |
+| A3 offset 2 dB, TTT 320 ms, PW 320 ms (case A) or MRRT 50 % (case B), max ETD 80 ms | TR 38.744 Tables 5.3.1-1, 5.3.1-2 | the evaluation set-up of the guide | follows |
+| HOF model of TR 36.839 5.2.1.3; HOF rate, HO attempts and HOF per UE per second; 40 ms preparation, 40 ms execution | TR 38.744 5.5.1 | HOF = failures `command_lost` + `rlf_in_preparation` + `execution_failure`; `protocol.prep_s` / `exec_s` 0.04 in the evaluation | follows |
+| Handover model option 2 (command once the entry condition of the predicted event holds on the actual result, preparation from the prediction) | TR 38.744 5.5.1, Figure 5.5.1-2 | report when the entry condition holds now and is predicted for the TTT; preparation from the report | approximation |
+| Handover model option 3 (predicted event reported, command after preparation) | TR 38.744 5.5.1, Figure 5.5.1-3 | A3 with TTT on the measured-and-predicted series | follows |
+| Handover model option 1 (preparation on the predicted event, command on the legacy event) | TR 38.744 5.5.1, Figure 5.5.1-1 | - | not modelled |
+| LCM, applicability, UE- or network-sided model, data collection and reporting | TR 38.744 6 | - | not modelled |
+
 ## Beyond 5G: what is not modelled yet
 
 | Rule | Clause | Status |
