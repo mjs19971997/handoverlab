@@ -79,10 +79,11 @@ def test_link_budget_cases_of_tr38821():
         assert round(fspl, 1) == fspl_t and round(atm, 1) == atm_t and cnr == pytest.approx(cnr_t, abs=0.1)
 
 
-def test_verify_group_ntn_reports_n2_as_failed():
+def test_verify_group_ntn_passes():
     rep = run_verify(groups=["ntn"])
     status = {c.name.split(":")[0]: c.status for c in rep.checks}
-    assert status == {"N1": "PASS", "N2": "FAIL", "N3": "PASS"}                    # N2 is pre-registered and failed
+    # N2 failed until 2.0.0 (beamwidth from the aperture); since 2.1.0 the tabled beamwidth is used
+    assert status == {"N1": "PASS", "N2": "PASS", "N3": "PASS"}
     assert isinstance(rep, Report)
 
 
@@ -123,6 +124,7 @@ def test_cho_d2_entering_and_leaving():
     ref = np.array([[0.0, 0.0], [30e3, 0.0]])
     rule.ctx = SimpleNamespace(cell_center=lambda t: ref, sites=ref)
     rule.d_on = np.zeros((4, 2), dtype=bool)
+    rule.d_in, rule.d_out = np.full((4, 2), np.inf), np.full((4, 2), np.inf)
 
     def obs(x):
         return SimpleNamespace(t=0.0, x=np.asarray(x, dtype=float), y=np.zeros(4), serving=np.zeros(4, dtype=int))
@@ -134,7 +136,23 @@ def test_cho_d2_entering_and_leaving():
     with pytest.raises(ValueError):
         CHOD2(hys_m=-1.0)
     p = rule.params()
-    assert "immediate" not in p and p["d_thresh1_m"] == 10e3 and p["hys_m"] == 1e3
+    assert "immediate" not in p and p["d_thresh1_m"] == 10e3 and p["hys_m"] == 1e3 and p["ttt_d2_s"] == 0.0
+
+
+def test_cho_d2_has_its_own_time_to_trigger():
+    """TS 38.331 5.3.5.13.4: condEventD2 turns fulfilled only after its entry condition held for timeToTrigger-r18,
+    and not fulfilled only after its leaving condition held for it (since 2.1.0)."""
+    rule = CHOD2(d_thresh1_m=10e3, d_thresh2_m=10e3, hys_m=0.0, ttt_d2_s=0.16)
+    ref = np.array([[0.0, 0.0], [30e3, 0.0]])
+    rule.ctx = SimpleNamespace(cell_center=lambda t: ref, sites=ref)
+    rule.d_on = np.zeros((1, 2), dtype=bool)
+    rule.d_in, rule.d_out = np.full((1, 2), np.inf), np.full((1, 2), np.inf)
+
+    def at(t, x):
+        o = SimpleNamespace(t=t, x=np.array([x]), y=np.zeros(1), serving=np.zeros(1, dtype=int))
+        return bool(rule.exec_condition(o)[0, 1])
+    assert [at(0.0, 25e3), at(0.08, 25e3), at(0.16, 25e3)] == [False, False, True]     # entry held 160 ms
+    assert [at(0.20, 5e3), at(0.28, 5e3), at(0.36, 5e3)] == [True, True, False]        # leaving held 160 ms
 
 
 def test_cho_d2_contract_and_reduction_to_cho():

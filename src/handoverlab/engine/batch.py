@@ -31,7 +31,7 @@ from typing import List, Sequence
 import numpy as np
 
 from ..measurement import EPS
-from .core import Engine, rlm_kernel
+from .core import Engine, rlm_indications, rlm_kernel
 from .procedures import CONNECTED, EXECUTING
 
 
@@ -76,6 +76,7 @@ class EngineBatch:
     def supported(engines: Sequence[Engine]) -> bool:
         return (len(engines) > 1 and not any(e.debug for e in engines)
                 and all(type(e) is Engine for e in engines)          # not the engine of the 1.10.0 options
+                and not any(e.std and e.proc.dual for e in engines)  # DAPS per execution (2.1.0): one by one
                 and all(e.world.scenario.traffic.model == "fixed" for e in engines))
 
     def advance(self, ch) -> None:
@@ -122,7 +123,9 @@ class EngineBatch:
                         else:
                             c = int(e.re_cell[u])
                             lc = ln[u, c]
-                            e._attach(u, c, lc / (tot[j, u] - e.rc[c] * lc + noise), t)
+                            sc_ = lc / (tot[j, u] - e.rc[c] * lc + noise)
+                            if e._recovery_joins(u, sc_, t):
+                                e._attach(u, c, sc_, t)
                     rcs = None
             if rcs is None:
                 rcs = np.take_along_axis(rc, serv, axis=1)
@@ -130,7 +133,7 @@ class EngineBatch:
                 sl = np.empty_like(tot)
                 ex = np.empty(tot.shape, dtype=bool)
                 if kern(ln, tot, rcs, serv, state, qo, qi, run, t310, k310, rlm_t0, sl, ex, t, k, noise, ao, ai,
-                        qout, qin, t310_lim, P.rlm_holdoff_s, EPS, CONNECTED):
+                        qout, qin, t310_lim, P.rlm_holdoff_s, EPS, CONNECTED, e0.std, k % e0.ind_steps == 0):
                     for j, u in zip(*np.nonzero(ex)):
                         E[j].fail(u, t, "rlf")
                 for j, e in enumerate(E):
@@ -158,23 +161,33 @@ class EngineBatch:
                 sl = sinr
             qo += ao * (sl - qo)
             qi += ai * (sl - qi)
-            if simple:
-                start = (qo < qout) & con & ~run
+            if e0.std:                                         # TS 38.331 7.2 / TS 38.133 8.1.6 (since 2.1.0)
+                if k % e0.ind_steps == 0:
+                    start = rlm_indications(P, qo, qi, qout, qin, run, self.n_o, self.n_i, con, t, self.rlm_t0)
+                    t310[start] = t
+                    k310[start] = k
+                if cnz(run):
+                    exp = np.nonzero(run & con & (t - t310 >= t310_s - EPS))
+                    for j, u in zip(*exp):
+                        E[j].fail(u, t, "rlf")
             else:
-                self.n_o[:] = (self.n_o + 1) * (qo < qout)
-                self.n_i[:] = (self.n_i + 1) * (qi > qin)
-                start = con & ~run & (self.n_o >= P.n310)
-            if P.rlm_holdoff_s > 0:
-                start &= t >= self.rlm_t0 - EPS
-            if cnz(start):
-                run |= start
-                t310[start] = t
-                k310[start] = k
-            if cnz(run):
-                run &= ~((qi > qin) if simple else (self.n_i >= P.n311))
-                exp = np.nonzero(run & con & (t - t310 >= t310_s - EPS))
-                for j, u in zip(*exp):
-                    E[j].fail(u, t, "rlf")
+                if simple:
+                    start = (qo < qout) & con & ~run
+                else:
+                    self.n_o[:] = (self.n_o + 1) * (qo < qout)
+                    self.n_i[:] = (self.n_i + 1) * (qi > qin)
+                    start = con & ~run & (self.n_o >= P.n310)
+                if P.rlm_holdoff_s > 0:
+                    start &= t >= self.rlm_t0 - EPS
+                if cnz(start):
+                    run |= start
+                    t310[start] = t
+                    k310[start] = k
+                if cnz(run):
+                    run &= ~((qi > qin) if simple else (self.n_i >= P.n311))
+                    exp = np.nonzero(run & con & (t - t310 >= t310_s - EPS))
+                    for j, u in zip(*exp):
+                        E[j].fail(u, t, "rlf")
             # --- handover command / conditional configuration reaches the UE
             for j, e in enumerate(E):
                 e.sl_now = sl[j]

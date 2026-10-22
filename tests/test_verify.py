@@ -111,7 +111,7 @@ def test_ns3_compare_and_holdout_logic(monkeypatch):
 
 def test_groups_listed():
     assert GROUPS == ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended",
-                      "highway")
+                      "highway", "values")
     assert OPTIONAL_GROUPS == ("learning", "ntn")
 
 
@@ -121,3 +121,34 @@ def test_ns3_scenario_overrides():
     sc = scenario_for(200, 16, overrides={"protocol.qout_window_s": 0.12})
     assert base.protocol.qout_window_s == 0.2 and sc.protocol.qout_window_s == 0.12
     assert sc.layout.sites == base.layout.sites and sc.mobility.profile == "c16"
+
+
+def test_ns3_reference_from_a_file(tmp_path):
+    """2.1.0: verify --ns3 --ns3-reference reads a reference file written by benchmarks/ns3/run_benchmark.py."""
+    from handoverlab.verify import ns3
+    stored = ns3.load_reference()
+    path = tmp_path / "reference.json"
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    assert ns3.load_reference(str(path)) == stored
+    bad = tmp_path / "bad.json"
+    bad.write_text("[1, 2]", encoding="utf-8")
+    with pytest.raises(ValueError, match="not an ns-3 reference"):
+        ns3.load_reference(str(bad))
+    assert main(["verify", "--ns3", "--ns3-reference", str(bad)]) == 2
+
+
+def test_benchmark_script_lists_the_reference_runs():
+    import importlib.util
+    import os
+    p = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "benchmarks", "ns3",
+                     "run_benchmark.py")
+    spec = importlib.util.spec_from_file_location("run_benchmark", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    jobs = mod.jobs(["A", "B", "C"], 20, 10)
+    assert sum(j["part"] == "A" for j in jobs) == 96 and sum(j["part"] == "B" for j in jobs) == 240
+    assert sum(j["part"] == "C" for j in jobs) == 200 and len({j["tag"] for j in jobs}) == len(jobs)
+    from handoverlab.verify import ns3
+    stored = {(r["isd_m"], r["speed_mps"], r["a3_offset_db"], r["ttt_ms"]) for r in ns3.load_reference()["rows"]
+              if r["part"] == "A"}
+    assert {(j["isd"], j["speed"], float(j["h"]), j["t"]) for j in jobs if j["part"] == "A"} == stored

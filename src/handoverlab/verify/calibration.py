@@ -13,7 +13,14 @@ This module reproduces the drop with the propagation models of HandoverLab (the 
 TR 38.901 Tables 7.4.1-1 and 7.4.2-1, written here for per-link user heights and, for UMa, the
 random effective environment height of note 1), the deployment of Tables 7.2-1 and 7.2-2, the O2I
 building penetration loss of clause 7.4.3.1 (50 % low loss, 50 % high loss) and geographical
-wrap-around of the 19-site layouts, and compares the CDFs with the 3GPP results.  It checks the
+wrap-around of the 19-site layouts, and compares the CDFs with the 3GPP results.
+
+Versions: the formulas are those of TR 38.901 V19.5.0, except the IRR-glass loss of Table 7.4.3-1.  The
+companies of R1-165974 (May 2016) worked with TR 38.900 V14.0.0, before the Release 19 change of that value;
+the calibration keeps the pre-Release-19 IRR-glass loss 23 + 0.3 f dB (the value of TR 38.901 V17.0.0,
+:data:`IRR_GLASS_R1_165974`), while V19.5.0 has 25.4 + 0.11 f dB (Table 7.4.3-1 note 2: updated in the
+Release 19 study on 7-24 GHz; :data:`IRR_GLASS_V19`, which :func:`o2i_loss_db` takes on request).  With the
+V19.5.0 value the 30 GHz cases leave the company range, the 6 GHz cases do not.  It checks the
 radio model of HandoverLab -- path loss, LOS probability, shadowing, penetration loss -- with the
 deployment and antenna that 3GPP fixed for calibration; the handover engine itself uses its own
 antenna abstraction (``radio.bs_gain_db``) and is not part of this check.
@@ -137,12 +144,20 @@ def uma_effective_height(rng, d2, hut):
     return np.where(pick & (n >= 1), choice, he)
 
 
-def o2i_loss_db(rng, n: int, fc: float) -> Tuple[np.ndarray, np.ndarray]:
+#: IRR-glass loss a + b f [dB] of TR 38.901 V17.0.0, before the Release 19 change (the calibration of R1-165974)
+IRR_GLASS_R1_165974 = (23.0, 0.3)
+#: IRR-glass loss of TR 38.901 V19.5.0 Table 7.4.3-1 (note 2: updated in Release 19)
+IRR_GLASS_V19 = (25.4, 0.11)
+
+
+def o2i_loss_db(rng, n: int, fc: float, irr_glass: Tuple[float, float] = IRR_GLASS_R1_165974
+                ) -> Tuple[np.ndarray, np.ndarray]:
     """Building penetration loss of clause 7.4.3.1 for ``n`` indoor users (half low loss, half high loss).
 
     Returns the loss PL_tw + PL_in + N(0, sigma_P) [dB] and d2D-in [m] (minimum of two uniform(0, 25 m)).
+    ``irr_glass`` = (a, b) of the IRR-glass loss a + b f (default: the value of R1-165974, see the module text).
     """
-    lg, lc, lirr = 2.0 + 0.2 * fc, 5.0 + 4.0 * fc, 23.0 + 0.3 * fc
+    lg, lc, lirr = 2.0 + 0.2 * fc, 5.0 + 4.0 * fc, irr_glass[0] + irr_glass[1] * fc
     low = rng.random(n) < 0.5
     tw_low = 5.0 - 10.0 * math.log10(0.3 * 10 ** (-lg / 10.0) + 0.7 * 10 ** (-lc / 10.0))
     tw_high = 5.0 - 10.0 * math.log10(0.7 * 10 ** (-lirr / 10.0) + 0.3 * 10 ** (-lc / 10.0))
@@ -201,8 +216,10 @@ def indoor_sites() -> np.ndarray:
 # ---------------------------------------------------------------------------
 # one calibration run
 # ---------------------------------------------------------------------------
-def simulate_drops(sc: CalScenario, n_users: int = 6000, seed: int = 1) -> Dict[str, np.ndarray]:
-    """Coupling gain (= -coupling loss) to the serving sector, SINR and SIR [dB] of ``n_users`` dropped users."""
+def simulate_drops(sc: CalScenario, n_users: int = 6000, seed: int = 1,
+                   irr_glass: Tuple[float, float] = IRR_GLASS_R1_165974) -> Dict[str, np.ndarray]:
+    """Coupling gain (= -coupling loss) to the serving sector, SINR and SIR [dB] of ``n_users`` dropped users
+    (``irr_glass``: see :func:`o2i_loss_db`)."""
     rng = np.random.default_rng([seed, round(sc.fc_ghz * 10), {"UMa": 1, "UMi": 2, "Indoor": 3}[sc.name]])
     fc = sc.fc_ghz
     if sc.name == "Indoor":
@@ -215,14 +232,15 @@ def simulate_drops(sc: CalScenario, n_users: int = 6000, seed: int = 1) -> Dict[
         isd, hbs, dmin = (500.0, 25.0, 35.0) if sc.name == "UMa" else (200.0, 10.0, 10.0)
         sites = hex_sites(isd)
         indoor = rng.random(n_users) < 0.8                       # Table 7.2-1: 80 % indoor
-        nfl = rng.integers(4, 9, n_users)                         # TR 36.873 Table 6-1: N_fl ~ uniform(4, 8),
+        nfl = rng.integers(4, 9, n_users)                         # Table 7.2-1 (as 3D-UMa of TR 36.873); ITU-R M.2412-0
+        # Table 5b: h_UT = 3 (n_fl - 1) + 1.5 m, N_fl ~ uniform(4, 8),
         hut = np.where(indoor, 3.0 * (np.floor(rng.random(n_users) * nfl)) + 1.5, 1.5)  # n_fl ~ uniform(1, N_fl)
         offsets = wrap_offsets(isd)
     S = len(sites)
     pen = np.zeros(n_users)
     d_in = np.zeros(n_users)
     if indoor.any():
-        pen[indoor], d_in[indoor] = o2i_loss_db(rng, int(indoor.sum()), fc)
+        pen[indoor], d_in[indoor] = o2i_loss_db(rng, int(indoor.sum()), fc, irr_glass)
     if sc.name != "Indoor":                                       # the minimum distance holds for d2D-out
         ux = _drop_hex(rng, sites, isd, dmin + d_in)
     # nearest image of every site (geographical wrap-around)
@@ -315,8 +333,9 @@ CASES = tuple(CalScenario(n, f) for n in ("UMa", "UMi", "Indoor") for f in (6.0,
 
 def calibration_checks(rep, n_users: int = 10000, seed: int = 1, tol_db: float = 0.5) -> None:
     """Section ``calibration`` of ``handoverlab verify``: within the company range of R1-165974 (+- ``tol_db``)."""
-    rep.section("calibration", "large-scale calibration, TR 38.901 clause 7.8.1, against the 21 companies of "
-                               "3GPP R1-165974 (5-95 %%, %d users)" % n_users)
+    rep.section("calibration", "large-scale calibration, TR 38.901 V19.5.0 clause 7.8.1 (IRR glass of V17.0.0, "
+                               "see the module text), against the 21 companies of 3GPP R1-165974 "
+                               "(5-95 %%, %d users)" % n_users)
     ref = load_reference()
     for sc in CASES:
         res = simulate_drops(sc, n_users, seed)

@@ -25,5 +25,7 @@ limitations:
   - "The LOS state follows the TR 38.901 LOS probability with the UMi street-canyon formula although there are no streets; it stands for scattered obstacles."
   - "Random-waypoint users cross the area in straight lines; their density is higher in the middle."
   - "Same received-power-level abstraction and uncalibrated failure model as the street grid."
+  - "One shadowing decorrelation distance, the UMi LOS value of 10 m, also for the NLOS links (TR 38.901 Table 7.5-6 Part-1: UMi LOS 10 m, NLOS 13 m); LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters)."
+  - "The UE antenna is the 1.5 m of the outdoor UEs of ITU-R M.2412-0, not the 1.6 m of TR 37.885 vehicle type 2: the random-waypoint users of this card follow no TR 37.885 mobility model."
 references:
   - "Determinism and invariant checks; the open-area golden fingerprint of `handoverlab verify` uses the 2 x 2 rectangle."

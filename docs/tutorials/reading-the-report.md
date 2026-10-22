@@ -87,7 +87,8 @@ seed), which removes the differences between worlds:
 - **difference** with its **t interval** and **bootstrap interval**: the size of the effect and
   its uncertainty. Report these first.
 - **change %** and the ratio interval: the same relative to the baseline mean.
-- **p**: the exact Wilcoxon signed-rank test on the paired differences (zero differences dropped).
+- **p**: the Wilcoxon signed-rank test on the paired differences (zero differences dropped; exact up to
+  500 non-zero differences, normal approximation above).
   **p (Holm)** is adjusted for all comparisons of the same metric: use it when you look at several
   rules at once.
 - **non-zero**: how many of the pairs differ at all. With per-run rates built from a handful of
@@ -110,7 +111,10 @@ interval that crosses zero is not a demonstrated difference.
 2. Budgets: did every method meet them? Is the trade-off constrained?
 3. Selected settings: interior points of the grids? Any grid extensions?
 4. Paired differences with intervals, per condition as well as pooled. Is the sign the same in
-   every condition?
-5. Holm-adjusted p-values when several rules or metrics are compared.
+   every condition? When the conditions differ in scale, the per-condition rows are the primary test:
+   the pooled Wilcoxon test mixes differences that are not symmetric about one centre. With fewer than
+   about 20 pairs the percentile bootstrap interval tends to be too narrow; rely on the t interval.
+5. Holm-adjusted p-values when several rules are compared on one metric (each metric is its own family;
+   there is no correction across metrics).
 6. Enough pairs: `handoverlab.stats.seeds_needed(sd, half_width)` tells how many seeds a given
    interval width needs, from the spread of a pilot study like this one.

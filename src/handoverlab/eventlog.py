@@ -64,7 +64,7 @@ EVENT_COLUMNS: Dict[str, Tuple[type, str, str]] = {
                          "or coverage"),
     "cause": (str, "", "failure cause, empty if there was no failure; 'daps_fallback': a DAPS execution "
                        "returned to the source (outcome too_early, not a failure)"),
-    "dwell": (float, "s", "time of stay in the target"),
+    "dwell": (float, "s", "stay in the target within the evaluation window (at most t_min_s)"),
     "gain_db": (float, "dB", "mean SINR gain of the target over the source during the evaluation window"),
     "n_prepared": (int, "", "prepared cells when the attempt started (CHO), candidate cells (LTM)"),
     "o_exec": (float, "dB", "execution offset (CHO), switch offset (LTM) or A3 offset; -99 if not applicable"),

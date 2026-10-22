@@ -20,7 +20,7 @@ and diagnosis runs:
 |---|---|---|---|
 | In-car penetration loss | added only at 30-120 km/h | TR 38.901 7.4.3.2: a property of a user in a car | per user when configured, any speed (`radio.penetration_db`) |
 | Time to detect out-of-sync | 20 frames of 10 control receptions; 0.65-0.83 s at light traffic | TS 38.133 8.1: about 200 ms | evaluated over time (`protocol.qout_window_s` 0.2 s) |
-| Link monitoring on a new cell | restarts | TS 38.331: T310 stops at a handover; out-of-sync is evaluated anew (TS 38.133 8.1) | option since 1.3.0 (`protocol.rlm_holdoff_s`) |
+| Link monitoring on a new cell | restarts | TS 38.331: T310 stops at a handover; out-of-sync evaluated anew (an interpretation of TS 38.133 8.1.2.2: quality over the last T_Evaluate_out) | option since 1.3.0 (`protocol.rlm_holdoff_s`) |
 
 On the first two, HandoverLab is closer to the 3GPP texts; on the third, ns-3 was, and HandoverLab
 now offers it. The sections below give the evidence in the order it was found.
@@ -268,8 +268,9 @@ reference includes this loss.
 The remaining failures were compared with those of ns-3, failure by failure (A3 6 dB / 100 ms at
 200 m). At 42 m/s, every HandoverLab failure came about 0.2 s after a handover, at an
 intersection: T310 had started on the newly joined cell at once, and the next handover command
-arrived while it was running. In ns-3, as in TS 38.133 clause 8.1, radio-link monitoring restarts
-on a new cell and needs a full evaluation period (200 ms) before an out-of-sync indication. Overall,
+arrived while it was running. In ns-3 radio-link monitoring restarts on a new cell and needs a full evaluation period (200 ms)
+before an out-of-sync indication; HandoverLab reads TS 38.133 8.1.2.2 (quality estimated over the last
+T_Evaluate_out) the same way, an interpretation, as no clause defines a restart. Overall,
 half of HandoverLab's failures came less than 2 s after the previous handover, against a quarter to
 a third in ns-3.
 

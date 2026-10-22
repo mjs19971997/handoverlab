@@ -22,6 +22,7 @@ scenario:
     scs_khz: 120.0
     pathloss: umi_street_canyon
     noise_figure_db: 10.0
+    ue_height_m: 1.6
     beams: {sectors: 3, sector_az0_deg: 30.0, n_ssb: 8, panel: [4, 8], tilt_deg: 100.0}
   protocol: {rlm_eval: ts38133, ssb_period_s: 0.02}
   mobility: {users: 40, profile: v60}
@@ -30,6 +31,7 @@ sources:
   radio.carrier_ghz: "FR2-1 (24.25-52.6 GHz, TS 38.104 Table 5.1-1); 28 GHz is an assumption"
   radio.bandwidth_mhz: "assumption (400 MHz FR2 channel at 120 kHz subcarrier spacing)"
   radio.noise_figure_db: "ITU-R M.2412-0 Table 5b (UE noise figure at 30 GHz: 10 dB, high-performance UE)"
+  radio.ue_height_m: "TR 37.885 clause 6.1.2 (urban option A: 100 % vehicle type 2, antenna height 1.6 m; since 2.1.0, until 2.0.0 1.5 m)"
   radio.beams: "TR 38.901 clause 7.3 (uniform rectangular panel, element of Table 7.3-1); the vertical weights follow Eq. 7.3-1, the azimuth steering of the DFT beams is the simulator's own; three sectors, 8 SSB beams (TS 38.213 clause 4.1, Case D: up to 64 in FR2), panel size and tilt are assumptions"
   protocol.rlm_eval: "TS 38.133 Tables 8.1.2.2-1/-2 (FR2: N = 8)"
   protocol.ssb_period_s: "assumption (20 ms SSB periodicity)"
@@ -39,6 +41,10 @@ limitations:
   - "Changed in 1.11.0: until 1.10.0 the UE noise figure was 7 dB (the default), below the 10 dB of ITU-R M.2412-0 at 30 GHz."
   - "Small cells on UMi along the streets, as in urban-grid-10ghz: TR 37.885 itself has 500 m macro sites with UMa in the urban grid (Tables 6.1.3-2 and 6.2.1-2)."
   - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+  - "The LOS state of a link is LOS only if the buildings leave it clear and the spatially consistent LOS variable of TR 38.901 clause 7.6.3.3 is below the LOS probability of Table 7.4.2-1; the share of LOS links is therefore lower than Table 7.4.2-1 gives (which `handoverlab verify` compares only for the links clear of buildings)."
+  - "One shadowing decorrelation distance, the UMi LOS value of 10 m, also for the NLOS links (TR 38.901 Table 7.5-6 Part-1: UMi LOS 10 m, NLOS 13 m); LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation, so the shadowing keeps its sign when a link changes state (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6)."
+  - "A vehicle keeps a lane offset drawn at the start, on either side of the street centre line, through turns: it may drive in a lane of the opposite direction (TR 37.885 Table A-1 has 2 lanes in each direction)."
+  - "The number of vehicles is set for run time: TR 37.885 clause 6.1.2 places vehicles with a gap of max(2 m, exponential with mean speed x 2 s), which gives hundreds of vehicles in the grid; the interference load of HandoverLab does not depend on the number of users."
   - "228 cells with 8 beams each: a run takes several times longer than `urban-grid-10ghz`."
 references:
   - "The beam and requirement formulas are checked against hand values in `handoverlab verify` (group `extended`)."

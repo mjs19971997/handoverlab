@@ -68,7 +68,9 @@ def bootstrap_ci(a: Sequence[float], b: Optional[Sequence[float]] = None, stat: 
     ``stat="mean_diff"``: mean of ``a - b`` (or of ``a`` alone if ``b`` is
     None).  ``stat="ratio"``: ratio of the means ``mean(a) / mean(b)``.  Runs
     are resampled with replacement as pairs, with a seeded generator, so the
-    interval is reproducible.
+    interval is reproducible.  For the ratio, resamples whose baseline mean is
+    zero are dropped: the interval is conditional on a non-zero baseline mean
+    (NaN if no resample is left).
     """
     a = np.asarray(a, dtype=float)
     n = len(a)

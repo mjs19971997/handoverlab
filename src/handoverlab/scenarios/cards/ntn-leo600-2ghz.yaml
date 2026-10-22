@@ -6,7 +6,8 @@ purpose: >
   The LEO scenario of the 3GPP NTN study (TR 38.821) that RAN2 prioritised for mobility: one satellite at
   600 km altitude, transparent payload, 19 beams fixed in the satellite frame (they sweep over the ground with
   the satellite at 7.56 km/s), Set-1 satellite parameters in the S band (2 GHz, 30 MHz), frequency reuse 1,
-  handheld users at 3 km/h in a rural area, and the large-scale channel of TR 38.811.  The handovers come from
+  handheld users at 3 km/h in a rural area, and the large-scale channel of TR 38.811 under the baseline
+  propagation condition of TR 38.821 (clear sky, line of sight).  The handovers come from
   the satellite's motion, not the users': every user crosses a beam within seconds.  Use it for NTN
   mobility, e.g. conditional handover with the location condition D2 of Release 18 (rule `cho_d2`).
 layout_note: >
@@ -19,7 +20,8 @@ scenario:
   radio: {carrier_ghz: 2.0, bandwidth_mhz: 30.0, noise_figure_db: 7.0, ue_gain_db: 0.0, isolation: 1.0,
           time_var_db: 0.0}
   ntn: {altitude_km: 600.0, aperture_m: 2.0, eirp_dbw_per_mhz: 34.0, n_beams: 19, centre_elevation_deg: 30.0,
-        environment: rural, atm_zenith_db: 0.045, scintillation_db: 2.2, sf_corr_m: 37.0, los_corr_m: 60.0}
+        environment: rural, atm_zenith_db: 0.045, scintillation_db: 2.2, sf_corr_m: 37.0, los_corr_m: 60.0,
+        los_model: los}
   protocol: {prep_s: 0.07577, exec_s: 0.06577}
   mobility: {users: 40, profile: ped3}
   run: {duration_s: 30.0, warmup_s: 2.0}
@@ -35,24 +37,27 @@ sources:
   ntn.altitude_km: "TR 38.821 Table 6.1.1.1-1 (LEO-600)"
   ntn.aperture_m: "TR 38.821 Table 6.1.1.1-1 (Set-1, S band: equivalent antenna aperture 2 m; 3 dB beamwidth 4.4127 degrees)"
   ntn.eirp_dbw_per_mhz: "TR 38.821 Table 6.1.1.1-1 (Set-1, S band, LEO-600: 34 dBW/MHz)"
-  ntn.n_beams: "TR 38.821 Table 6.1.1.1-4 (19 beams, hexagonal on the UV plane, adjacent beam spacing sqrt(3) sin(HPBW/2))"
-  ntn.centre_elevation_deg: "TR 38.821 Table 6.1.1.1-4 (case 2: central beam boresight from the target elevation) and Table 6.1.3.2-1 (target elevation 30 degrees for LEO)"
+  ntn.n_beams: "TR 38.821 Table 6.1.1.1-4 (19 beams, hexagonal on the UV plane, adjacent beam spacing sqrt(3) sin(HPBW/2) from the tabled 3 dB beamwidth 4.4127 degrees: 0.06668; Table 6.1.1.1-6 gives 0.0668 as informative value)"
+  ntn.centre_elevation_deg: "TR 38.821 Table 6.1.1.1-4 (case 2: central beam boresight from the target elevation) and Table 6.1.3.2-1 (target elevation 30 degrees for LEO); not the baseline of the system-level simulations, which is 90 degrees (nadir, (0, 0) on the UV plane) for scenarios C2/D2 in Table 6.1.1.1-6"
   ntn.environment: "TR 38.821 Table 6.1.1.1-5 (deployment scenario: rural); TR 38.811 Tables 6.6.1-1 and 6.6.2-3 (suburban and rural)"
   ntn.atm_zenith_db: "TR 38.811 Eq. 6.6-8 with the atmospheric losses of the S-band LEO link budgets of TR 38.821 Table 6.1.3.3-1 (0.1 dB at 30 degrees; 0.2 dB at 12.5 degrees for GEO): 0.04-0.05 dB"
-  ntn.scintillation_db: "TR 38.821 Table 6.1.3.2-1 (ionospheric scintillation loss 2.2 dB, note 1)"
+  ntn.scintillation_db: "abstraction: the link-budget margin of TR 38.821 Table 6.1.3.2-1 (ionospheric scintillation loss 2.2 dB, note 1: P3 curve for 1 % of the time), applied to every link; the system-level calibration of Table 6.1.1.1-5 (note 2) sets it to zero"
+  ntn.los_model: "TR 38.821 Table 6.1.1.1-5 (propagation conditions, base-line: clear sky, line of sight), kept for the performance evaluation by Table 6.1.1.1-7 (since 2.1.0; until 2.0.0 the LOS probability of TR 38.811 Table 6.6.1-1)"
   ntn.sf_corr_m: "TR 38.811 Table 6.7.2-7a (rural, S band, LOS: shadowing correlation 37 m; NLOS 120 m, Table 6.7.2-8a)"
-  ntn.los_corr_m: "assumption: TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, RMa: 60 m); TR 38.811 gives no value"
+  ntn.los_corr_m: "assumption: TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, RMa: 60 m); TR 38.811 gives no value (used only with ntn.los_model: probability)"
   protocol.prep_s: "TR 36.839 (50 ms) plus the maximum round-trip delay of scenario C2 (TR 38.821 Table 7.1-1: 25.77 ms)"
   protocol.exec_s: "TR 36.839 (40 ms) plus the maximum round-trip delay of scenario C2 for the random access (assumption: one round trip)"
   mobility.profile: "TR 38.821 Table 6.1.1.1-3 (handheld UE); 3 km/h is an assumption"
   run.duration_s: "numerical setting (the satellite moves 227 km in 30 s; the users stay under the 19 beams)"
 limitations:
-  - "With the central beam at 30 degrees elevation (case 2 of TR 38.821 Table 6.1.1.1-4) the regular hexagon of the UV plane is stretched on the ground: neighbouring beam centres lie 72 km along the track and 163-283 km across it, and three beams of the outer ring point at 5.6-7 degrees elevation, below the 10 degrees of TR 38.821 Table 4.2-2; they serve no user of the area and only interfere."
+  - "With the central beam at 30 degrees elevation (case 2 of TR 38.821 Table 6.1.1.1-4) the regular hexagon of the UV plane is stretched on the ground: neighbouring beam centres lie 72 km along the track and 163-283 km across it, and three beams of the outer ring point at 5.7-7.1 degrees elevation (5.6-7.0 with the beamwidth of the aperture, until 2.0.0), below the 10 degrees of TR 38.821 Table 4.2-2; they serve no user of the area and only interfere."
   - "Frequency reuse 1 (TR 38.821 Table 6.1.1.1-5, option 1): at the beam edges the neighbouring beams interfere with full power, and most link failures are coverage failures (no beam is good enough); the options of reuse 3 and 2 are not modelled in this version."
   - "One satellite and its 19 beams, no wrap-around of beams and no next satellite: the run is short enough for the users to stay under the beams."
   - "Earth-moving beams only (scenarios C2, D2); earth-fixed beams (C1, D1), several satellites, the feeder link, Doppler and the Ka band are not modelled."
   - "The round-trip delay is the worst case of scenario C2 for every user, not the user's own slant range."
-  - "One shadowing correlation distance (37 m, the LOS value; NLOS 120 m in TR 38.811); the LOS state correlation is the RMa value of TR 38.901."
+  - "One shadowing correlation distance (37 m, the LOS value; NLOS 120 m in TR 38.811); with ntn.los_model: probability the LOS state correlation is the RMa value of TR 38.901."
+  - "The shadowing (and, with ntn.los_model: probability, the LOS state) is a process along each user's own displacement only (3 km/h): over a 30 s run the satellite moves 227 km and the elevation changes, yet the shadowing stays almost constant. TR 38.811 clause 6.5.1 considers drop-based simulations only and gives no model of its time variation."
+  - "No wrap-around tiers: TR 38.821 clause 6.1.1.1 adds two tiers of beams around the 19 beams for frequency reuse 1; here only the 19 beams interfere."
   - "condEventT1 is not modelled; condEventD2 is combined with A3 with one time-to-trigger (rule cho_d2)."
   - "The failure model is not calibrated for NTN; read failure rates relative to each other."
 references:

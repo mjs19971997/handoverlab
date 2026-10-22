@@ -69,8 +69,12 @@ A change that alters the golden fingerprints on purpose regenerates them with
 | Time-varying part: standard deviation, correlation after 1 s | 1.50 dB, 0.37 | 1.5 dB, 1/e |
 | L1 sample error: standard deviation, mean | 1.000 dB, -0.0007 dB | 1 dB, 0 |
 
-The Gaussian random fields have the correlation exp(-(d/d_corr)^2), which equals the 1/e of
-TR 38.901's exponential model at the decorrelation distance but falls faster beyond it.
+Since 2.1.0 (`radio.channel_detail: 3gpp`) the place-tied fields have the exponential correlation
+exp(-d/d_corr) of TR 38.901 Eq. (7.4-5); the check compares the correlation at 10 m and 20 m with
+exp(-1) and exp(-2), and the correlation between sites with 0 (TR 38.901 clause 7.5 step 4). The table
+above was measured with the model of 2.0.0, whose Gaussian random fields have the correlation
+exp(-(d/d_corr)^2) (the 1/e of the exponential model at the decorrelation distance, but falling faster
+beyond it) and 0.5 between sites; `radio.channel_detail: simple` gives that model back.
 
 ## Regression against the bh6 prototype
 
@@ -105,6 +109,12 @@ Result of 0.2.0a1 with one seed per condition:
 | Unnecessary-handover rate, rank correlation | >= 0.9 | 0.99 |
 | Failure rate, mean (no limit) | | 0.13 against 0.43 per UE-minute, rank correlation 0.54 |
 | Mean serving SINR (no limit) | | 26.2 against 11.5 dB |
+
+The same comparison with version 2.1.0 (`handoverlab verify --ns3`, one seed per condition): median ratios
+0.95 and 1.06, rank correlations 0.99 and 0.99, failures 0.03 against 0.43 per UE-minute (rank correlation
+0.57), mean serving SINR 26.1 against 11.5 dB. The ns-3 card draws its shadowing per link (`place_share`
+0), so the channel changes of 2.1.0 do not touch it, and with N310 = 1 and few failures the corrected link
+monitoring leaves these runs unchanged.
 
 Handover and unnecessary-handover rates agree; failure rates do not (next section). Only baseline
 handover is compared, because 5G-LENA has no conditional handover; for CHO the evidence is the

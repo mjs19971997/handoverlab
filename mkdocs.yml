@@ -1,6 +1,6 @@
 # Documentation site: python -m pip install -e ".[docs]" && mkdocs serve   (or: mkdocs build)
 site_name: HandoverLab
-site_description: System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks
+site_description: System-level handover simulator for 5G-Advanced and beyond-5G research
 site_url: https://mjs19971997.github.io/handoverlab/
 repo_url: https://github.com/mjs19971997/handoverlab
 edit_uri: blob/main/docs/
@@ -39,6 +39,8 @@ nav:
       - Your own radio map: guides/radio-maps.md
       - A LEO satellite (NTN): guides/ntn.md
       - Moving from 1.x to 2.0: migration-2.0.md
+      - The 10 ms step: time-step.md
+      - Reference study: reference-study.md
       - Scenario cards:
           - smoke: scenarios/smoke.md
           - urban-grid-10ghz: scenarios/urban-grid-10ghz.md

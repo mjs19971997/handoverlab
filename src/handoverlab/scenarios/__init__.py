@@ -53,10 +53,17 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "radio.pathloss": "TR 38.901 Table 7.4.1-1",
     "radio.shadow_los_db": "TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB)",
     "radio.shadow_nlos_db": "TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB)",
-    "radio.shadow_decorr_m": "TR 38.901 Table 7.5-6 (UMi: 10 m LOS, 13 m NLOS)",
-    "radio.shadow_site_corr": "assumption (correlation between sites)",
+    "radio.shadow_decorr_m": "TR 38.901 Table 7.5-6 Part-1 (UMi: 10 m LOS, 13 m NLOS; the LOS value is used for "
+                             "both, see the limitations)",
+    "radio.shadow_site_corr": "unset: uncorrelated between sites, TR 38.901 clause 7.5 step 4 (radio.channel_detail "
+                              "simple: 0.5)",
     "radio.place_share": "assumption (blockage tied to place)",
-    "radio.clutter_los": "TR 38.901 clause 7.6.3.3 (spatially consistent LOS state)",
+    "radio.clutter_los": "TR 38.901 clause 7.6.3.3 (spatially consistent LOS state), applied on top of the "
+                         "building geometry",
+    "radio.channel_detail": "3gpp: the large-scale channel of TR 38.901 V19.5.0 (since 2.1.0; simple: that of 2.0.0)",
+    "ntn.hpbw_deg": "unset: the tabled 3 dB beamwidth of TR 38.821 Tables 6.1.1.1-1/-2 (Table 6.1.1.1-4: only the "
+                    "3 dB beamwidth is used)",
+    "ntn.los_model": "probability: the LOS probability of TR 38.811 Table 6.6.1-1",
     "radio.los_corr_m": "TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m)",
     "radio.time_var_db": "assumption (moving blockers)",
     "radio.time_var_tau_s": "assumption",
@@ -76,23 +83,28 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.t310_s": "TR 36.839 (1 s)",
     "protocol.prep_s": "TR 36.839 (50 ms)",
     "protocol.exec_s": "TR 36.839 (40 ms)",
-    "protocol.reest_s": "TR 36.842 (assumption: 1 s outage)",
-    "protocol.cho_recovery_s": "TS 38.300 clause 9.2.3.4 (recovery into a prepared cell; assumption 0.4 s)",
+    "protocol.reest_s": "assumption (1 s outage); TS 38.133 6.2.1.2.1 bounds the delay by 50 ms + cell "
+                        "identification (FR1: 200 ms known, 800 ms unknown cell, Table 6.2.1.2.1-1) + system "
+                        "information + PRACH; TR 36.842 Table E.1-2 uses 250 ms",
+    "protocol.cho_recovery_s": "TS 38.300 clauses 9.2.3.1 and 9.2.7 (recovery into a CHO candidate; assumption 0.4 s)",
     "protocol.pingpong_s": "TR 36.839 (minimum time of stay, 1 s)",
     "protocol.cfg_loss_as_failure": "check mode only",
     "protocol.lm_load": "off by default: link monitoring sees the load of the data channel (calibration option)",
     "protocol.lm_load_per_ue": "off by default (calibration option)",
-    "protocol.rlm_holdoff_s": "off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell",
+    "protocol.rlm_holdoff_s": "0.2 s since 2.0.0: an interpretation of TS 38.133 8.1.2.2 (evaluation over the last "
+                              "T_Evaluate_out, 200 ms in FR1) on a newly joined cell",
     "protocol.exec_can_fail": "TR 36.839: the execution fails when the target is below Qout",
     "radio.penetration_db": "off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car",
     "radio.penetration_sd_db": "off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car",
     "traffic.model": "fixed: constant service rates (the model of 1.0)",
     "traffic.period_s": "periodic model: 20 ms, as VoIP",
     "traffic.packet_bytes": "periodic model: assumption",
-    "traffic.ftp_file_bytes": "TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte)",
+    "traffic.ftp_file_bytes": "FTP model 3 (TR 36.872 Annex A.1) with 0.5 Mbyte files (TR 38.802 Table A.2.1-1; "
+                              "TR 38.821 Table 6.1.1.1-7)",
     "traffic.ftp_rate_hz": "ftp3 model: assumption (file arrival rate per user)",
-    "radio.energy_p0_w": "EARTH model, micro base station (Auer et al. 2011): 56 W",
-    "radio.energy_slope": "EARTH model, micro base station (Auer et al. 2011): 2.6",
+    "radio.energy_p0_w": "EARTH model, micro base station (Auer et al. 2011, Table 2): 56 W",
+    "radio.energy_slope": "EARTH model, micro base station (Auer et al. 2011, Table 2): 2.6",
+    "radio.energy_ntrx": "EARTH model, micro base station (Auer et al. 2011, Eq. 1 and Table 2): 2 transceivers",
     "traffic.services": "TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions",
     "traffic.se_max": "assumption (spectral-efficiency cap)",
     "traffic.hotspot_share": "assumption",
@@ -216,7 +228,43 @@ _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "r
              "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s",
              "radio.scs_khz", "radio.beams", "radio.layers", "protocol.meas_periods", "protocol.ssb_period_s",
              "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval", "radio.map_file",
-             "radio.map_sha256")
+             "radio.map_sha256", "radio.channel_detail")
+
+_GRID_GEOMETRY = ("layout.blocks", "layout.pitch_m", "layout.street_width_m")
+_HIGHWAY_KEYS = ("layout.lanes", "layout.lane_width_m", "layout.road_length_m", "layout.wrap", "layout.highway_sites")
+_NTN_UNUSED_RADIO = ("radio.bs_gain_db", "radio.bs_height_m", "radio.ue_height_m", "radio.pathloss",
+                     "radio.shadow_los_db", "radio.shadow_nlos_db", "radio.shadow_los_far_db", "radio.shadow_decorr_m",
+                     "radio.shadow_site_corr", "radio.place_share", "radio.clutter_los", "radio.los_corr_m",
+                     "radio.soft_los", "radio.soft_los_d_m", "radio.los_model", "radio.breakpoint_c_mps",
+                     "radio.pl_min_distance_m", "radio.map_res_m", "radio.penetration_db", "radio.penetration_sd_db")
+
+
+def unused_keys(sc: Scenario) -> set:
+    """Scenario keys that the layout kind and the radio model of ``sc`` do not read (since 2.1.0); the card pages
+    leave them out of the parameter table."""
+    L, R = sc.layout, sc.radio
+    out = set()
+    if L.kind != "highway":
+        out.update(_HIGHWAY_KEYS)
+    if L.kind in ("highway", "indoor", "ntn") or (L.kind == "open_area" and L.area_m is not None):
+        out.update(_GRID_GEOMETRY)
+    if L.kind not in ("street_grid", "highway") or L.highway_sites == "hex19":
+        out.add("layout.site_offset_m")
+    if L.kind not in ("open_area", "indoor"):
+        out.add("layout.min_site_distance_m")
+    if L.kind not in ("street_grid",):
+        out.add("radio.clutter_los")
+    if L.kind == "ntn":
+        out.update(("layout.site_spacing_m", "layout.sites", "layout.sites_file"))
+        out.update(_NTN_UNUSED_RADIO)
+        return out
+    if R.los_model == "los" and L.kind != "street_grid":
+        out.update(("radio.shadow_nlos_db", "radio.los_corr_m", "radio.soft_los", "radio.soft_los_d_m"))
+    if R.beams is not None:                         # the beams replace the antenna abstraction of the first layer
+        out.update(("radio.bs_gain_db", "radio.isolation"))
+    if R.place_share <= 0.0:
+        out.add("radio.shadow_site_corr")
+    return out
 
 
 def card_markdown(name: str, figure: str = None) -> str:
@@ -239,6 +287,10 @@ def card_markdown(name: str, figure: str = None) -> str:
     for key in _KEYS_1_7:                           # keys of 1.7.0 and later: shown only where a card sets them
         if key in flat and flat[key] == default.get(key):
             del flat[key]
+    skipped = sorted(k for k in unused_keys(sc) if k in flat)   # keys this layout and radio model do not read
+    for key in skipped:
+        del flat[key]
+    own = card.get("sources") or {}
     import dataclasses
 
     from ..config import BeamConfig
@@ -249,7 +301,7 @@ def card_markdown(name: str, figure: str = None) -> str:
         v = _fmt(value)
         if key in bdef and key not in default:
             if _fmt(value) == _fmt(bdef[key]):
-                L.append("| `%s` | %s | default of the beam model (user guide) |" % (key, v))
+                L.append("| `%s` | %s | %s |" % (key, v, own.get(key, "default of the beam model (user guide)")))
                 continue
             default[key] = bdef[key]
         if value != default.get(key):
@@ -259,6 +311,9 @@ def card_markdown(name: str, figure: str = None) -> str:
             k = k.rsplit(".", 1)[0]
             src = sources.get(k)
         L.append("| `%s` | %s | %s |" % (key, v, src or ""))
+    if skipped:
+        L += ["", "Not read by this layout and radio model, so not listed: %s."
+              % ", ".join("`%s`" % k for k in skipped)]
     L += ["", "## Known limitations", ""]
     L += ["- %s" % x.strip() for x in card.get("limitations", [])]
     L += ["", "## Reference results", ""]
@@ -331,4 +386,4 @@ def layout_svg(scenario: Scenario, width_px: int = 640) -> str:
 
 
 __all__ = ["DEFAULT_SOURCES", "scenario_names", "scenario_card", "builtin_scenario", "resolve", "merge",
-           "card_markdown", "layout_svg"]
+           "card_markdown", "layout_svg", "unused_keys"]

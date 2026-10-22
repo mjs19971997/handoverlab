@@ -1,10 +1,13 @@
 # How to use your own radio map (ray tracing or measurements)
 
 Since 1.12.0 a scenario can take its radio map from a file instead of building it from the statistical
-model of TR 38.901 clause 7: `radio.map_file`. This follows the map-based hybrid channel model of
-TR 38.901 (V19.5.0, clause 8), which creates the channel from deterministic ray tracing on a digitized map;
-the TR leaves the format of the map to the implementation and states that the model "is not calibrated and
-can be used per company basis".
+model of TR 38.901 clause 7: `radio.map_file`. For a ray-traced map this follows the deterministic part of
+the map-based hybrid channel model of TR 38.901 (V19.5.0, clause 8), which creates the channel "using the
+deterministic ray-tracing upon a digitized map" (clause 8.4, step 1: import of the digitized map) and then
+adds random clusters (from step 4 on), which HandoverLab does not add; the TR leaves the format of the map
+to the implementation and states that the model "is not calibrated and can be used per company basis".
+A map from measurements (drive tests) can be read in the same format, but it is outside TR 38.901: clause 8
+starts from a digitized map and ray tracing, not from measurements.
 
 HandoverLab takes the deterministic large-scale part from the map: the **path gain** of every site at every
 pixel, in dB, without transmit power and antenna gains (HandoverLab adds `radio.tx_power_dbm`,

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-OUTCOMES = ("useful", "unnecessary", "too_early", "wrong_cell", "too_late", "censored")
+OUTCOMES = ("useful", "unnecessary", "too_early", "wrong_cell", "too_late", "censored", "coverage")
 CAUSES = ("command_lost", "rlf_in_preparation", "rlf_without_handover", "coverage_rlf", "execution_failure",
           "rlf_after_handover")
 
@@ -32,9 +32,14 @@ METRICS: Dict[str, tuple] = {
     "unnecessary_low_gain_pm": ("1/UE-min", "completed handovers with a low gain (source would not fail)"),
     "pingpong_pm": ("1/UE-min", "handovers back to the previous cell within pingpong_s"),
     "failures_pm": ("1/UE-min", "all mobility failures (sum of the causes)"),
-    "too_late_pm": ("1/UE-min", "failures caused by a late or missing handover"),
-    "too_early_pm": ("1/UE-min", "attempts ending in an early failure (re-established in source or target)"),
+    "too_late_pm": ("1/UE-min", "failures caused by a late or missing handover (since 2.1.0 with re-establishment "
+                                "in another cell, TS 38.300 15.5.2.2.2)"),
+    "too_early_pm": ("1/UE-min", "attempts ending in an early failure (re-established in the source; up to 2.0.0 "
+                                 "also in the target)"),
     "wrong_cell_pm": ("1/UE-min", "attempts ending in a failure and re-establishment in a third cell"),
+    "coverage_failures_pm": ("1/UE-min", "attempts ending in a failure with re-establishment in the serving cell (the "
+                                         "target after a handover): not one of the MRO classes of TS 38.300 15.5.2.2.2 "
+                                         "(since 2.1.0)"),
     "prepared_cells_mean": ("cells", "mean number of prepared cells per UE (CHO)"),
     "preparations_pm": ("1/UE-min", "cell preparations requested (CHO)"),
     "unused_preparations_pm": ("1/UE-min", "prepared cells released or dropped without being used (CHO)"),
@@ -60,9 +65,9 @@ METRICS: Dict[str, tuple] = {
                                     "conditional configurations (delivered or lost) + releases + handover completions"),
     "l1_measurements_pm": ("1/UE-min", "L1 measurement samples taken by a connected user (one per cell and L1 "
                                        "period); a proxy for the measurement energy of the device"),
-    "site_power_w": ("W", "mean input power per site, EARTH model: energy_p0_w + energy_slope x transmit power "
-                          "x load"),
-    "energy_uj_per_bit": ("uJ/bit", "network energy per delivered bit: all sites' input power / delivered rate"),
+    "site_power_w": ("W", "mean input power per cell (a sector counts as a cell), EARTH model: energy_ntrx x "
+                          "energy_p0_w + energy_slope x transmit power of the cell's layer x load"),
+    "energy_uj_per_bit": ("uJ/bit", "network energy per delivered bit: all cells' input power / delivered rate"),
     # beams and several carriers (since 1.10.0; zero without these options)
     "beam_switches_pm": ("1/UE-min", "serving-beam (TCI state) changes after beam reports"),
     "beam_failures_pm": ("1/UE-min", "beam failures detected (BFI_COUNTER reached beamFailureInstanceMaxCount)"),
@@ -86,7 +91,7 @@ class Counters(dict):
 
     def __init__(self):
         super().__init__({k: 0 for k in list(_COUNTS) + ["un_and", "un_gain", "rlf_prepared", "att_all",
-                                                        "closed_all"] + list(_ALL_TIME)})
+                                                        "closed_all", "late_f", "rrc", "rrc_on"] + list(_ALL_TIME)})
         self.update({"n_" + o: 0 for o in OUTCOMES})
         self.update({"f_" + c: 0 for c in CAUSES})
 
@@ -94,7 +99,7 @@ class Counters(dict):
 def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, step_s: float,
               open_preparations: int, n_sites: int = 1, l1_per_meas: int = 1, power=(0.0, 0.0)) -> Dict[str, float]:
     """Metric dictionary of a finished run (see :data:`METRICS`)."""
-    late = C["f_command_lost"] + C["f_rlf_in_preparation"] + C["f_rlf_without_handover"]
+    late = C["late_f"]                                   # failures classified too late (see Engine.fail)
     out = dict(
         ue_minutes=ue_min,
         attempts_pm=C["att"] / ue_min, handovers_pm=C["ho"] / ue_min, executions_pm=C["exec"] / ue_min,
@@ -102,6 +107,7 @@ def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, 
         unnecessary_low_gain_pm=C["un_gain"] / ue_min,
         pingpong_pm=C["pp"] / ue_min, failures_pm=C["fail"] / ue_min, too_late_pm=late / ue_min,
         too_early_pm=C["n_too_early"] / ue_min, wrong_cell_pm=C["n_wrong_cell"] / ue_min,
+        coverage_failures_pm=C["n_coverage"] / ue_min,
         prepared_cells_mean=acc["prep_time"] / ue_s, preparations_pm=C["prep_req"] / ue_min,
         unused_preparations_pm=C["prep_wasted"] / ue_min, lost_configurations_pm=C["cfg_lost"] / ue_min,
         reports_pm=C["reports"] / ue_min, releases_pm=C["rel"] / ue_min, recoveries_pm=C["rec"] / ue_min,
@@ -115,7 +121,8 @@ def summarize(C: Counters, acc: dict, ue_min: float, ue_s: float, n_users: int, 
         mean_load=acc["load"] / max(acc["nmeas"], 1),
         open_preparations=open_preparations,
         commands_pm=C["cmd"] / ue_min,
-        rrc_messages_pm=(C["reports"] + C["cmd"] + C["cfg_ok"] + C["cfg_lost"] + C["rel"] + C["ho"]) / ue_min,
+        rrc_messages_pm=(C["rrc"] if C["rrc_on"] else
+                         C["reports"] + C["cmd"] + C["cfg_ok"] + C["cfg_lost"] + C["rel"] + C["ho"]) / ue_min,
         l1_measurements_pm=acc["ncon"] * l1_per_meas * n_sites / ue_min,
     )
     p0, p_load = power                                   # site power = p0 + p_load x mean load

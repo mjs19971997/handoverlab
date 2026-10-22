@@ -53,7 +53,7 @@ scenario:
   protocol: {meas_periods: ts38133, rlm_eval: ts38133, ssb_period_s: 0.02, gap_pattern: 0}
   mobility:
     users: 20
-    groups: [{share: 1.0, v_min: 8.33, v_max: 8.33, lateral_m: [0.0, 0.0]}]
+    profile: v30
   run: {duration_s: 120.0, warmup_s: 20.0}
 sources:
   layout.kind: "ITU-R M.2412-0 clause 8.3 (no topographical details; regular hexagonal macro grid)"
@@ -79,7 +79,8 @@ sources:
   radio.penetration_sd_db: "ITU-R M.2412-0 Annex 1 clause 3.3 and TR 38.901 clause 7.4.3.2 (5 dB, per user)"
   protocol.meas_periods: "TS 38.133 Tables 9.2.5.2-1/-2 and 9.3.5-1/-2 (gap pattern 0 of Table 9.1.2-1)"
   protocol.rlm_eval: "TS 38.133 Tables 8.1.2.2-1/-2"
-  mobility.groups: "ITU-R M.2412-0 Table 5b: outdoor (in-car) users at 30 km/h; the 80 % indoor users are not simulated"
+  mobility.profile: "ITU-R M.2412-0 Table 5b: fixed and identical speed of the outdoor (in-car) users, 30 km/h = 8.333 m/s (since 2.1.0; until 2.0.0 8.33 m/s); the 80 % indoor users are not simulated"
+  mobility.users: "assumption (20 users for run time; ITU-R M.2412-0 Table 5b: 10 UEs per TRxP)"
 limitations:
   - "No wrap-around: users near the edge of the area see fewer interferers than in M.2412."
   - "No fast fading and no UE beamforming; one hypothetical beam per SSB with fixed DFT weights."
@@ -87,6 +88,8 @@ limitations:
   - "The micro-site positions are one draw; other draws give other statistics."
   - "One shadowing decorrelation distance per layer, that of the NLOS links (TR 38.901 Table 7.5-6 Part-1: UMa LOS 37 m, UMi LOS 10 m)."
   - "The minimum distance of 35 m holds for the macro sites; the 10 m of UMi (TR 38.901 Table 7.2-1) to the micro sites is not enforced."
+  - "20 users for 69 macro TRxPs instead of the 10 UEs per TRxP of ITU-R M.2412-0 Table 5b; the number is set for run time (the interference load of HandoverLab does not depend on it). Users move between random waypoints, which are denser in the middle of the area, while M.2412-0 drops them uniformly with a uniformly distributed direction."
+  - "LOS and NLOS links share one unit shadowing realisation per layer, scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6)."
   - "Changed in 1.11.0: until 1.10.0 the macro layer had the UMi shadowing (7.82 dB NLOS, 10 m) and the in-car users no car penetration loss."
 references:
   - "ITU-R M.2412-0 (2017) clause 8.3.2 and Table 5b (local copy std3gpp/pdf/R-REP-M.2412-2017-PDF-E.pdf)."

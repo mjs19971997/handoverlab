@@ -52,9 +52,10 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Sequence
 
-GATES = ("grid_edge", "budget_binding", "budget_met", "equal_budget", "seed_overlap", "flat_optimum")
+GATES = ("grid_edge", "budget_binding", "budget_met", "equal_budget", "seed_overlap", "flat_optimum",
+         "standard_values")
 DEFAULT_POLICY = {"grid_edge": "block", "budget_binding": "warn", "budget_met": "warn", "equal_budget": "block",
-                  "seed_overlap": "block", "flat_optimum": "warn"}
+                  "seed_overlap": "block", "flat_optimum": "warn", "standard_values": "block"}
 BOUNDS = ("lower", "upper", "both")
 POLICIES = ("warn", "block", "off", "extend")       # "extend" only for grid_edge
 
@@ -195,6 +196,24 @@ class MethodTuning:
     selected: Dict[str, Selection] = field(default_factory=dict)     # per failure budget
 
 
+def standard_values_gate(methods: Sequence[Any], reference: Dict[str, Any], policy: str) -> GateResult:
+    """Gate ``standard_values`` (since 2.1.0): every grid value, fixed parameter and the reference rule use values
+    that TS 38.331 allows (:mod:`handoverlab.standard`), e.g. a time-to-trigger of the TimeToTrigger set."""
+    from .. import standard
+    bad = []
+    items = [(str(reference.get("name", "reference")), str(reference.get("rule")),
+              {k: v for k, v in reference.items() if k not in ("rule", "name")})]
+    items += [(m.name, m.rule, dict(m.fixed, **m.grid)) for m in methods]
+    for label, rule, values in items:
+        for key, vals in sorted(values.items()):
+            kind = standard.domain_of(rule, key)
+            if kind and not standard.value_ok(kind, vals):
+                bad.append("%s.%s = %s (%s)" % (label, key, vals, standard.allowed(kind)))
+    if bad:
+        return GateResult("standard_values", False, policy, "values outside %s: %s" % (standard.SOURCE, "; ".join(bad)))
+    return GateResult("standard_values", True, policy, "every grid and fixed value is a value of %s" % standard.SOURCE)
+
+
 def seed_overlap_gate(tuning_seeds: Sequence[int], test_seeds: Sequence[int], policy: str) -> GateResult:
     common = sorted(set(tuning_seeds) & set(test_seeds))
     if common:
@@ -332,6 +351,6 @@ def summary_lines(gates: Sequence[GateResult]) -> List[str]:
 
 
 __all__ = ["GATES", "DEFAULT_POLICY", "BOUNDS", "POLICIES", "extension_values", "setting_key", "grid_size",
-           "first_round", "refine", "Selection",
-           "select", "GateResult", "MethodTuning", "seed_overlap_gate", "evaluate_gates", "describe_setting",
+           "first_round", "refine", "Selection", "select", "GateResult", "MethodTuning", "seed_overlap_gate",
+           "standard_values_gate", "evaluate_gates", "describe_setting",
            "summary_lines"]

@@ -207,8 +207,13 @@ class ConditionalRule(Rule):
 
     def exec_condition(self, obs: Observation) -> Optional[np.ndarray]:
         """A further execution condition (U, M) that must hold together with the execution offset (since 2.0.0),
-        e.g. condEventD1 / D2 / T1 of TS 38.331 5.5.4.15-16; None (the default): the offset alone."""
+        e.g. condEventD1 / D2 / T1 of TS 38.331 5.5.4.15-16; None (the default): the offset alone.  Called at
+        every measurement instant (since 2.1.0), so that a condition with a state stays current."""
         return None
+
+    def release_user(self, u: int) -> None:
+        """The conditional configurations of user ``u`` were removed (after an execution or a failure; since
+        2.1.0): reset any state kept for them.  The default does nothing."""
 
 
 class DAPSRule(BaselineRule):

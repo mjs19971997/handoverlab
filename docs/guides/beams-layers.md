@@ -35,7 +35,8 @@ What happens in a run:
    periodic L1-RSRP reports (`report_s`, `switch_db`, `tci_delay_s`). In FR2 the L1-RSRP period of
    TS 38.133 includes the receive-beam sweeping factor N = 8, so the beam follows a fast user late.
 3. If the serving beam's quality, averaged over the beam-failure-detection period (FR2: 800 ms at a
-   20 ms SSB period), is below Qout, the UE counts beam failure instances; `bfi_max` of them within
+   20 ms SSB period), is below Qout_LR (since 2.1.0 4 dB above Qout, as TS 38.133 Tables 8.5.2.1-1 and
+   8.1.2.1-1 define the two hypothetical PDCCH at 0 dB and +4 dB), the UE counts beam failure instances; `bfi_max` of them within
    the detection timer start beam failure recovery by random access on the best candidate beam.
    A recovery whose random access fails `preamble_max` times is a radio-link failure.
 4. The new metrics `beam_switches_pm`, `beam_failures_pm`, `beam_recoveries_pm`,
@@ -81,7 +82,9 @@ rules:
 ```
 
 - Each layer has its own sites (or `cosited: true`: the sites, LOS states and shadowing of the
-  first layer, TR 38.901 7.6.5). Only cells of one carrier interfere with each other.
+  first layer, TR 38.901 7.6.5; since 2.1.0 such a layer cannot set its own `pathloss`, `los_corr_m` or
+  `shadow_decorr_m` unless `radio.channel_detail` is `simple`). Only cells of one carrier interfere with
+  each other.
 - With `meas_periods: ts38133` the UE measures the other carrier only in the measurement gaps
   (`gap_pattern`, default 6 ms every 40 ms) with the inter-frequency periods of TS 38.133 9.3.5:
   320 ms for an FR1 carrier and 1.6 s for an FR2 carrier. During a gap it receives no data

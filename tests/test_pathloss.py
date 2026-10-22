@@ -107,7 +107,7 @@ def test_los_probability_rma_and_inh():
     assert float(pl.p_los(1.0, "inh_office")) == 1.0
     assert float(pl.p_los(4.0, "inh_office")) == pytest.approx(math.exp(-2.8 / 4.7))
     assert float(pl.p_los(39.1, "inh_office")) == pytest.approx(0.32 * math.exp(-1.0))
-    assert set(pl.MODELS) == {"umi_street_canyon", "uma", "rma", "inh_office"}
+    assert set(pl.MODELS) == {"umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open"}
 
 
 # --- soft LOS state (since 1.7.0) ---------------------------------------------

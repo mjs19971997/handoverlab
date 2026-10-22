@@ -1,7 +1,7 @@
 # How to study handover indoors and in rural cells
 
 Since 1.7.0 HandoverLab has two scenario families next to the urban grid, the open area and the
-highway. Both follow TR 38.901 (V17.0.0) for geometry and propagation and the IMT-2020 evaluation
+highway. Both follow TR 38.901 (V19.5.0, unchanged from V17.0.0 for these parts) for geometry and propagation and the IMT-2020 evaluation
 configurations of ITU-R M.2412-0 for the link budget: the indoor office with the InH-Office path
 loss, and rural macro cells with the RMa path loss. They stretch a rule in opposite directions:
 indoors the cells are 20 m apart and the neighbours are almost as strong as the serving cell; in
@@ -9,8 +9,8 @@ rural cells the sites are 1.7 km apart and the users drive at 120 km/h.
 
 | Scenario | Layout | Radio | Users |
 |---|---|---|---|
-| [`indoor-office-4ghz`](../scenarios/indoor-office-4ghz.md) | `indoor`: hall of 120 m x 50 m, 12 ceiling sites on a 20 m grid (TR 38.901 Table 7.2-2) | `inh_office` at 4 GHz, 24 dBm for 20 MHz (M.2412-0 Table 5a), sites 3 m and users 1 m high, soft LOS | 20 pedestrians, about 3 km/h (`ped3`) |
-| [`rural-700mhz`](../scenarios/rural-700mhz.md) | `open_area` of 6000 m x 3500 m (`layout.area_m`), 11 sites on a 1732 m hexagonal grid, users at least 35 m from a site (Table 7.2-3) | `rma` at 700 MHz, 49 dBm for 20 MHz (M.2412-0 Table 5c), sites 35 m high, car penetration loss, soft LOS | 30 users in cars, about 120 km/h (`veh120`) |
+| [`indoor-office-4ghz`](../scenarios/indoor-office-4ghz.md) | `indoor`: hall of 120 m x 50 m, 12 ceiling sites on a 20 m grid (TR 38.901 Table 7.2-2) | `inh_office_open` at 4 GHz (open-office LOS probability of ITU-R M.2412-0 Table A1-9, since 2.1.0), 24 dBm for 20 MHz (M.2412-0 Table 5a), sites 3 m and users 1 m high, soft LOS | 20 pedestrians at 3 km/h (`p3`, since 2.1.0; `ped3` with +-10 % until 2.0.0) |
+| [`rural-700mhz`](../scenarios/rural-700mhz.md) | `open_area` of 6000 m x 3500 m (`layout.area_m`), 11 sites on a 1732 m hexagonal grid, users at least 35 m from a site (Table 7.2-3) | `rma` at 700 MHz, 49 dBm for 20 MHz (M.2412-0 Table 5c), sites 35 m high, car penetration loss, soft LOS | 30 users in cars at 120 km/h (`v120`, since 2.1.0; `veh120` with +-10 % until 2.0.0) |
 
 ## 1. Run them
 
@@ -38,7 +38,10 @@ first look shorten it, `scenario: {base: rural-700mhz, run: {duration_s: 60.0}}`
 
 - **InH-Office** (`radio.pathloss: inh_office`): LOS `32.4 + 17.3 log10(d3D) + 20 log10(fc)`,
   NLOS `max(LOS, 38.3 log10(d3D) + 17.30 + 24.9 log10(fc))`, for 3D distances of 1 m to 150 m,
-  with the LOS probability of the mixed office (TR 38.901 Tables 7.4.1-1 and 7.4.2-1).
+  with the LOS probability of the mixed office (TR 38.901 Tables 7.4.1-1 and 7.4.2-1); `inh_office_open`
+  (since 2.1.0) has the same path loss with the LOS probability of the open office (1 up to 5 m,
+  exp(-(d2D - 5) / 70.8) up to 49 m, 0.54 exp(-(d2D - 49) / 211.7) beyond), which ITU-R M.2412-0
+  Table A1-9 uses for the Indoor Hotspot.
 - **RMa** (`radio.pathloss: rma`): the LOS model with its breakpoint
   `d_BP = 2 pi h_BS h_UT fc / c` and the NLOS model, both with the default street width
   W = 20 m and building height h = 5 m; LOS probability `exp(-(d2D - 10) / 1000)` beyond 10 m.
@@ -80,8 +83,9 @@ Means over three seeds per user-minute, with the cards as they are and with the 
   nearly equal cells. A larger offset and time-to-trigger halve the unnecessary handovers at the
   price of more late ones.
 - **In rural cells**, the handover rate is far above what the cell size alone would give, and most
-  handovers are unnecessary: the 8 dB shadowing with 120 m decorrelation, only half correlated
-  between sites, moves the best cell often at 120 km/h. Compare rules with each other here, and do
+  handovers are unnecessary: the 8 dB shadowing with 120 m decorrelation, uncorrelated between
+  sites (TR 38.901 clause 7.5 step 4; half correlated until 2.0.0), moves the best cell often at
+  120 km/h. Compare rules with each other here, and do
   not read the absolute handover rate as that of a real rural network.
 - **Hard against soft LOS**: with the hard switch, a link jumps by about 20 dB (RMa at 1-2 km) or
   about 15 dB (InH at 20 m) when its state changes, and these jumps cause most failures. The soft state

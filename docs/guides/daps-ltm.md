@@ -138,12 +138,16 @@ check_rule(SpeedLTM, {"o_switch_db": 2.0})
 
 ## Limits of the model
 
-- DAPS: radio-link monitoring of the source is paused during the execution, as for the other
-  procedures (the execution is short against T310); uplink and the PDCP details of dual protocol
-  stacks are not modelled; the source carries the user's full rate until the target is joined.
+- DAPS: since 2.1.0 the source link is monitored during the execution (TS 38.331 5.3.10.1): T310 of
+  the source is not stopped, a source radio-link failure while T304 runs releases the source, and the
+  UE falls back only if no source failure was detected (5.3.5.8.3); no DAPS from FR2 to FR2 and none
+  for NTN (TS 38.300). Uplink and the PDCP details of dual protocol stacks are not modelled; the
+  source carries the user's full rate until the target is joined or the source fails.
 - LTM: L1 reports arrive at every L1 sample with the scenario's L1 error, without beam-level
   reports or reporting delay; candidate configurations use the preparation delay and the loss
-  model of conditional configurations; early timing-advance acquisition always succeeds.
+  model of conditional configurations; early timing-advance acquisition always succeeds. Since 2.1.0
+  the other candidates stay configured after a cell switch (TS 38.331 5.3.5.18.6) and a switch between
+  FR1 and FR2 takes 20 ms more (TS 38.133 6.3.1.3).
 - Conditional LTM (`cltm`): the switch condition is modelled like the LTM switch condition
   (one offset and a time-to-trigger on L1 samples), since the Rel-19 condition was not frozen
   when the rule was written; the UE-side evaluation has no reporting delay.

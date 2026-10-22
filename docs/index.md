@@ -1,9 +1,10 @@
 # HandoverLab
 
-HandoverLab is a system-level simulator for studying handover in dense 5G and beyond-5G
-networks, written in Python. It simulates 3GPP mobility procedures (baseline handover with Event
-A3, Release-16 conditional and DAPS handover, Release-18 L1/L2-triggered mobility) for many users moving through a street grid,
-an open area or along a highway, with a TR 38.901 received-power radio model, an L3-filtered measurement chain, a
+HandoverLab is a system-level handover simulator for 5G-Advanced and beyond-5G research, written in
+Python. It simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16 conditional and DAPS
+handover, Release-18 L1/L2-triggered mobility, conditional LTM, conditional handover with the location events of
+Release 18) for many users moving through a street grid, an open area, along a highway, in an indoor office,
+across rural cells or under the beams of a LEO satellite, with a TR 38.901 received-power radio model, an L3-filtered measurement chain, a
 radio-link failure model and an outcome label for every handover attempt. Every rule compared on
 a seed runs on the same world and radio samples, so comparisons are paired.
 
@@ -47,5 +48,5 @@ handoverlab gui                              # the dashboard in your browser
   regression against the prototype the package was ported from, and a comparison with ns-3 /
   5G-LENA.
 
-This is release 1.0.2. The public surface is frozen and follows the
+This is release 2.1.0. The public surface follows the
 [stability policy](stability.md). HandoverLab is MIT licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).

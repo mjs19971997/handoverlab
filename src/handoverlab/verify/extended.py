@@ -136,8 +136,10 @@ def daps_ltm_checks(rep, duration_s: float = 30.0) -> None:
               "%.1f ms (sync) / %.1f ms (async); DAPS interruption_s of HandoverLab (%.1f ms) is within"
               % (d["total"] * 1e3, da["total"] * 1e3, daps.interruption_s * 1e3),
               0.0 <= daps.interruption_s <= da["total"] + 1e-12)
+    # ideal random access: an execution that waits for its target while T304 runs adds its waiting time, which
+    # is not the configured interruption this check is about
     sc = builtin_scenario("smoke").with_overrides({"run.duration_s": duration_s, "run.warmup_s": 0.0,
-                                                   "mobility.profile": "veh30"})
+                                                   "mobility.profile": "veh30", "protocol.exec_can_fail": False})
     res = simulate(sc, [{"rule": "ltm", "exec_s": 0.020}, {"rule": "daps", "interruption_s": 0.002}], seeds=[1])
     for x, want in zip(res, (0.020, 0.002)):
         m = x.metrics

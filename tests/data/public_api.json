@@ -112,6 +112,7 @@
   "handoverlab.stability": [
    "HandoverLabDeprecationWarning",
    "LEGACY_1X",
+   "LEGACY_CARDS",
    "METRIC_ALIASES",
    "RULE_API_VERSION",
    "SCHEMA_VERSION",
@@ -175,6 +176,10 @@
    "prep_offsets": [
     "self",
     "obs"
+   ],
+   "release_user": [
+    "self",
+    "u"
    ]
   },
   "DAPSRule": {},
@@ -297,6 +302,7 @@
   "beam_recovery_s_pm",
   "beam_switches_pm",
   "commands_pm",
+  "coverage_failures_pm",
   "delivered_share",
   "energy_uj_per_bit",
   "executions_pm",
@@ -361,6 +367,7 @@
   "n_wrong_cell",
   "n_too_late",
   "n_censored",
+  "n_coverage",
   "n_fail_command_lost",
   "n_fail_rlf_in_preparation",
   "n_fail_rlf_without_handover",
@@ -374,7 +381,8 @@
   "too_early",
   "wrong_cell",
   "too_late",
-  "censored"
+  "censored",
+  "coverage"
  ],
  "causes": [
   "command_lost",
@@ -450,7 +458,9 @@
   "ntn.centre_elevation_deg",
   "ntn.eirp_dbw_per_mhz",
   "ntn.environment",
+  "ntn.hpbw_deg",
   "ntn.los_corr_m",
+  "ntn.los_model",
   "ntn.n_beams",
   "ntn.scintillation_db",
   "ntn.sf_corr_m",
@@ -479,6 +489,7 @@
   "protocol.report_interval_s",
   "protocol.rlm_eval",
   "protocol.rlm_holdoff_s",
+  "protocol.rrc_detail",
   "protocol.ssb_period_s",
   "protocol.step_s",
   "protocol.t304_s",
@@ -489,7 +500,9 @@
   "radio.bs_gain_db",
   "radio.bs_height_m",
   "radio.carrier_ghz",
+  "radio.channel_detail",
   "radio.clutter_los",
+  "radio.energy_ntrx",
   "radio.energy_p0_w",
   "radio.energy_slope",
   "radio.isolation",

@@ -11,9 +11,11 @@ Sources (texts in ``code/std3gpp``; equations read from the PDF pages):
   clutter loss of Tables 6.6.2-1..3 (clutter only in NLOS), the atmospheric loss ``Azenith / sin(a)``
   (Eq. 6.6-8), shadowing correlation 37 m (LOS) and 120 m (NLOS) in the rural S band (Tables 6.7.2-7a, -8a).
 * TR 38.821 V16.2.0: the satellite sets of Tables 6.1.1.1-1 and -2, the handheld UE of Table 6.1.1.1-3, the
-  19-beam layout on the UV plane with the adjacent beam spacing ``sqrt(3) sin(HPBW / 2)`` (Table 6.1.1.1-4),
-  frequency reuse 1 (Table 6.1.1.1-5, option 1), the link budget of clause 6.1.3 (Table 6.1.3.3-1), the LEO
-  speed of 7.56 km/s and the round-trip delays of Table 7.1-1.
+  19-beam layout on the UV plane with the adjacent beam spacing ``sqrt(3) sin(HPBW / 2)`` (Table 6.1.1.1-4;
+  since 2.1.0 from the tabled 3 dB beamwidth, as that table asks, with the pattern scaled to it), frequency
+  reuse 1 (Table 6.1.1.1-5, option 1), optionally the baseline propagation condition "Clear Sky, Line of
+  sight" of Table 6.1.1.1-5 (``ntn.los_model: los``), the link budget of clause 6.1.3 (Table 6.1.3.3-1), the
+  LEO speed of 7.56 km/s and the round-trip delays of Table 7.1-1.
 
 All beams belong to one satellite, so a user sees them over one propagation path: slant range, LOS state,
 shadowing, clutter, atmospheric and scintillation loss are common to the beams; only the antenna gain differs.
@@ -77,11 +79,46 @@ def ka_from_aperture(aperture_m, fc_ghz):
     return 2.0 * math.pi * (aperture_m / 2.0) * fc_ghz * 1e9 / C_LIGHT
 
 
+def _x3db() -> float:
+    """The argument x of the half-power point of 4 |J1(x) / x|^2."""
+    from scipy.optimize import brentq
+    return brentq(lambda x: 4.0 * (j1(x) / x) ** 2 - 0.5, 0.5, 3.0)
+
+
 def hpbw_deg(ka):
     """3 dB beamwidth [deg] of the pattern: twice the angle where the normalised gain is 1/2."""
-    from scipy.optimize import brentq
-    x3 = brentq(lambda x: 4.0 * (j1(x) / x) ** 2 - 0.5, 0.5, 3.0)
-    return 2.0 * math.degrees(math.asin(x3 / ka))
+    return 2.0 * math.degrees(math.asin(_x3db() / ka))
+
+
+def ka_from_hpbw(hpbw: float) -> float:
+    """``ka`` of the pattern whose 3 dB beamwidth is ``hpbw`` degrees (the inverse of :func:`hpbw_deg`)."""
+    return _x3db() / math.sin(math.radians(hpbw) / 2.0)
+
+
+#: 3 dB beamwidths [deg] of TR 38.821 Tables 6.1.1.1-1 (Set-1) and 6.1.1.1-2 (Set-2), S band (2 GHz), by the
+#: equivalent aperture [m]: 2 m (Set-1 LEO) 4.4127, 1 m (Set-2 LEO) 8.8320, 22 m (Set-1 GEO) 0.4011, 12 m (Set-2 GEO)
+#: 0.7353
+HPBW_S_BAND_DEG = {2.0: 4.4127, 1.0: 8.8320, 22.0: 0.4011, 12.0: 0.7353}
+
+
+def beamwidth_deg(scenario) -> float:
+    """The 3 dB beamwidth of the satellite beams [deg]: ``ntn.hpbw_deg``, or unset (since 2.1.0) the tabled width of
+    TR 38.821 Tables 6.1.1.1-1/-2 for the aperture at 2 GHz with ``radio.channel_detail`` "3gpp" (Table
+    6.1.1.1-4: "Only the 3dB beam width parameters should be used"), else the width of the Bessel pattern of the
+    aperture."""
+    hp = _given_beamwidth(scenario)
+    return hp if hp is not None else hpbw_deg(ka_from_aperture(scenario.ntn.aperture_m, scenario.radio.carrier_ghz))
+
+
+def _given_beamwidth(scenario):
+    n, r = scenario.ntn, scenario.radio
+    if getattr(n, "hpbw_deg", None) is not None:
+        return float(n.hpbw_deg)
+    if getattr(r, "channel_detail", "3gpp") == "3gpp" and abs(r.carrier_ghz - 2.0) < 1e-9:
+        for ap, hp in HPBW_S_BAND_DEG.items():
+            if abs(n.aperture_m - ap) < 1e-9:
+                return hp
+    return None
 
 
 def orbital_speed(h_m):
@@ -132,8 +169,15 @@ class NtnGeometry:
         self.h = n.altitude_km * 1e3
         self.v = orbital_speed(self.h)
         self.omega = self.v / (R_EARTH + self.h)
-        self.ka = ka_from_aperture(n.aperture_m, scenario.radio.carrier_ghz)
-        self.hpbw = hpbw_deg(self.ka)
+        # beamwidth and pattern (since 2.1.0: the tabled 3 dB beamwidth, see beamwidth_deg; the pattern is scaled so
+        # that its 3 dB width equals it; with channel_detail "simple" both come from the aperture)
+        given = _given_beamwidth(scenario)
+        if given is None:
+            self.ka = ka_from_aperture(n.aperture_m, scenario.radio.carrier_ghz)
+            self.hpbw = hpbw_deg(self.ka)
+        else:
+            self.hpbw = given
+            self.ka = ka_from_hpbw(given)
         self.t_mid = 0.5 * scenario.run.duration_s
         # orbit: polar (in the x-z plane after a rotation by the cross-track angle), moving north, the satellite
         # at its closest point to the area centre at t_mid; the central beam points at the area centre with the
@@ -272,7 +316,12 @@ class NtnSource:
             ref = nearest_reference(elev)
             gl = self._ar1(self.rng_l, self.r_l, self.zl, n)
             self.zl = gl[-1].copy()
-            los = gl.ravel() < ndtri(np.clip(self.los_ref[ref], 1e-9, 1 - 1e-9))
+            if getattr(self.n, "los_model", "probability") == "los":
+                # TR 38.821 Table 6.1.1.1-5, propagation conditions "Base-line: Clear Sky, Line of sight" (since
+                # 2.1.0); the LOS process is still drawn, so that the other random streams stay the same
+                los = np.ones(gl.size, dtype=bool)
+            else:
+                los = gl.ravel() < ndtri(np.clip(self.los_ref[ref], 1e-9, 1 - 1e-9))
             gs = self._ar1(self.rng_s, self.r_s, self.zs, n)
             self.zs = gs[-1].copy()
             sf = np.where(los, self.sfcl[ref, 0], self.sfcl[ref, 1]) * gs.ravel()

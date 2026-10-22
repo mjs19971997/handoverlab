@@ -38,8 +38,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.pathloss` | umi_street_canyon | TR 38.901 Table 7.4.1-1 |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMi and UMa LOS: 4 dB) |
 | `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
-| `radio.shadow_decorr_m` | 10 | TR 38.901 Table 7.5-6 (UMi: 10 m LOS, 13 m NLOS) |
-| `radio.shadow_site_corr` | 0.5 | assumption (correlation between sites) |
+| `radio.shadow_decorr_m` | 10 | TR 38.901 Table 7.5-6 Part-1 (UMi: 10 m LOS, 13 m NLOS; the LOS value is used for both, see the limitations) |
 | `radio.place_share` | **0** | ns-3 draws shadowing per link: no place-tied part |
 | `radio.clutter_los` | **false** | the ns-3 study (LOS from the buildings only) |
 | `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m) |
@@ -48,8 +47,8 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.l1_error_db` | **0** | not modelled in the ns-3 study |
 | `radio.penetration_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car |
 | `radio.penetration_sd_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car |
-| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011): 56 W |
-| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011): 2.6 |
+| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011, Table 2): 56 W |
+| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011, Table 2): 2.6 |
 | `radio.map_res_m` | 1 | numerical setting |
 | `protocol.step_s` | 0.01 | numerical setting |
 | `protocol.l1_period_s` | **0.2** | the ns-3 study (one sample every 200 ms) |
@@ -65,14 +64,14 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.t310_s` | 1 | TR 36.839 (1 s) |
 | `protocol.prep_s` | 0.05 | TR 36.839 (50 ms) |
 | `protocol.exec_s` | **0.01** | the ns-3 study |
-| `protocol.reest_s` | 1 | TR 36.842 (assumption: 1 s outage) |
-| `protocol.cho_recovery_s` | 0.4 | TS 38.300 clause 9.2.3.4 (recovery into a prepared cell; assumption 0.4 s) |
+| `protocol.reest_s` | 1 | assumption (1 s outage); TS 38.133 6.2.1.2.1 bounds the delay by 50 ms + cell identification (FR1: 200 ms known, 800 ms unknown cell, Table 6.2.1.2.1-1) + system information + PRACH; TR 36.842 Table E.1-2 uses 250 ms |
+| `protocol.cho_recovery_s` | 0.4 | TS 38.300 clauses 9.2.3.1 and 9.2.7 (recovery into a CHO candidate; assumption 0.4 s) |
 | `protocol.pingpong_s` | 1 | TR 36.839 (minimum time of stay, 1 s) |
 | `protocol.cfg_loss_as_failure` | false | check mode only |
 | `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
-| `protocol.rlm_holdoff_s` | 0.2 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
+| `protocol.rlm_holdoff_s` | 0.2 | 0.2 s since 2.0.0: an interpretation of TS 38.133 8.1.2.2 (evaluation over the last T_Evaluate_out, 200 ms in FR1) on a newly joined cell |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | **0** | assumption |
@@ -84,7 +83,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.model` | fixed | fixed: constant service rates (the model of 1.0) |
 | `traffic.period_s` | 0.02 | periodic model: 20 ms, as VoIP |
 | `traffic.packet_bytes` | 100 | periodic model: assumption |
-| `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
+| `traffic.ftp_file_bytes` | 500000 | FTP model 3 (TR 36.872 Annex A.1) with 0.5 Mbyte files (TR 38.802 Table A.2.1-1; TR 38.821 Table 6.1.1.1-7) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | **20** | assumption |
 | `mobility.profile` | **c16** | the ns-3 study (constant speed on the centre lines; c8, c16 and c30 are compared) |
@@ -92,11 +91,14 @@ Values in **bold** differ from the HandoverLab defaults.
 | `run.duration_s` | **150** | the ns-3 study (150 s, the first 60 s not counted) |
 | `run.warmup_s` | **60** | numerical setting |
 
+Not read by this layout and radio model, so not listed: `radio.shadow_site_corr`.
+
 ## Known limitations
 
 - Seeds are different realisations in the two simulators; only averages over settings and conditions can be compared.
 - The interfering load is defined differently in the two simulators, so failure rates are reported without a pass limit.
 - Only baseline handover can be compared: 5G-LENA has no conditional handover.
+- The shadowing along each user's path has one decorrelation distance, the UMi LOS value of 10 m, also on NLOS links (TR 38.901 Table 7.5-6 Part-1: NLOS 13 m).
 
 ## Reference results
 

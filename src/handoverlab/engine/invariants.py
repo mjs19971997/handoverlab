@@ -57,6 +57,8 @@ def check_step(eng, t: float, sinr: np.ndarray) -> None:
     if bad.any():
         _fail(eng, t, "serving cell out of range", np.nonzero(bad)[0])
     bad = eng.run & (state != CONNECTED)
+    if getattr(eng, "daps_mon", False):          # DAPS (2.1.0): the source T310 runs on during the execution
+        bad &= ~((state == EXECUTING) & eng.daps_u & ~eng.src_rlf)
     if bad.any():
         _fail(eng, t, "T310 running for a user that is not connected", np.nonzero(bad)[0])
     bad = (state == EXECUTING) & ~eng.f_on

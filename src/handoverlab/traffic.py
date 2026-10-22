@@ -19,7 +19,8 @@ def offered_bits(traffic, n_meas: int, mdt: float, n_users: int, rng):
 
     ``None`` for the models without arrivals ("fixed", "full_buffer").  "periodic": one packet of
     ``packet_bytes`` every ``period_s`` with a random phase per user; "ftp3": files of
-    ``ftp_file_bytes`` arriving as a Poisson process of ``ftp_rate_hz`` per user (TR 36.814 A.2.1.3).
+    ``ftp_file_bytes`` arriving as a Poisson process of ``ftp_rate_hz`` per user (FTP model 3: TR 36.872 Annex A.1,
+    FTP model 2 with Poisson arrivals; 0.5 Mbyte files as TR 38.802 Table A.2.1-1 and TR 38.821 Table 6.1.1.1-7).
     """
     if traffic.model == "periodic":
         phase = rng.uniform(0.0, traffic.period_s, n_users)

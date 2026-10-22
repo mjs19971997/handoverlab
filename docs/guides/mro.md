@@ -1,8 +1,8 @@
 # How to compare a rule with A3 tuned by MRO
 
 In a real network the handover parameters are not left at one fixed value: mobility robustness
-optimisation (MRO), a self-organising-network function (TS 38.300 clause 15.5.2; TS 28.313;
-the SON concepts of TS 32.500), tunes them from the observed outcomes of handovers. A new rule
+optimisation (MRO), a self-organising-network function (TS 38.300 clause 15.5.2; TS 28.313
+clause 7.1.2; the SON concepts of TS 32.500), tunes them from the observed outcomes of handovers. A new rule
 should therefore be compared not only with fixed A3, but also with A3 under MRO. Since 1.7.0 the
 rule `a3_mro` provides that baseline.
 
@@ -33,9 +33,9 @@ from 0 dB and needs time to adapt: use a warm-up (`run.warmup_s`) that covers se
 |---|---|---|
 | `off_db` | 3.0 | A3 offset before any tuning [dB] |
 | `ttt_s` | 0.16 | time-to-trigger [s] |
-| `step_db` | 0.5 | change of a pair's CIO per window [dB] |
+| `step_db` | 1.0 | change of a pair's CIO per window [dB]; with the bounds it must keep every CIO a value of Q-OffsetRange of TS 38.331 (whole dB up to 5 dB, then 6, 8, ..., 24 dB); 0.5 before 2.1.0 |
 | `window_s` | 10.0 | length of a counting window [s] |
-| `min_db`, `max_db` | -4.0, 4.0 | bounds of a CIO [dB] (TS 38.331 allows -24 to 24 dB) |
+| `min_db`, `max_db` | -4.0, 4.0 | bounds of a CIO [dB] (TS 38.331 Q-OffsetRange allows -24 to 24 dB; TS 28.313 Table 7.1.2.2.3-1 limits the MRO change of the handover trigger to -10 to 10 dB) |
 | `min_events` | 1 | counted outcomes a pair needs in a window before its CIO moves |
 | `count_pingpong` | true | count a return to the previous cell within `pingpong_s` as too early |
 | `pingpong_s` | none | ping-pong time [s]; none: `protocol.pingpong_s` |

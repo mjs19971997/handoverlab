@@ -57,6 +57,31 @@ from .procedures import CONNECTED, EXECUTING, REESTABLISHING, make_procedure
 LN10_10 = np.log(10.0) / 10.0
 
 
+def rlm_indications(P, qo, qi, qout, qin, run, n_o, n_i, mon, t, rlm_t0):
+    """Out-of-sync / in-sync indications of one indication instant as TS 38.331 and TS 38.133 specify (since 2.1.0).
+
+    An out-of-sync indication is sent when the filtered quality is below Qout, an in-sync indication when it is
+    above Qin (TS 38.133 8.1.6), at most every max(10 ms, T_SSB).  TS 38.331 clause 7.2: N310 counts the
+    out-of-sync indications while T310 is stopped and is reset by an in-sync indication; N311 counts the in-sync
+    indications while T310 runs and is reset by an out-of-sync indication; an instant with neither changes no
+    counter (5.3.10.2, NOTE 2).  T310 starts when N310 is reached (5.3.10.1) and stops when N311 is reached
+    (5.3.10.2).  ``mon`` are the users whose link is monitored, ``rlm_t0`` the end of the monitoring restart on a
+    new cell.  Updates ``run``, ``n_o``, ``n_i`` in place (1-D or 2-D arrays) and returns the users whose T310
+    starts.
+    """
+    live = t >= rlm_t0 - EPS
+    oos = (qo < qout) & mon & live
+    ins = (qi > qin) & mon
+    n_o[...] = np.where(ins, 0, n_o + (oos & ~run))
+    start = mon & ~run & (n_o >= P.n310)
+    run |= start
+    n_i[...] = np.where(oos, 0, n_i + (ins & run & ~start))
+    stop = run & (n_i >= P.n311)
+    run &= ~stop
+    n_i[stop] = 0
+    return start
+
+
 def rlm_kernel(engine):
     """The compiled step kernel if ``run.backend`` is ``"numba"`` and it covers the engine's monitoring, else None.
 
@@ -67,6 +92,8 @@ def rlm_kernel(engine):
     P = sc.protocol
     if getattr(sc.run, "backend", "numpy") != "numba" or engine.lm or P.n310 != 1 or P.n311 != 1:
         return None
+    if engine.std and engine.daps_mon:
+        return None                     # the source link of DAPS during T304: the NumPy path
     from ._kernels import rlm_step
     return rlm_step
 
@@ -96,7 +123,16 @@ class Engine:
         self.rep = max(1, int(round(P.report_interval_s / self.mdt)))
         self.lab_every = max(1, int(round(P.label_period_s / self.mdt)))
         self.learns = bool(rule.learns)
-        self.l3 = L3Filter(P.l3_k, self.mdt)
+        # X of TS 38.331 5.5.3.2 depends on the frequency range (TS 38.133 9.2.5.2: 200 ms in FR1 at an SMTC of
+        # 20 ms, 480 ms in FR2-1); 200 ms on every carrier up to 2.0.0
+        from ..requirements import l3_reference_period
+        self.std = P.rrc_detail == "3gpp"
+        x_ref = l3_reference_period(R.carrier_ghz, P.ssb_period_s, P.fr2_power_class) if self.std else 0.2
+        self.l3 = L3Filter(P.l3_k, self.mdt, x_ref)
+        # out-of-sync / in-sync indications every max(10 ms, T_SSB) (TS 38.133 8.1.6) and the source link of DAPS
+        # monitored while T304 runs (TS 38.331 5.3.10.1); both since 2.1.0
+        self.ind_steps = max(1, int(round(max(0.01, P.ssb_period_s) / P.step_s))) if self.std else 1
+        self.daps_mon = False
         self.ao = 1.0 - np.exp(-P.step_s / P.qout_window_s)
         self.ai = 1.0 - np.exp(-P.step_s / P.qin_window_s)
         self.qout = 10 ** (P.qout_db / 10.0)
@@ -163,6 +199,17 @@ class Engine:
         self.wall = 0.0
         self.nmeas = 0
         self.proc = make_procedure(self, rule)
+        self.daps_mon = self.std and bool(self.proc.dual) and P.t304_s is not None
+        self.src_rlf = np.zeros(U, dtype=bool)                # DAPS: radio link failure of the source (5.3.10.3)
+        self.rec_t0 = np.full(U, INF)                         # start of a recovery into a prepared cell (2.1.0)
+        self.C["rrc_on"] = int(self.std)                      # RRC messages counted one by one (2.1.0)
+        # DAPS per execution: TS 38.300 V18.11.0 9.2.3.1 does not support DAPS from FR2 to FR2 (such a handover
+        # is a baseline one, since 2.1.0) and 16.14.3.2.1 not for NTN
+        from ..requirements import is_fr2
+        self.cell_fr2 = np.full(self.M, is_fr2(R.carrier_ghz))
+        self.daps_u = np.full(U, bool(self.proc.dual))
+        if self.std and self.proc.dual and world.ntn is not None:
+            raise ValueError("DAPS handover is not supported for NTN (TS 38.300 V18.11.0 clause 16.14.3.2.1)")
         self.kind = self.proc.kind
         rule.reset(RuleContext(U, self.M, world.cell_sites, world.nominal_cell, P.step_s,
                                self.mdt, world.seed, rule_stream(world.seed), sc,
@@ -256,10 +303,16 @@ class Engine:
         self.f_tx[u] = t
         if self.trace_log is not None:
             self.trace_event(t, u, "exec", self.serv[u], tgt)
+        if self.proc.dual:
+            self.daps_u[u] = not (self.std and self.cell_fr2[self.serv[u]] and self.cell_fr2[tgt])
         d = self.proc.exec_time(u)
         self.state[u] = EXECUTING
         self.t_done[u] = t + d
-        self.run[u] = False
+        if self.std:                     # TS 38.331 7.2: N310 / N311 reset upon a reconfiguration with sync
+            self.n_o[u] = self.n_i[u] = 0
+        if not (self.daps_mon and self.daps_u[u]):      # 5.3.5.5.2: T310 stops unless DAPS is configured
+            self.run[u] = False
+        self.src_rlf[u] = False
         self.proc.cancel_command(u)
         if t >= self.t0c:
             self.C["exec"] += 1
@@ -271,6 +324,7 @@ class Engine:
                              10.0 * np.log10(max(float(s), 1e-30)))
         self.serv[u] = cell
         self.state[u] = CONNECTED
+        self.src_rlf[u] = False
         if self.lm and self.lm_ln is not None:
             s = self._sinr_lm(u, cell, self.lm_ln)
         self.qo[u] = self.qi[u] = s
@@ -289,10 +343,10 @@ class Engine:
             if t304 is not None and t - self.f_tx[u] < t304 - EPS:
                 # random access goes on while T304 runs (TS 38.331 5.3.5.3, 5.3.10.3): try again next step
                 self.t_done[u] = t + self.dt
-                if t >= self.t0c and not self.proc.dual:      # DAPS: the source link still carries the data
+                if t >= self.t0c and (not self.daps_u[u] or self.src_rlf[u]):   # DAPS: the source carries data
                     self.acc["int_exec"] += self.dt
                 return
-            if not (self.proc.fallback and self._fallback(u, t, ln, tot)):
+            if not (self.proc.fallback and self.daps_u[u] and self._fallback(u, t, ln, tot)):
                 self.fail(u, t, "exec")
             return
         src = int(self.serv[u])
@@ -300,8 +354,9 @@ class Engine:
         cnt = bool(self.f_cnt[u])
         if cnt:
             self.C["ho"] += 1
+            self.msg(t)                                        # RRCReconfigurationComplete to the target
             self.C["pp"] += int(pp)
-        self.proc.clear(u, tgt, t)
+        self.proc.after_execution(u, tgt, t)
         self.prev[u] = src
         self.last_ho[u] = t
         self._attach(u, tgt, s, t)
@@ -323,12 +378,53 @@ class Engine:
         n = np.bincount(self.serv[con], minlength=self.M)
         np.multiply(self.chi, np.minimum(1.0, self.lm0 + self.P.lm_load_per_ue * n), out=self.rc_lm)
 
+    def _recovery_joins(self, u, s, t) -> bool:
+        """End of a re-establishment or of a recovery into a prepared cell.  TS 38.331 5.3.7.3 (since 2.1.0): the
+        recovery (attemptCondReconfig, attemptLTM-Switch) is a reconfiguration with sync: the UE joins once the
+        target SINR reaches Qout while T304 runs; when T304 expires (5.3.5.8.3) it re-establishes in the best cell
+        (``protocol.reest_s``).  A re-establishment (and every recovery up to 2.0.0) always joins."""
+        if not np.isfinite(self.rec_t0[u]) or s >= self.qout or not self.P.exec_can_fail:
+            self.rec_t0[u] = INF
+            return True
+        t304 = self.P.t304_s
+        if t304 is not None and t - self.rec_t0[u] < t304 - EPS:
+            self.t_done[u] = t + self.dt                      # random access goes on while T304 runs
+            if t >= self.t0c:
+                self.acc["int_fail"] += self.dt
+            return False
+        self.rec_t0[u] = INF                                  # T304 expired: re-establishment
+        self.re_cell[u] = int(np.argmax(self.meas[u]))
+        self.t_done[u] = t + self.P.reest_s
+        if t >= self.t0c:
+            self.acc["int_fail"] += min(self.P.reest_s, self.S * self.dt - t)
+        if self.trace_log is not None:
+            self.trace_event(t, u, "recovery_failed", self.serv[u], self.re_cell[u])
+        return False
+
+    def msg(self, t, n=1) -> None:
+        """Count ``n`` RRC messages sent at ``t`` (since 2.1.0): MeasurementReport, RRCReconfiguration (one per
+        user and instant, whatever the number of conditional candidates it carries) and its
+        RRCReconfigurationComplete; an LTM cell switch command is a MAC CE (TS 38.300 9.2.3.5.2), not counted."""
+        if t >= self.t0c:
+            self.C["rrc"] += int(n)
+
+    def _source_rlf(self, u, t) -> None:
+        """DAPS: T310 of the source expired while T304 runs: source RLF, the source connection is released and
+        carries no more data (TS 38.331 5.3.10.3; since 2.1.0)."""
+        self.src_rlf[u] = True
+        self.run[u] = False
+        if self.trace_log is not None:
+            self.trace_event(t, u, "source_rlf", self.serv[u], self.f_tgt[u])
+        if t >= self.t0c:
+            self.acc["int_exec"] += max(0.0, min(float(self.t_done[u]), self.S * self.dt) - t)
+
     def _fallback(self, u, t, ln, tot) -> bool:
-        """DAPS: the target could not be joined; return to the source if its SINR is at least Qout."""
+        """DAPS: the target could not be joined.  TS 38.331 5.3.5.8.3 (since 2.1.0): back to the source unless a
+        radio link failure of the source was detected while T304 ran; 2.0.0: if the source SINR is at least Qout."""
         src = int(self.serv[u])
         ls = ln[u, src]
         s = ls / (tot[u] - self.rc[src] * ls + self.noise)
-        if s < self.qout:
+        if (self.src_rlf[u] if self.daps_mon else s < self.qout):
             return False
         self._feedback(u, src, self.f_tgt[u], self.f_key[u], EARLY, t)
         if self.trace_log is not None:
@@ -344,32 +440,58 @@ class Engine:
         s = int(self.serv[u])
         if kind == "rlf" and not self.f_on[u]:
             self.proc.before_link_failure(u, t)
+        # MRO classes of TS 38.300 V18.11.0 15.5.2.2.2 (since 2.1.0): too early = re-establishment in the source,
+        # wrong cell = in a cell other than source and target, too late = in a different cell; a re-establishment
+        # in the serving cell (the target after a handover) is in none of the three classes: "coverage".  One
+        # failure gets one class: an RLF shortly after a handover is classified by that handover.  2.0.0:
+        # re-establishment in the target was too early, a lost command too late in any cell, and both labels when
+        # two attempts met.
+        std = self.std
         if kind == "exec":
             src, tgt = int(self.f_src[u]), int(self.f_tgt[u])
             cause = "execution_failure"
-            self._feedback(u, src, tgt, self.f_key[u], EARLY, t)
-            self._close_flight(u, t, "too_early" if c in (src, tgt) else "wrong_cell", cause)
+            if std:
+                out = "too_early" if c == src else "coverage" if c == tgt else "wrong_cell"
+            else:
+                out = "too_early" if c in (src, tgt) else "wrong_cell"
+            if out != "coverage":
+                self._feedback(u, src, tgt, self.f_key[u], EARLY, t)
+            self._close_flight(u, t, out, cause)
         elif kind == "cmd":
             cause = "command_lost"
-            self._feedback(u, self.f_src[u], self.f_tgt[u], self.f_key[u], LATE, t)
-            self._close_flight(u, t, "too_late", cause)
+            out = "too_late" if (c != s or not std) else "coverage"
+            if out == "too_late":
+                self._feedback(u, self.f_src[u], self.f_tgt[u], self.f_key[u], LATE, t)
+                self.C["late_f"] += int(t >= self.t0c)
+            self._close_flight(u, t, out, cause)
         elif self.w_on[u]:
             cause = "rlf_after_handover"
-            self._feedback(u, self.w_src[u], self.w_tgt[u], self.w_key[u], EARLY, t)
+            if std:
+                out = "too_early" if c == int(self.w_src[u]) else "coverage" if c == s else "wrong_cell"
+            else:
+                out = "too_early" if c in (int(self.w_src[u]), s) else "wrong_cell"
+            if out != "coverage":
+                self._feedback(u, self.w_src[u], self.w_tgt[u], self.w_key[u], EARLY, t)
             dwell = t - self.w_t0[u]
-            self._close_window(u, t, "too_early" if c in (int(self.w_src[u]), s) else "wrong_cell", cause,
-                               dwell, self.w_g[u] / max(self.w_n[u], 1.0))
+            self._close_window(u, t, out, cause, dwell, self.w_g[u] / max(self.w_n[u], 1.0))
             if self.f_on[u]:
-                self._feedback(u, self.f_src[u], self.f_tgt[u], self.f_key[u], LATE, t)
-                self._close_flight(u, t, "too_late", "rlf_in_preparation")
+                if std:                                 # the failure belongs to the handover just made
+                    self._close_flight(u, t, "censored", "rlf_after_handover")
+                else:                                   # 2.0.0 (its too_late_pm counted only the window)
+                    self._feedback(u, self.f_src[u], self.f_tgt[u], self.f_key[u], LATE, t)
+                    self._close_flight(u, t, "too_late", "rlf_in_preparation")
         elif self.f_on[u]:
             cause = "rlf_in_preparation"
-            self._feedback(u, self.f_src[u], self.f_tgt[u], self.f_key[u], LATE, t)
-            self._close_flight(u, t, "too_late", cause)
+            out = "too_late" if (c != s or not std) else "coverage"
+            if out == "too_late":
+                self._feedback(u, self.f_src[u], self.f_tgt[u], self.f_key[u], LATE, t)
+                self.C["late_f"] += int(t >= self.t0c)
+            self._close_flight(u, t, out, cause)
         else:
             cause = "rlf_without_handover" if c != s else "coverage_rlf"
             npr = self.proc.prepared_count(u)
             if c != s:
+                self.C["late_f"] += int(t >= self.t0c)
                 if self.learns:
                     k = int(self.k310[u])
                     self.rule.on_link_failure(FailureRecord(int(u), s, c, float(t), float(self.t310[u]),
@@ -393,11 +515,14 @@ class Engine:
         self.proc.clear(u, c if rec else -1, t)
         self.state[u] = REESTABLISHING
         t_out = self.P.cho_recovery_s if rec else self.P.reest_s
+        self.rec_t0[u] = t if (rec and self.std) else INF
         self.t_done[u] = t + t_out
         if t >= self.t0c:
             self.acc["int_fail"] += min(t_out, self.S * self.dt - t)
         self.re_cell[u] = c
         self.run[u] = False
+        if self.std:                     # a re-establishment is no handover: no ping-pong across it (2.1.0)
+            self.prev[u] = -1
         self.proc.on_failure(u)
 
     # ------------------------------------------------------------------ main loop
@@ -449,13 +574,16 @@ class Engine:
                     else:
                         c = int(self.re_cell[u])
                         lc = ln[u, c]
-                        self._attach(u, c, lc / (tot[u] - self.rc[c] * lc + noise), t)
+                        s = lc / (tot[u] - self.rc[c] * lc + noise)
+                        if self._recovery_joins(u, s, t):
+                            self._attach(u, c, s, t)
             serv = self.serv
             if kern is not None:                           # compiled kernel (run.backend: numba), same values
                 sl = np.empty((1, self.U))
                 ex = np.empty((1, self.U), dtype=bool)
                 if kern(ln, tot[None], self.rc[serv][None], serv[None], v[0], v[1], v[2], v[3], v[4], v[5], v[6], sl,
-                        ex, t, k, noise, ao, ai, qout, qin, t310_lim, P.rlm_holdoff_s, EPS, CONNECTED):
+                        ex, t, k, noise, ao, ai, qout, qin, t310_lim, P.rlm_holdoff_s, EPS, CONNECTED, self.std,
+                        k % self.ind_steps == 0):
                     for u in np.nonzero(ex[0])[0]:
                         self.fail(u, t, "rlf")
                 self.sl_now = sl[0]
@@ -474,22 +602,35 @@ class Engine:
                 sl = sinr
             qo += ao * (sl - qo)
             qi += ai * (sl - qi)
-            if simple:
-                start = (qo < qout) & con & ~run
+            if self.std:
+                mon = con | ((state == EXECUTING) & self.daps_u & ~self.src_rlf) if self.daps_mon else con
+                if k % self.ind_steps == 0:
+                    start = rlm_indications(P, qo, qi, qout, qin, run, self.n_o, self.n_i, mon, t, self.rlm_t0)
+                    self.t310[start] = t
+                    self.k310[start] = k
+                if cnz(run):
+                    for u in np.nonzero(run & mon & (t - self.t310 >= P.t310_s - EPS))[0]:
+                        if state[u] == EXECUTING:
+                            self._source_rlf(u, t)
+                        else:
+                            self.fail(u, t, "rlf")
             else:
-                self.n_o[:] = (self.n_o + 1) * (qo < qout)
-                self.n_i[:] = (self.n_i + 1) * (qi > qin)
-                start = con & ~run & (self.n_o >= P.n310)
-            if P.rlm_holdoff_s > 0:
-                start &= t >= self.rlm_t0 - EPS
-            if cnz(start):
-                run |= start
-                self.t310[start] = t
-                self.k310[start] = k
-            if cnz(run):
-                run &= ~((qi > qin) if simple else (self.n_i >= P.n311))
-                for u in np.nonzero(run & con & (t - self.t310 >= P.t310_s - EPS))[0]:
-                    self.fail(u, t, "rlf")
+                if simple:
+                    start = (qo < qout) & con & ~run
+                else:
+                    self.n_o[:] = (self.n_o + 1) * (qo < qout)
+                    self.n_i[:] = (self.n_i + 1) * (qi > qin)
+                    start = con & ~run & (self.n_o >= P.n310)
+                if P.rlm_holdoff_s > 0:
+                    start &= t >= self.rlm_t0 - EPS
+                if cnz(start):
+                    run |= start
+                    self.t310[start] = t
+                    self.k310[start] = k
+                if cnz(run):
+                    run &= ~((qi > qin) if simple else (self.n_i >= P.n311))
+                    for u in np.nonzero(run & con & (t - self.t310 >= P.t310_s - EPS))[0]:
+                        self.fail(u, t, "rlf")
             # --- handover command / conditional configuration reaches the UE
             self.sl_now = sl
             self.proc.step(t)
@@ -560,7 +701,7 @@ class Engine:
         serv = self.serv
         con = state == CONNECTED
         if self.proc.dual:                                       # DAPS: the source serves during the execution
-            con = con | (state == EXECUTING)
+            con = con | ((state == EXECUTING) & self.daps_u)
         ls = ln[ar, serv]
         sinr = ls / (tot - self.rc[serv] * ls + self.noise)      # tot = ln @ rc of this step (rc unchanged)
         ok = con & (sinr >= self.qout)
@@ -606,9 +747,11 @@ class Engine:
         ue_min = self.U * (run.duration_s - run.warmup_s) / 60.0
         ue_s = max(self.acc["steps"], 1) * self.U * self.dt
         R = self.world.scenario.radio
-        p_tx = 10.0 ** (R.tx_power_dbm / 10.0) / 1000.0              # transmit power per site [W]
+        p_tx = 10.0 ** (R.tx_power_dbm / 10.0) / 1000.0              # transmit power per cell [W]
+        if self.acc.get("load", 0.0) > 0 and "load_ptx" in self.acc:  # layers with their own power (2.1.0)
+            p_tx = self.acc["load_ptx"] / self.acc["load"]           # load-weighted mean over the cells
         return summarize(C, self.acc, ue_min, ue_s, self.U, self.dt, self.proc.open_preparations(),
-                         n_sites=self.M, power=(R.energy_p0_w, R.energy_slope * p_tx))
+                         n_sites=self.M, power=(R.energy_ntrx * R.energy_p0_w, R.energy_slope * p_tx))
 
     @property
     def events(self) -> Optional[List[dict]]:

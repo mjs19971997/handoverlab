@@ -29,11 +29,12 @@ def available() -> bool:
 
 
 def _rlm_step(ln, tot, rcs, serv, state, qo, qi, run, t310, k310, rlm_t0, sinr, exp,
-              t, k, noise, ao, ai, qout, qin, t310_lim, holdoff, eps, connected):
+              t, k, noise, ao, ai, qout, qin, t310_lim, holdoff, eps, connected, std, ind):
     """Serving SINR, Qout / Qin filters and T310 of every engine (rows) and user (columns) for one step.
 
     Writes ``sinr``, ``qo``, ``qi``, ``run``, ``t310``, ``k310`` and ``exp`` (T310 expired) in place and
-    returns the number of expiries.
+    returns the number of expiries.  ``std`` (since 2.1.0): out-of-sync / in-sync indications only at the
+    indication instants (``ind``) and not both on one instant, as ``core.rlm_indications`` with N310 = N311 = 1.
     """
     K, U = tot.shape
     n_exp = 0
@@ -48,13 +49,24 @@ def _rlm_step(ln, tot, rcs, serv, state, qo, qi, run, t310, k310, rlm_t0, sinr, 
             qi[j, u] = i
             con = state[j, u] == connected
             r = run[j, u]
-            if o < qout and con and not r:
-                if holdoff <= 0.0 or t >= rlm_t0[j, u] - eps:
-                    r = True
-                    t310[j, u] = t
-                    k310[j, u] = k
-            if r and i > qin:
-                r = False
+            if std:
+                if ind and con:
+                    oos = o < qout and t >= rlm_t0[j, u] - eps
+                    ins = i > qin
+                    if oos and not ins and not r:              # N310 = 1 reached
+                        r = True
+                        t310[j, u] = t
+                        k310[j, u] = k
+                    elif r and ins and not oos:                # N311 = 1 reached
+                        r = False
+            else:
+                if o < qout and con and not r:
+                    if holdoff <= 0.0 or t >= rlm_t0[j, u] - eps:
+                        r = True
+                        t310[j, u] = t
+                        k310[j, u] = k
+                if r and i > qin:
+                    r = False
             run[j, u] = r
             e = r and con and (t - t310[j, u] >= t310_lim)
             exp[j, u] = e

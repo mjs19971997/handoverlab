@@ -40,8 +40,8 @@ import math
 import numpy as np
 
 from .. import requirements as req
-from ..measurement import EPS, INF
-from .core import LN10_10, Engine
+from ..measurement import EPS, INF, L3Filter
+from .core import LN10_10, Engine, rlm_indications
 from .procedures import CONNECTED, EXECUTING
 
 
@@ -79,6 +79,10 @@ class ExtEngine(Engine):
             self.re_off = ext.re_off
             self.layer_of = ext.cell_layer
             self.bcfg = [L.beams for L in ext.layers]
+            if self.std:                                      # energy: each cell with the power of its layer
+                p_l = np.array([10.0 ** (L.radio.tx_power_dbm / 10.0) / 1000.0 for L in ext.layers])
+                self.ptx_c = p_l[ext.cell_layer]
+                self.acc["load_ptx"] = 0.0
         # the formulas of Engine where they still hold exactly (one carrier, one isolation, no beams)
         self.uniform = self.nc == 1 and bool(np.all(self.chi_c == self.chi_c[0])) and not self.has_b.any()
         if not self.uniform:
@@ -98,6 +102,11 @@ class ExtEngine(Engine):
         self.gaps = self.nc > 1 and self.mp38
         mgl, mgrp = req.GAP_PATTERNS[P.gap_pattern]
         self.gap_share = mgl / mgrp if self.gaps else 0.0
+        self.cell_fr2 = np.array([req.is_fr2(f) for f in self.f_c])
+        if not self.mp38 and self.std:                        # X of TS 38.331 5.5.3.2 per cell (its carrier's FR)
+            self.l3 = L3Filter(P.l3_k, self.mdt, np.array([req.l3_reference_period(f, P.ssb_period_s,
+                                                                                    P.fr2_power_class)
+                                                           for f in self.f_c]))
         if self.mp38:
             n_inter = self.nc - 1                              # inter-frequency layers sharing the gaps (CSSF)
             t_intra = np.array([req.intra_meas_period(f, P.ssb_period_s, P.fr2_power_class) for f in self.f_c])
@@ -122,13 +131,22 @@ class ExtEngine(Engine):
             self.a_bf = np.empty(M)
             self.n_rlm = np.ones(M, dtype=int)
             self.rlm_set = np.zeros((U, 8), dtype=int)         # RLM-RS beams (rlm_rs = "beams")
+            self.rlm_have = np.zeros(U, dtype=bool)            # the set was chosen from a beam report
+            # Qout_LR of beam failure detection on the SSB: TS 38.133 Table 8.5.2.1-1 has the hypothetical PDCCH at
+            # 0 dB to the SSS, Table 8.1.2.1-1 (Qout of RLM) at +4 dB, both at the same BLER, so Qout_LR is 4 dB
+            # above Qout in SSB SINR (since 2.1.0; 2.0.0: Qout_LR = Qout)
+            self.qout_lr = self.qout * (10 ** 0.4 if self.std else 1.0)
             self.t_ind = np.empty(M)
             self.a_bfd = np.empty(M)
             for c in range(M):
                 b = self.bcfg[self.layer_of[c]]
                 f = self.f_c[c]
                 n = (b.rx_sweep_n if b is not None and b.rx_sweep_n else req.rx_sweep_factor(f))
-                t_l1 = req.l1_rsrp_period(P.ssb_period_s, n)
+                if self.std and not (b is not None and b.rx_sweep_n) and req.is_fr2(f):
+                    n = 8                       # TS 38.133 9.5.4.1: N = 8 in Table 9.5.4.1-2 (all of FR2)
+                # T_L1-RSRP = max(T_Report, ceil(M P N) T_SSB), TS 38.133 Tables 9.5.4.1-1/-2 (T_Report since 2.1.0)
+                t_l1 = req.l1_rsrp_period(P.ssb_period_s, n, t_report=b.report_s if (self.std and b is not None)
+                                          else 0.0)
                 self.a_bf[c] = 1.0 - math.exp(-self.mdt / t_l1)
                 self.n_rlm[c] = req.n_rlm(f)
                 self.t_ind[c] = req.bfd_indication_interval(P.ssb_period_s)
@@ -193,6 +211,7 @@ class ExtEngine(Engine):
             self.ai[u] = 1.0 - np.exp(-self.P.step_s / T[1])
         if self.beams:
             self.sb[u] = self._best_beam(u, cell)
+            self.rlm_have[u] = False                          # the RLM-RS set of the new cell comes with a report
             self._beam_reset(u, t if t is not None else 0.0)
             if self.has_b[cell] and getattr(self, "_ch", None) is not None:
                 # monitoring starts from the quality of the beam the UE joined on
@@ -247,10 +266,10 @@ class ExtEngine(Engine):
             t304 = self.P.t304_s
             if t304 is not None and t - self.f_tx[u] < t304 - EPS:
                 self.t_done[u] = t + self.dt
-                if t >= self.t0c and not self.proc.dual:      # DAPS: the source link still carries the data
+                if t >= self.t0c and (not self.daps_u[u] or self.src_rlf[u]):   # DAPS: the source carries data
                     self.acc["int_exec"] += self.dt
                 return
-            if not (self.proc.fallback and self._fallback(u, t, ln, tot)):
+            if not (self.proc.fallback and self.daps_u[u] and self._fallback(u, t, ln, tot)):
                 self.fail(u, t, "exec")
             return
         src = int(self.serv[u])
@@ -261,8 +280,9 @@ class ExtEngine(Engine):
         cnt = bool(self.f_cnt[u])
         if cnt:
             self.C["ho"] += 1
+            self.msg(t)                                        # RRCReconfigurationComplete to the target
             self.C["pp"] += int(pp)
-        self.proc.clear(u, tgt, t)
+        self.proc.after_execution(u, tgt, t)
         self.prev[u] = src
         self.last_ho[u] = t
         self._attach(u, tgt, s, t)
@@ -281,7 +301,7 @@ class ExtEngine(Engine):
         if self.beams and self.has_b[src]:
             p = self._beam_power(self._i, self._ch, np.array([u]), np.array([src]), np.array([self.sb[u]]))[0]
         s = self._sinr_one(u, src, ln, tot, p)
-        if s < self.qout:
+        if (self.src_rlf[u] if self.daps_mon else s < self.qout):     # TS 38.331 5.3.5.8.3 (see Engine._fallback)
             return False
         from ..rules.base import EARLY
         self._feedback(u, src, self.f_tgt[u], self.f_key[u], EARLY, t)
@@ -366,13 +386,15 @@ class ExtEngine(Engine):
                         c = int(self.re_cell[u])
                         if self.uniform:
                             lc = ln[u, c]
-                            self._attach(u, c, lc / (totc[u, 0] - self.rc[c] * lc + self.noise), t)
+                            s = lc / (totc[u, 0] - self.rc[c] * lc + self.noise)
                         else:
                             b = self._best_beam(u, c)
                             p = None
                             if self.beams and self.has_b[c]:
                                 p = self._beam_power(i, ch, np.array([u]), np.array([c]), np.array([b]))[0]
-                            self._attach(u, c, self._sinr_one(u, c, ln, totc, p), t)
+                            s = self._sinr_one(u, c, ln, totc, p)
+                        if self._recovery_joins(u, s, t):
+                            self._attach(u, c, s, t)
             serv = self.serv
             con = state == CONNECTED
             ls_ref = ln[ar, serv]
@@ -399,22 +421,35 @@ class ExtEngine(Engine):
                 sl = self._rlm_quality(i, ch, serv, sl, ilm, con)
             qo += self.ao * (sl - qo)
             qi += self.ai * (sl - qi)
-            if simple:
-                start = (qo < qout) & con & ~run
+            if self.std:                                       # TS 38.331 7.2 / TS 38.133 8.1.6 (since 2.1.0)
+                mon = con | ((state == EXECUTING) & self.daps_u & ~self.src_rlf) if self.daps_mon else con
+                if k % self.ind_steps == 0:
+                    start = rlm_indications(P, qo, qi, qout, qin, run, self.n_o, self.n_i, mon, t, self.rlm_t0)
+                    self.t310[start] = t
+                    self.k310[start] = k
+                if cnz(run):
+                    for u in np.nonzero(run & mon & (t - self.t310 >= P.t310_s - EPS))[0]:
+                        if state[u] == EXECUTING:
+                            self._source_rlf(u, t)
+                        else:
+                            self.fail(u, t, "rlf")
             else:
-                self.n_o[:] = (self.n_o + 1) * (qo < qout)
-                self.n_i[:] = (self.n_i + 1) * (qi > qin)
-                start = con & ~run & (self.n_o >= P.n310)
-            if P.rlm_holdoff_s > 0:
-                start &= t >= self.rlm_t0 - EPS
-            if cnz(start):
-                run |= start
-                self.t310[start] = t
-                self.k310[start] = k
-            if cnz(run):
-                run &= ~((qi > qin) if simple else (self.n_i >= P.n311))
-                for u in np.nonzero(run & con & (t - self.t310 >= P.t310_s - EPS))[0]:
-                    self.fail(u, t, "rlf")
+                if simple:
+                    start = (qo < qout) & con & ~run
+                else:
+                    self.n_o[:] = (self.n_o + 1) * (qo < qout)
+                    self.n_i[:] = (self.n_i + 1) * (qi > qin)
+                    start = con & ~run & (self.n_o >= P.n310)
+                if P.rlm_holdoff_s > 0:
+                    start &= t >= self.rlm_t0 - EPS
+                if cnz(start):
+                    run |= start
+                    self.t310[start] = t
+                    self.k310[start] = k
+                if cnz(run):
+                    run &= ~((qi > qin) if simple else (self.n_i >= P.n311))
+                    for u in np.nonzero(run & con & (t - self.t310 >= P.t310_s - EPS))[0]:
+                        self.fail(u, t, "rlf")
             # --- beam management, beam failure detection and recovery
             if self.beams:
                 self._beam_step(i, ch, t, ssb_q, ilm, ln, totc)
@@ -439,7 +474,10 @@ class ExtEngine(Engine):
             n = self.n_rlm[c]
             beams = self.rlm_set[u, :n]
             p = self._beam_power(i, ch, np.full(n, u), np.full(n, c), beams)
-            out[u] = max(float(s_tci[u]), float(p.max() / ilm[u]))
+            if self.std:                     # 2.1.0: the N_RLM RLM-RS only (TS 38.133 Table 8.1.1-2)
+                out[u] = float(p.max() / ilm[u]) if self.rlm_have[u] else float(s_tci[u])
+            else:
+                out[u] = max(float(s_tci[u]), float(p.max() / ilm[u]))
         return out
 
     # ------------------------------------------------------------------ beams
@@ -474,9 +512,14 @@ class ExtEngine(Engine):
             self.bfd_next[u] = t + self.t_ind[c]
             if not b.bfd:
                 continue
-            if t >= self.bfd_end[u] - EPS:                    # beamFailureDetectionTimer expired
+            if self.std:
+                # TS 38.321 5.17: an indication restarts beamFailureDetectionTimer; the counter is reset only if
+                # the timer expired before this instant (2.0.0 also reset it when both fell on one instant)
+                if t > self.bfd_end[u] + EPS:
+                    self.bfi[u] = 0
+            elif t >= self.bfd_end[u] - EPS:                  # beamFailureDetectionTimer expired
                 self.bfi[u] = 0
-            if self.bfd_q[u] < self.qout:                     # all BFD-RS worse than Qout_LR: one indication
+            if self.bfd_q[u] < self.qout_lr:                  # all BFD-RS worse than Qout_LR: one indication
                 self.bfd_end[u] = t + b.bfd_timer * self.t_ind[c]
                 self.bfi[u] += 1
                 if self.bfi[u] >= b.bfi_max and not self.bfr[u]:
@@ -569,6 +612,7 @@ class ExtEngine(Engine):
             if b.rlm_rs == "beams":
                 n = min(self.n_rlm[c], nb)
                 self.rlm_set[u, :n] = np.argsort(-v)[:n]
+                self.rlm_have[u] = True
 
     def _measure_rule(self, ch, j, k, t, ln) -> bool:
         if not self.mp38:
@@ -648,7 +692,7 @@ class ExtEngine(Engine):
         serv = self.serv
         con = state == CONNECTED
         if self.proc.dual:
-            con = con | (state == EXECUTING)
+            con = con | ((state == EXECUTING) & self.daps_u)
         ls_ref = ln[ar, serv]
         ls = self._desired(self._i, self._ch, ln, serv)
         sinr = ls / (totc[ar, self.car[serv]] - self.rc[serv] * ls_ref + self.noise_c[serv])
@@ -683,6 +727,8 @@ class ExtEngine(Engine):
             acc["thr"] += float(thr.sum()); acc["dem"] += float(np.sum(rate))
             acc["sinr"] += float(10.0 * np.log10(sinr[con]).sum()); acc["se"] += float(se[con].sum())
             acc["ncon"] += int(con.sum()); acc["load"] += float(rho_new.mean()); acc["nmeas"] += 1
+            if "load_ptx" in acc:
+                acc["load_ptx"] += float((rho_new * self.ptx_c).mean())
             acc["prep_time"] += self.proc.prepared_total() * self.mdt
             acc["gap_time"] += self.gap_share * self.mdt * int(con.sum())
 

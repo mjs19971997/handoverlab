@@ -4,8 +4,11 @@
 N1  link budget: for the S-band LEO downlink cases of TR 38.821 Table 6.1.3.3-1 the slant range and free-space
     path loss of TR 38.811 Eqs. 6.6-2 and 6.6-3 at the 30 degree target elevation, the atmospheric loss of
     Eq. 6.6-8 and the CNR with the margins of Table 6.1.3.2-1 equal the table within 0.1 dB (its rounding);
-N2  the 3 dB beamwidth of the antenna pattern of TR 38.811 clause 6.4.1 for the S-band apertures of TR 38.821
-    Tables 6.1.1.1-1 and -2 equals the tabled beamwidth within 0.01 degree;
+N2  (since 2.1.0) the satellite beams of the simulator have the tabled 3 dB beamwidth of TR 38.821 Tables
+    6.1.1.1-1 and -2 for both S-band apertures (Table 6.1.1.1-4: only the 3 dB beamwidth is used), the antenna
+    pattern of TR 38.811 clause 6.4.1 scaled to it has that 3 dB width within 0.0001 degree, and the adjacent beam
+    spacing sqrt(3) sin(HPBW / 2) is within 0.0002 of the informative values of Table 6.1.1.1-6 (0.0668 and
+    0.1334); until 2.0.0 the width came from the aperture (8.8462 instead of 8.8320 degrees for 1 m);
 N3  the orbital speed at 600 km is within 0.5 % of 7.56 km/s (TR 38.821 Table 7.1-1) and the nadir 3 dB
     footprint of the Set-1 S-band beam within 10 % of the informative 50 km of Table 6.1.1.1-1.
 
@@ -15,7 +18,8 @@ from __future__ import annotations
 
 import math
 
-from ..channel.ntn import fspl_db, hpbw_deg, ka_from_aperture, orbital_speed, slant_range
+from ..channel.ntn import NtnGeometry, fspl_db, hpbw_deg, ka_from_aperture, orbital_speed, slant_range
+from ..scenarios import builtin_scenario
 
 K_BOLTZMANN_DB = -228.6        # dBW/K/Hz, TR 38.821 clause 6.1.3.1
 T0 = 290.0
@@ -57,15 +61,22 @@ def ntn_checks(rep) -> None:
     rep.check("N1: FSPL, atmospheric loss and CNR of 8 S-band LEO cases of Table 6.1.3.3-1 within 0.1 dB",
               worst <= 0.1 + 1e-9, "largest difference %.3f dB; %s" % (worst, "; ".join(rows[:3]) + "; ..."))
     bad = []
-    for aperture, tabled in ((2.0, 4.4127), (1.0, 8.8320)):
-        hp = hpbw_deg(ka_from_aperture(aperture, 2.0))
-        if abs(hp - tabled) > 0.01:
-            bad.append("%.1f m: %.4f against %.4f" % (aperture, hp, tabled))
-        rows.append("%.1f m %.4f deg" % (aperture, hp))
-    rep.check("N2: 3 dB beamwidth of the Bessel pattern for the S-band apertures 2 m and 1 m within 0.01 deg",
-              not bad, "; ".join(bad) if bad else ", ".join(rows[-2:]))
+    for aperture, tabled, abs_t in ((2.0, 4.4127, 0.0668), (1.0, 8.8320, 0.1334)):
+        # the baseline of Table 6.1.1.1-6 for C2/D2: central beam at nadir
+        sc = builtin_scenario("ntn-leo600-2ghz").with_overrides({"ntn.aperture_m": aperture,
+                                                                  "ntn.centre_elevation_deg": 90.0})
+        geom = NtnGeometry(sc)
+        hp = hpbw_deg(geom.ka)
+        spacing = math.sqrt(3.0) * math.sin(math.radians(geom.hpbw) / 2.0)
+        if abs(geom.hpbw - tabled) > 1e-9 or abs(hp - tabled) > 1e-4 or abs(spacing - abs_t) > 2e-4:
+            bad.append("%.1f m: beamwidth %.4f, pattern %.4f, spacing %.5f against %.4f, %.4f"
+                       % (aperture, geom.hpbw, hp, spacing, tabled, abs_t))
+        rows.append("%.1f m %.4f deg, spacing %.5f (aperture alone: %.4f deg)"
+                    % (aperture, hp, spacing, hpbw_deg(ka_from_aperture(aperture, 2.0))))
+    rep.check("N2: tabled 3 dB beamwidth of the S-band apertures 2 m and 1 m, pattern and beam spacing", not bad,
+              "; ".join(bad) if bad else ", ".join(rows[-2:]))
     v = orbital_speed(600e3)
-    hp = hpbw_deg(ka_from_aperture(2.0, 2.0))
+    hp = NtnGeometry(builtin_scenario("ntn-leo600-2ghz")).hpbw
     foot = 2.0 * 600e3 * math.tan(math.radians(hp / 2.0))
     rep.check("N3: orbital speed at 600 km within 0.5 % of 7.56 km/s, nadir footprint within 10 % of 50 km",
               abs(v / 7560.0 - 1.0) <= 0.005 and abs(foot / 50e3 - 1.0) <= 0.10,

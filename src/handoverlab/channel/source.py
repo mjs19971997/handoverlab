@@ -29,7 +29,8 @@ from scipy.signal import lfilter
 from scipy.special import ndtri
 
 from ..seeds import streams
-from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, radio_kwargs, soft_los_power_weight
+from .pathloss import (is_3gpp, los_shadow_sd, los_ut_height, mix_db, p_los, path_loss, radio_kwargs,
+                       soft_los_power_weight, uma_effective_height)
 
 LN10_10 = np.log(10.0) / 10.0
 
@@ -84,6 +85,13 @@ class RadioSource:
         if self.open:
             self.r_l = np.exp(-self.V * dt / R.los_corr_m)
             self.zl = self.rng_l.standard_normal((self.U, self.M))
+        self.hut_los = los_ut_height(R)                 # UMa C'(h_UT) with channel_detail "3gpp" (since 2.1.0)
+        self.he_u = None
+        if self.open and is_3gpp(R) and R.pathloss == "uma" and R.ue_height_m >= 13.0:
+            # effective environment height of every user-site link (TR 38.901 Table 7.4.1-1 note 1): two uniform
+            # variables per link, drawn once, compared with 1 / (1 + C(d2D, h_UT)) at the current distance
+            rng_he = streams(world.seed, "radio", 5, sub)[4]
+            self.he_u = (rng_he.random((self.U, self.M)), rng_he.random((self.U, self.M)))
         self.p0 = R.tx_power_dbm + R.bs_gain_db + R.ue_gain_db
         self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
         if R.penetration_db or R.penetration_sd_db:     # per-user loss on all links (own stream)
@@ -99,6 +107,13 @@ class RadioSource:
             out[:, u, :] = _ar1(rng.standard_normal((n, self.M)), r_u[u], z[u])
         return out
 
+    def _he(self, d2, n):
+        """Effective environment heights (n * U, M) of the UMa links, or None (h_E = 1 m)."""
+        if self.he_u is None:
+            return None
+        u1, u2 = (np.tile(u, (n, 1)) for u in self.he_u)
+        return uma_effective_height(u1, u2, np.maximum(d2, self.R.pl_min_distance_m), self.R.ue_height_m)
+
     def _soft_open(self, x, y, sites, n, shape):
         """Static part of the received power with the soft LOS state (open area, indoor; since 1.7.0).
 
@@ -110,15 +125,16 @@ class RadioSource:
         d2 = rmap.layout.distances(x, y, sites)
         g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
         self.zl = g[-1].copy()
-        z = ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
-        u = rmap.lookup(x, y).astype(np.float64) if rmap.has_field else np.zeros_like(d2)
+        z = ndtri(np.clip(p_los(d2, R.pathloss, self.hut_los), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
+        u = rmap.lookup_field(x, y).astype(np.float64) if rmap.has_field else np.zeros_like(d2)
         if self.own:
             o = self._ar1_users(self.rng_o, self.r_o, self.zo, n)
             self.zo = o[-1].copy()
             u += np.sqrt(1.0 - R.place_share) * o.reshape(d2.shape)
         args = (R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m)
-        g_l = -path_loss(d2, True, *args, **radio_kwargs(R)) + los_shadow_sd(d2, R) * u
-        g_n = -path_loss(d2, False, *args, **radio_kwargs(R)) + R.shadow_nlos_db * u
+        he = self._he(d2, n)
+        g_l = -path_loss(d2, True, *args, **radio_kwargs(R), h_e=he) + los_shadow_sd(d2, R) * u
+        g_n = -path_loss(d2, False, *args, **radio_kwargs(R), h_e=he) + R.shadow_nlos_db * u
         return mix_db(soft_los_power_weight(z, R.carrier_ghz, R.soft_los_d_m), g_l, g_n).reshape(shape)
 
     def chunks(self) -> Iterator[Chunk]:
@@ -163,12 +179,12 @@ class RadioSource:
                 else:
                     g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
                     self.zl = g[-1].copy()
-                    los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss), 1e-9, 1.0 - 1e-9))
+                    los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss, self.hut_los), 1e-9, 1.0 - 1e-9))
                 rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m,
-                                **radio_kwargs(R)).reshape(shape)
+                                **radio_kwargs(R), h_e=self._he(d2, n)).reshape(shape)
                 sig = np.where(los, los_shadow_sd(d2, R), R.shadow_nlos_db).reshape(shape)
                 if rmap.has_field:
-                    rs += rmap.lookup(x, y).astype(np.float64).reshape(shape) * sig
+                    rs += rmap.lookup_field(x, y).astype(np.float64).reshape(shape) * sig
             if self.own and sig is not None:
                 o = self._ar1_users(self.rng_o, self.r_o, self.zo, n)
                 self.zo = o[-1].copy()

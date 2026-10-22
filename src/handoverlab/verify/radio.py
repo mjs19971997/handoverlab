@@ -225,12 +225,17 @@ def radio_statistics(rep, seeds: Sequence[int] = (3,)) -> None:
               abs(sl - R.shadow_los_db) < 0.4 and abs(sn - R.shadow_nlos_db) < 0.8,
               "%.2f dB (%.2f) / %.2f dB (%.2f)" % (sl, R.shadow_los_db, sn, R.shadow_nlos_db))
     a, b = float(np.mean(c10)), float(np.mean(c20))
+    # expected: exp(-d / d_cor) of TR 38.901 Eq. (7.4-5) (channel_detail "3gpp", since 2.1.0), or the
+    # Gaussian-shaped exp(-(d / d_cor)^2) of the "simple" model
+    shape = (lambda d: math.exp(-d / R.shadow_decorr_m)) if pl.is_3gpp(R) else (
+        lambda d: math.exp(-(d / R.shadow_decorr_m) ** 2))
+    e10, e20 = shape(10.0), shape(20.0)
     rep.check("place-tied shadowing: spatial correlation at 10 m and 20 m (decorrelation distance %g m)"
-              % R.shadow_decorr_m, abs(a - math.exp(-1.0)) < 0.12 and b < 0.15,
-              "%.2f (1/e = 0.37), %.2f" % (a, b))
+              % R.shadow_decorr_m, abs(a - e10) < 0.12 and abs(b - e20) < 0.12,
+              "%.2f (%.2f), %.2f (%.2f)" % (a, e10, b, e20))
     c = float(np.mean(cs))
-    rep.check("place-tied shadowing: correlation between sites", abs(c - R.shadow_site_corr) < 0.15,
-              "%.2f (%.2f)" % (c, R.shadow_site_corr))
+    want = pl.site_corr(R)
+    rep.check("place-tied shadowing: correlation between sites", abs(c - want) < 0.15, "%.2f (%.2f)" % (c, want))
     txt, ok = [], True
     for lo, hi in edges:
         g, e = bins[(lo, hi)]

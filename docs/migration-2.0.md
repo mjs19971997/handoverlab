@@ -15,7 +15,7 @@ bit.
 | Urban mobility | `mobility.profile: v60` (every vehicle at 60 km/h in one of two lanes of 3.5 m) | TR 37.885 clause 6.1.2 option A and Table A-1 | `veh16` (52-63 km/h, lateral 0-3 m) |
 | Handover command received while T310 runs | `protocol.cmd_during_t310: receive` | TS 38.331 5.3.5.5.2 | `lost` |
 | T304 | `protocol.t304_s: 1.0` | TS 38.331 5.3.5.8.3 | none |
-| Link monitoring restarts on a new cell | `protocol.rlm_holdoff_s: 0.2` | TS 38.133 clause 8.1 | 0 |
+| Link monitoring restarts on a new cell | `protocol.rlm_holdoff_s: 0.2` | an interpretation of TS 38.133 8.1.2.2 | 0 |
 | CHO configuration that arrives while T310 runs | received like a handover command when the link reaches Qout (with `cmd_during_t310: receive`) | TS 38.331 5.3.5.13 | lost |
 | Model version of studies | `MODEL_VERSION = "2"`: study directories of 1.x run their jobs again | | `"1"` |
 | Scenario card `highway-10ghz` | removed (deprecated in 1.11.0) | TR 37.885 / TR 36.885 | |
@@ -28,9 +28,10 @@ from about six times the range measured in commercial networks to just above it.
 
 ```python
 import handoverlab as hl
-from handoverlab.stability import LEGACY_1X
+from handoverlab.stability import LEGACY_1X, LEGACY_CARDS
 
-sc = hl.builtin_scenario("smoke").with_overrides(dict(LEGACY_1X, **{"mobility.profile": "veh16"}))
+over = dict(LEGACY_1X, **LEGACY_CARDS["smoke"], **{"mobility.profile": "veh16"})   # LEGACY_CARDS: since 2.1.0
+sc = hl.builtin_scenario("smoke").with_overrides(over)
 ```
 
 In a configuration file, set the same keys:
@@ -38,7 +39,8 @@ In a configuration file, set the same keys:
 ```yaml
 scenario:
   base: smoke
-  radio: {breakpoint_c_mps: 299792458.0, pl_min_distance_m: 0.0}
+  radio: {breakpoint_c_mps: 299792458.0, pl_min_distance_m: 0.0, channel_detail: simple,
+          ue_height_m: 1.5}           # channel_detail since 2.1.0; ue_height_m: the card value of 2.0.0
   protocol: {cmd_during_t310: lost, t304_s: null, rlm_holdoff_s: 0.0}
   mobility: {profile: veh16}          # only for the urban-grid cards listed above
 ```

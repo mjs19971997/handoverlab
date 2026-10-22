@@ -5,7 +5,7 @@ since: 1.7.0
 purpose: >
   A rural counterpart of the urban scenarios: 11 macro sites 35 m high on a hexagonal grid with an
   inter-site distance of 1732 m (the RMa case of TR 38.901), the RMa path loss at 700 MHz, the
-  link budget of the IMT-2020 Rural-eMBB evaluation, and users in cars at about 120 km/h with the
+  link budget of the IMT-2020 Rural-eMBB evaluation, and users in cars at 120 km/h with the
   TR 38.901 car penetration loss.  Cells are large, so a user sees few handovers, each at high
   speed and at the edge of wide, partly noise-limited coverage.  Use it to see how a rule copes
   with coverage-limited cell edges rather than with interference from close neighbours.
@@ -19,7 +19,7 @@ scenario:
           bs_height_m: 35.0, ue_height_m: 1.5, pathloss: rma, shadow_los_db: 4.0, shadow_los_far_db: 6.0,
           shadow_nlos_db: 8.0, shadow_decorr_m: 120.0, los_corr_m: 60.0, penetration_db: 9.0,
           penetration_sd_db: 5.0, soft_los: true, map_res_m: 10.0}
-  mobility: {users: 30, profile: veh120}
+  mobility: {users: 30, profile: v120}
   run: {duration_s: 300.0, warmup_s: 30.0}
 sources:
   layout.kind: "TR 38.901 Table 7.2-3 (RMa: hexagonal grid)"
@@ -42,14 +42,17 @@ sources:
   radio.penetration_db: "TR 38.901 clause 7.4.3.2 (O2I car penetration loss: 9 dB)"
   radio.penetration_sd_db: "TR 38.901 clause 7.4.3.2 (5 dB, per user)"
   radio.map_res_m: "numerical setting (coarser map for the large area)"
-  mobility.profile: "ITU-R M.2412-0 Table 5c (outdoor users in car: 120 km/h); +-10 % spread is an assumption"
+  mobility.profile: "ITU-R M.2412-0 Table 5c (fixed and identical speed of all UEs; outdoor users in car: 120 km/h; since 2.1.0, until 2.0.0 108-132 km/h)"
+  mobility.users: "assumption (30 users for run time; ITU-R M.2412-0 Table 5c: 10 UEs per TRxP)"
 limitations:
   - "Only the users in cars: TR 38.901 Table 7.2-3 and ITU-R M.2412-0 have 50 % indoor users at 3 km/h, which hardly hand over and are left out."
   - "11 omnidirectional sites instead of 19 sites with 3 sectors, no wrap-around (users near the edge see fewer neighbours), about 3 users per site instead of 10 per TRxP; the minimum distance of 35 m to a site holds for the start and waypoints of a user, the straight legs between them may pass closer."
   - "One shadowing decorrelation distance: TR 38.901 gives 37 m for LOS and 120 m for NLOS links; here 120 m."
-  - "Far more handovers than the cell size alone would give (A3 with 3 dB and 160 ms: about 12 per user-minute in a check run of 3 seeds), mostly unnecessary ones: the 8 dB shadowing with 120 m decorrelation, only half correlated between sites, moves the best cell often at 120 km/h. Compare rules with each other here; do not read the absolute handover rate as that of a real rural network."
+  - "Far more handovers than the cell size alone would give (A3 with 3 dB and 160 ms: about 12 per user-minute in a check run of 3 seeds with the model of 2.0.0), mostly unnecessary ones: the 8 dB shadowing with 120 m decorrelation, uncorrelated between sites (TR 38.901 clause 7.5 step 4; half correlated until 2.0.0), moves the best cell often at 120 km/h. Compare rules with each other here; do not read the absolute handover rate as that of a real rural network."
   - "The soft LOS state is on: at 1-2 km the RMa NLOS loss is about 20 dB above the LOS loss, and the hard switch of the LOS state (radio.soft_los: false) made A3 fail about 4 times as often in the same check run (1.41 against 0.33 per user-minute)."
-  - "Vehicles move on straight legs between random waypoints, not on roads."
+  - "Vehicles move on straight legs between random waypoints, not on roads; random waypoints are denser in the middle of the area, while ITU-R M.2412-0 Table 5c drops the users uniformly."
+  - "Links reach about 6.4 km (from a corner site to the opposite corner), beyond the 5 km up to which TR 38.901 Table 7.4.1-1 gives the RMa NLOS formula; those far interferers use it outside its range (handoverlab warns about this)."
+  - "LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6)."
   - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
 references:
-  - "Layout, heights, path loss, LOS probability, shadowing and correlation distances checked against TR 38.901 V17.0.0, the link budget and speeds against ITU-R M.2412-0; path loss and LOS probability against values computed by hand (handoverlab verify, group pathloss); determinism and invariant checks as for every scenario."
+  - "Layout, heights, path loss, LOS probability, shadowing and correlation distances checked against TR 38.901 V19.5.0 (unchanged from V17.0.0), the link budget and speeds against ITU-R M.2412-0; path loss and LOS probability against values computed by hand (handoverlab verify, group pathloss); determinism and invariant checks as for every scenario."

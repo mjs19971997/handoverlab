@@ -8,10 +8,12 @@ L1/L2-triggered mobility) can be added without touching the engine.
 
 Baseline handover (TR 36.839 failure model)
     Event A3 (offset per user and neighbour) held for the time-to-trigger ->
-    measurement report -> preparation (``prep_s``) -> handover command.  The
-    command is lost if T310 is running when it arrives ("too late").
-    Otherwise the UE leaves the source, is interrupted for ``exec_s`` and
-    joins the target if the target SINR is at least Qout.
+    measurement report -> preparation (``prep_s``) -> handover command.  A
+    command that arrives while T310 runs is received once the link reaches Qout
+    (``protocol.cmd_during_t310: receive``, the default since 2.0.0; with
+    ``lost`` it is lost, "too late").  The UE leaves the source, is interrupted
+    for ``exec_s`` and joins the target when its SINR is at least Qout while
+    T304 runs.
 
 Conditional handover (TS 38.300 clause 9.2.3.4)
     The UE reports a neighbour once it passes the reporting offset (first
@@ -19,19 +21,22 @@ Conditional handover (TS 38.300 clause 9.2.3.4)
     network prepares the neighbours whose advantage reaches the preparation
     offset, at most ``n_max`` (best first), and releases prepared cells that
     fell ``release_hys_db`` below it.  The conditional configuration reaches
-    the UE after ``prep_s`` and is lost if T310 is running.  The UE evaluates
+    the UE after ``prep_s`` (while T310 runs, as a command).  The UE evaluates
     the execution condition of every prepared cell at each measurement and
-    executes on its own.  After an execution the other prepared cells are
-    released; after a failure the UE recovers faster (``cho_recovery_s``) if
-    it selects a prepared cell.
+    executes on its own when the time-to-trigger expires (since 2.1.0 also
+    between two measurement instants).  After an execution the other prepared
+    cells are released; after a failure the UE recovers into a prepared cell
+    it selects (``cho_recovery_s``; since 2.1.0 with T304, TS 38.331 5.3.7.3).
 
 DAPS handover (TS 38.300 clause 9.2.3.2, TS 38.331 clause 5.3.5.8.3)
     Triggered and prepared as a baseline handover.  During the execution the
     source link keeps carrying data (the user-plane interruption is
-    ``interruption_s`` of the rule instead of ``exec_s``).  If the target
-    cannot be joined and the source SINR is still at least Qout, the UE falls
-    back to the source: the attempt ends as ``too_early`` with the cause
-    ``daps_fallback`` and no re-establishment follows.
+    ``interruption_s`` of the rule instead of ``exec_s``) and is monitored
+    (since 2.1.0: T310 is not stopped, a source RLF during T304 releases it).
+    If the target cannot be joined before T304 expires and no source RLF was
+    detected, the UE falls back to the source: the attempt ends as
+    ``too_early`` with the cause ``daps_fallback`` and no re-establishment
+    follows.  Not from FR2 to FR2 and not for NTN (TS 38.300).
 
 L1/L2-triggered mobility (TS 38.300 clause 9.2.3.5)
     Candidate cells are configured as the prepared cells of a conditional
@@ -39,9 +44,10 @@ L1/L2-triggered mobility (TS 38.300 clause 9.2.3.5)
     network evaluates the unfiltered L1 measurements: when a configured
     candidate is better than the serving cell by the switch offset for
     ``ttt_switch_s``, it sends a cell switch command (MAC CE), which reaches
-    the UE after ``cmd_delay_s`` and is lost if T310 is running.  The
-    execution takes ``exec_s`` of the rule (RACH-less, with early timing
-    advance acquisition).
+    the UE after ``cmd_delay_s`` (while T310 runs, as a baseline command).
+    The execution takes ``exec_s`` of the rule (RACH-less, with early timing
+    advance acquisition; 20 ms more between FR1 and FR2 since 2.1.0).  The
+    other candidates stay configured after a switch (TS 38.331 5.3.5.18.6).
 """
 from __future__ import annotations
 
@@ -66,6 +72,8 @@ def receive_during_t310(eng, u, wait, t) -> bool:
     if not wait[u]:
         wait[u] = True
         eng.C["cmd"] += int(t >= eng.t0c)
+        if eng.proc.kind != "ltm":                      # an LTM cell switch command is a MAC CE
+            eng.msg(t)
     if eng.sl_now[u] < eng.qout:
         return True
     eng.run[u] = False
@@ -113,6 +121,10 @@ class Procedure:
     def clear(self, u, used_cell, t):
         """Drop all preparations of user ``u`` (``used_cell`` is the cell it went to, or -1)."""
 
+    def after_execution(self, u, tgt, t):
+        """A successful execution of user ``u`` towards ``tgt`` (since 2.1.0; by default :meth:`clear`)."""
+        self.clear(u, tgt, t)
+
     def before_link_failure(self, u, t):
         """User ``u`` has a radio-link failure while no attempt is in flight (called first)."""
 
@@ -150,6 +162,8 @@ class BaselineProcedure(Procedure):
             if receive_during_t310(eng, u, self.cmd_wait, t):
                 continue
             eng.C["cmd"] += int(t >= eng.t0c) * (not self.cmd_wait[u])
+            if not self.cmd_wait[u]:
+                eng.msg(t)                              # RRCReconfiguration (handover command)
             self.cmd_wait[u] = False
             if eng.run[u]:
                 eng.fail(u, t, "cmd")                   # command lost while T310 runs
@@ -192,6 +206,7 @@ class BaselineProcedure(Procedure):
             self.n_pend += 1
             self.pend_t[u] = t_rep + eng.P.prep_s
             eng.C["reports"] += int(counted)
+            eng.msg(t_rep)
 
     def cancel_command(self, u):
         self.cmd_wait[u] = False
@@ -220,6 +235,15 @@ class ConditionalProcedure(Procedure):
         self.pkey = np.full((U, M), -1)
         self.tx = np.full((U, M), INF)                      # time since which the execution condition holds
         self.tr = np.full((U, M), INF)                      # time since which the reporting condition holds
+        # with a further condition (since 2.1.0): the condEventA3 of each configuration as an event state of
+        # TS 38.331 5.3.5.13.4, fulfilled after its entry condition held for its time-to-trigger and not
+        # fulfilled after its leaving condition held for it
+        self.a3_on = np.zeros((U, M), dtype=bool)
+        self.a3_out = np.full((U, M), INF)
+        # an execution whose time-to-trigger expires before the next measurement instant (since 2.1.0, as the
+        # report of a baseline handover: TS 38.331 5.3.5.13.4 and 5.5.4.1 use the same wording)
+        self.x_due = np.full(U, INF)
+        self.x_tgt = np.zeros(U, dtype=int)
         self.seen = np.zeros((U, M), dtype=bool)
         self.n_pp, self.pp_next = 0, INF
 
@@ -247,6 +271,11 @@ class ConditionalProcedure(Procedure):
             # check mode: a configuration on its way counts as a handover command on its way
             self.eng.new_flight(u, int(np.argmax(self.ppend[u])), t)
 
+    def after_execution(self, u, tgt, t):
+        """A successful execution towards ``tgt``: release the configurations (the conditional ones are removed
+        after a successful reconfiguration with sync, TS 38.331 5.3.5.3)."""
+        self.clear(u, tgt, t)
+
     def clear(self, u, used_cell, t):
         C = self.eng.C
         npr = int(self.prepared[u].sum())
@@ -266,7 +295,12 @@ class ConditionalProcedure(Procedure):
         self.prepared[u] = False
         self.ppend[u] = False
         self.ppend_t[u] = INF
+        self.x_due[u] = INF
+        if getattr(self.rule, "exec_condition_used", False) and self.eng.std:
+            self.rule.release_user(u)
         self.tx[u] = INF
+        self.a3_on[u] = False
+        self.a3_out[u] = INF
         self.tr[u] = INF
         self.seen[u] = False
 
@@ -274,10 +308,18 @@ class ConditionalProcedure(Procedure):
     def step(self, t):
         if self.n_pp and t >= self.pp_next - EPS:
             self._deliver(t)
+        if self.eng.std and t >= self.x_due.min() - EPS:
+            eng = self.eng
+            for u in np.nonzero(t >= self.x_due - EPS)[0]:
+                n = int(self.x_tgt[u])
+                self.x_due[u] = INF
+                if eng.state[u] == CONNECTED and self.prepared[u, n]:
+                    eng.start_exec(u, n, t)
 
     def _deliver(self, t):
         eng = self.eng
         due = self.ppend & (t >= self.ppend_t - EPS)
+        got, sent = set(), set()                            # users that received / were sent a configuration
         for u, n in zip(*np.nonzero(due)):
             if not self.ppend[u, n]:
                 continue                                    # dropped by an earlier event of this step
@@ -295,16 +337,19 @@ class ConditionalProcedure(Procedure):
                 if eng.trace_log is not None:
                     eng.trace_event(t, u, "config", eng.serv[u], n, self.oexec[u, n])
                 eng.C["cfg_ok"] += int(t >= eng.t0c)
+                got.add(int(u))
                 if self._exec_on_delivery(u, n):
                     eng.start_exec(u, int(n), t)
             else:
                 if eng.trace_log is not None:
                     eng.trace_event(t, u, "config_lost", eng.serv[u], n)
                 eng.C["cfg_lost"] += int(t >= eng.t0c)
+                sent.add(int(u))
                 eng.C["prep_lost_all"] += 1
                 if eng.P.cfg_loss_as_failure and eng.state[u] == CONNECTED:
                     eng.new_flight(u, int(n), t)                    # check mode: like a lost handover command
                     eng.fail(u, t, "cmd")
+        eng.msg(t, 2 * len(got) + len(sent - got))           # one RRCReconfiguration per user (+ Complete)
         self.n_pp = int(np.count_nonzero(self.ppend))
         self.pp_next = float(self.ppend_t.min()) if self.n_pp else INF
 
@@ -325,6 +370,9 @@ class ConditionalProcedure(Procedure):
     # -- measurement instant -------------------------------------------
     def measure(self, obs, counted):
         con = obs.connected
+        self._extra = None
+        if getattr(self.rule, "exec_condition_used", False) and self.eng.std:
+            self._extra = self.rule.exec_condition(obs)     # kept current at every measurement (since 2.1.0)
         if self.prepared.any():
             con = self._execute(obs, con)
         self._report(obs, counted, con)
@@ -333,12 +381,30 @@ class ConditionalProcedure(Procedure):
         """UE side: execution condition of the prepared cells; returns the users still connected."""
         eng, gap, t = self.eng, obs.gap_db, obs.t
         cx = self.prepared & (gap > self.oexec) & con[:, None]
-        if self.rule.exec_condition_used:               # since 2.0.0: e.g. condEventD2 together with A3
-            extra = self.rule.exec_condition(obs)
+        if self.rule.exec_condition_used:
+            # two events (e.g. condEventD2 and condEventA3, since 2.0.0): TS 38.331 5.3.5.13.4 keeps a state per
+            # event; each turns fulfilled when its entry condition has held for its own time-to-trigger and not
+            # fulfilled when its leaving condition has held for it; execution when all are fulfilled (2.1.0)
+            ttt = self.rule.ttt_exec_s
+            self.tx = np.where(cx, np.minimum(self.tx, t), INF)
+            self.a3_out = np.where(self.prepared & ~cx, np.minimum(self.a3_out, t), INF)
+            self.a3_on = (self.a3_on | held_for(self.tx, t, ttt)) & ~held_for(self.a3_out, t, ttt) & self.prepared
+            rdy = self.a3_on & con[:, None]
+            extra = self._extra if self.eng.std else self.rule.exec_condition(obs)
             if extra is not None:
-                cx &= np.asarray(extra, dtype=bool)
-        self.tx = np.where(cx, np.minimum(self.tx, t), INF)
-        rdy = held_for(self.tx, t, self.rule.ttt_exec_s)
+                rdy = rdy & np.asarray(extra, dtype=bool)
+        else:
+            self.tx = np.where(cx, np.minimum(self.tx, t), INF)
+            rdy = held_for(self.tx, t, self.rule.ttt_exec_s)
+            if eng.std:
+                # the time-to-trigger expires before the next measurement: execute at its expiry (2.1.0)
+                self.x_due[:] = INF
+                soon = ~rdy & ttt_expires_before(self.tx, self.rule.ttt_exec_s, t, eng.mdt) & np.isfinite(self.tx)
+                soon &= ~rdy.any(1)[:, None]
+                for u in np.nonzero(soon.any(1))[0]:
+                    n = int(np.argmax(np.where(soon[u], gap[u], -INF)))
+                    self.x_due[u] = float(self.tx[u, n]) + float(self.rule.ttt_exec_s)
+                    self.x_tgt[u] = n
         for u in np.nonzero(rdy.any(1))[0]:
             eng.start_exec(u, int(np.argmax(np.where(rdy[u], gap[u], -INF))), t)
         return eng.state == CONNECTED
@@ -365,6 +431,7 @@ class ConditionalProcedure(Procedure):
                 return
         if counted:
             C["reports"] += int(np.count_nonzero(act & reported.any(1)))
+            eng.msg(t, np.count_nonzero(act & reported.any(1)))
         # network side: which cells to prepare, keep or release
         po = rule.prep_offsets(obs)
         if eng.debug:
@@ -385,10 +452,13 @@ class ConditionalProcedure(Procedure):
                 C["prep_wasted"] += int(np.count_nonzero(to_rel & self.prepared))
                 C["prep_cancel"] += int(np.count_nonzero(to_rel & self.ppend))
                 C["rel"] += int(np.count_nonzero(to_rel))
+                eng.msg(t, 2 * np.count_nonzero(to_rel.any(1)))     # RRCReconfiguration + Complete per user
             self.prepared[to_rel] = False
             self.ppend[to_rel] = False
             self.ppend_t[to_rel] = INF
             self.tx[to_rel] = INF
+            self.a3_on[to_rel] = False
+            self.a3_out[to_rel] = INF
         if to_prep.any():
             oe = self._config_offsets(obs)
             keys = rule.memory_key(obs)
@@ -419,7 +489,7 @@ class DAPSProcedure(BaselineProcedure):
         self.fallback = bool(rule.fallback)
 
     def exec_interruption(self, u, duration):
-        return min(float(self.rule.interruption_s), duration) if self.dual else duration
+        return min(float(self.rule.interruption_s), duration) if self.eng.daps_u[u] else duration
 
 
 class LTMProcedure(ConditionalProcedure):
@@ -436,10 +506,34 @@ class LTMProcedure(ConditionalProcedure):
         self.cmd_wait = np.zeros(U, dtype=bool)      # command arrived during T310, not yet received
 
     def exec_time(self, u):
+        eng = self.eng
+        if eng.std and eng.cell_fr2[eng.serv[u]] != eng.cell_fr2[eng.f_tgt[u]]:
+            # TS 38.133 V18.15.0 6.3.1.3: T_LTM-processing is 20 ms within FR1 or FR2 and 40 ms between them
+            return float(self.rule.exec_s) + 0.02
         return float(self.rule.exec_s)
 
     def recovers_into(self, u, cell):
         return bool(self.rule.recovery) and bool(self.prepared[u, cell])
+
+    def after_execution(self, u, tgt, t):
+        """TS 38.331 5.3.5.18.6 keeps the ltm-Config across an LTM cell switch: the other candidates stay
+        configured; only the new serving cell leaves the candidate set (since 2.1.0; 2.0.0: all released)."""
+        if not self.eng.std:
+            return self.clear(u, tgt, t)
+        C = self.eng.C
+        C["prep_used_all"] += int(self.prepared[u, tgt])
+        if t >= self.eng.t0c:
+            C["prep_used"] += int(self.prepared[u, tgt])
+        self.prepared[u, tgt] = False
+        self.ppend[u, tgt] = False
+        self.ppend_t[u, tgt] = INF
+        self.tx[u] = INF
+        self.a3_on[u] = False
+        self.a3_out[u] = INF
+        self.tr[u, tgt] = INF
+        self.seen[u, tgt] = False
+        self.n_pp = int(np.count_nonzero(self.ppend))
+        self.pp_next = float(self.ppend_t.min()) if self.n_pp else INF
 
     def _exec_on_delivery(self, u, n):
         return False                                # the network decides the switch

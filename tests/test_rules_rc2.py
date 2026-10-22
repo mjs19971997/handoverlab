@@ -75,8 +75,13 @@ def test_daps_without_fallback_fails_like_a3(ramp):
 def test_daps_fallback_needs_a_working_source(ramp):
     r, k_exec = _target_vanishes(ramp)
     r[k_exec + 1:, 0, 0] = -130.0                   # the source is lost as well
+    m, ev = run_synthetic(DAPS(off_db=3.0, ttt_s=0.0), r,
+                          overrides={"protocol.reest_s": 0.5, "protocol.rrc_detail": "simple"})
+    assert ev[0]["cause"] == "execution_failure" and m["n_failures"] >= 1      # 2.0.0: source SINR below Qout
+    # 2.1.0 (TS 38.331 5.3.5.8.3): no source RLF detected yet when T304 expires: back to the source, which then
+    # fails by its own T310
     m, ev = run_synthetic(DAPS(off_db=3.0, ttt_s=0.0), r, overrides={"protocol.reest_s": 0.5})
-    assert ev[0]["cause"] == "execution_failure" and m["n_failures"] >= 1
+    assert ev[0]["cause"] == "daps_fallback" and m["n_failures"] >= 1
 
 
 def test_daps_validation():

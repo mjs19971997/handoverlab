@@ -39,7 +39,8 @@ def test_every_parameter_has_a_source():
 
 def test_urban_grid_card_equals_defaults():
     sc = hl.builtin_scenario("urban-grid-10ghz")
-    assert sc.with_overrides({"name": "street-grid"}) == hl.Scenario()
+    # since 2.1.0 the card has the 1.6 m antenna of TR 37.885 vehicle type 2 (the default UE height is 1.5 m)
+    assert sc.with_overrides({"name": "street-grid", "radio.ue_height_m": 1.5}) == hl.Scenario()
 
 
 def test_base_and_name_in_configuration():

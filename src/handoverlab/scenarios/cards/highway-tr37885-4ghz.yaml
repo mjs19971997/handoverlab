@@ -19,7 +19,7 @@ scenario:
   radio: {carrier_ghz: 4.0, bandwidth_mhz: 20.0, tx_power_dbm: 49.0, bs_gain_db: 26.1, ue_gain_db: 6.0,
           noise_figure_db: 9.0, bs_height_m: 35.0, ue_height_m: 1.6, pathloss: rma, los_model: los,
           shadow_los_db: 4.0, shadow_los_far_db: 6.0, shadow_decorr_m: 37.0, time_var_db: 0.0, map_res_m: 4.0}
-  mobility: {users: 251, profile: v140}
+  mobility: {users: 251, profile: v140c}
   run: {duration_s: 120.0, warmup_s: 20.0}
 sources:
   layout.kind: "TR 37.885 Annex A, Table A-1 (highway: 3 lanes in each direction, 4 m lane width)"
@@ -30,7 +30,7 @@ sources:
   layout.wrap: "TR 37.885 Table A-1 (wrap around should be applied)"
   radio.carrier_ghz: "TR 37.885 Table 6.1.1-1 (highway, macro to/from vehicle: 2 GHz or 4 GHz)"
   radio.bandwidth_mhz: "TR 37.885 Table 6.1.1-1 (simulation bandwidth 20 or 40 MHz, DL+UL)"
-  radio.tx_power_dbm: "TR 37.885 Table 6.1.1-1 (macro BS: 49 dBm)"
+  radio.tx_power_dbm: "TR 37.885 Table 6.1.1-1 (macro BS: 49 dBm; the system bandwidth is taken equal to the simulation bandwidth, so the PA power is not scaled down)"
   radio.bs_gain_db: "assumption: one polarisation of the 8 x 8 array of TR 37.885 Table 6.1.4-3 (4 GHz) with 8 dBi elements (Table 6.1.4-2): 8 + 10 log10(64) dB"
   radio.ue_gain_db: "assumption: vehicle type 2, option 1, rooftop baseline (1, 2, 2, 1, 1) of TR 37.885 Table 6.1.4-9 with 3 dBi elements (Table 6.1.4-8): 3 + 10 log10(2) dB"
   radio.noise_figure_db: "TR 37.885 Table 6.1.1-1 (UE receiver noise figure 9 dB)"
@@ -44,12 +44,12 @@ sources:
   radio.time_var_db: "set to 0: TR 37.885 has no blockage of the B2V link in the highway (LOS only)"
   radio.map_res_m: "numerical setting (coarser map for the long road)"
   mobility.users: "TR 37.885 clause 6.1.2: gap max(2 m, exponential with mean speed x 2 s) behind a 5 m vehicle, about 82.8 m per vehicle at 140 km/h, so 3464 m / 82.8 m x 6 lanes = 251"
-  mobility.profile: "TR 37.885 clause 6.1.2, highway option A (all vehicles type 2, 140 km/h baseline)"
+  mobility.profile: "TR 37.885 clause 6.1.2, highway option A (all vehicles type 2, 140 km/h baseline), on the lane centre (since 2.1.0; until 2.0.0 profile v140 with a lateral offset of up to 0.5 m, which TR 37.885 does not specify)"
 limitations:
   - "Vehicles are placed independently and uniformly along their lane (a Poisson process), without the minimum gap of 2 m; their number is fixed at the mean, not drawn."
   - "One antenna gain per link (the antenna abstraction), no sectors and no beam pattern: TR 37.885 leaves the TXRU mapping to the proponents."
-  - "The place-tied shadowing field is the same for all users at a place (TR 38.901 spatial consistency) and half correlated between sites (shadow_site_corr 0.5, an assumption)."
+  - "The place-tied shadowing field is the same for all users at a place (TR 38.901 spatial consistency, exponential autocorrelation of Eq. 7.4-5) and uncorrelated between sites: TR 37.885 clause 6.2.2 takes the shadowing of the TR 38.901 path-loss model for B2V links, and TR 38.901 clause 7.5 step 4 has uncorrelated LSPs for different BS-UT links (since 2.1.0; until 2.0.0 half correlated, a value of the TR 36.885 model)."
   - "Received-power level only: no fast fading, no Doppler, no sidelink."
   - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
 references:
-  - "Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V17.0.0; geometry, wrap-around and the coupling loss of the link are checked by handoverlab verify (group highway)."
+  - "Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V19.5.0 (unchanged from V17.0.0); geometry, wrap-around and the coupling loss of the link are checked by handoverlab verify (group highway)."

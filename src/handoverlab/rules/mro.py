@@ -2,8 +2,8 @@
 """Event A3 with mobility robustness optimisation (MRO), available since version 1.7.0.
 
 MRO is the self-organising-network function that tunes handover parameters
-from the observed outcomes of handovers (TS 38.300 clause 15.5.2; SON for 5G in TS 28.313;
-the SON concepts of TS 32.500).  The rule ``a3_mro`` keeps one cell individual
+from the observed outcomes of handovers (TS 38.300 clause 15.5.2; SON for 5G in TS 28.313
+clause 7.1.2; the SON concepts of TS 32.500).  The rule ``a3_mro`` keeps one cell individual
 offset (CIO) for every pair of serving and neighbour cell and moves it in fixed
 steps once per time window, as counter-based MRO schemes do: towards an
 earlier handover when too-late handovers dominate the window, towards a later
@@ -49,9 +49,13 @@ class MROA3(BaselineRule):
 
     off_db             A3 offset before any tuning [dB]
     ttt_s              time-to-trigger [s]
-    step_db            change of a pair's offset per window [dB]
+    step_db            change of a pair's offset per window [dB]; 1 dB by default (since 2.1.0; 0.5 before), so
+                       that every offset is a value of Q-OffsetRange (TS 38.331 V18.11.0: whole dB from -5 to 5,
+                       steps of 2 dB beyond 6 dB); :func:`handoverlab.standard.check_rule` checks a setting
     window_s           length of a counting window [s]
-    min_db, max_db     bounds of a pair's offset [dB] (TS 38.331 allows a CIO of -24 to 24 dB)
+    min_db, max_db     bounds of a pair's offset [dB]; -4 and 4 by default, within Q-OffsetRange (TS 38.331:
+                       -24 to 24 dB) and the handover-trigger deviation of MRO (TS 28.313 Table 7.1.2.2.3-1:
+                       -20 to 20 in 0.5 dB, i.e. +-10 dB)
     min_events         counted outcomes a pair needs in a window before its offset moves
     count_pingpong     count a return to the previous cell within ``pingpong_s`` as too early
     pingpong_s         ping-pong time [s]; None: ``protocol.pingpong_s`` of the scenario
@@ -59,7 +63,7 @@ class MROA3(BaselineRule):
     """
     learns = True
 
-    def __init__(self, off_db: float = 3.0, ttt_s: float = 0.16, step_db: float = 0.5, window_s: float = 10.0,
+    def __init__(self, off_db: float = 3.0, ttt_s: float = 0.16, step_db: float = 1.0, window_s: float = 10.0,
                  min_db: float = -4.0, max_db: float = 4.0, min_events: int = 1, count_pingpong: bool = True,
                  pingpong_s: Optional[float] = None, count_unnecessary: bool = False, name: str = "A3-MRO"):
         super().__init__(name)
@@ -92,6 +96,9 @@ class MROA3(BaselineRule):
         sc = getattr(ctx, "scenario", None)
         self._pp_s = self.pingpong_s if self.pingpong_s is not None else (
             sc.protocol.pingpong_s if sc is not None else 1.0)
+        # a ping-pong is a return within the time (TR 36.839 Definition 5, as the engine: strictly shorter;
+        # since 2.1.0, 2.0.0: up to and including it)
+        self._pp_strict = sc is None or getattr(sc.protocol, "rrc_detail", "3gpp") == "3gpp"
         self._last = None                              # serving cell, previous cell and time of the last change
 
     def update(self) -> None:
@@ -112,7 +119,8 @@ class MROA3(BaselineRule):
             self._t_change = np.full(len(s), -np.inf)
             return
         for u in np.flatnonzero(s != self._last):
-            if s[u] == self._prev[u] and obs.t - self._t_change[u] <= self._pp_s:
+            dt = obs.t - self._t_change[u]
+            if s[u] == self._prev[u] and (dt < self._pp_s if self._pp_strict else dt <= self._pp_s):
                 self.early[s[u], self._last[u]] += 1   # the first handover, back cell -> left cell, was too early
                 self.n_pingpong += 1
             self._prev[u], self._last[u], self._t_change[u] = self._last[u], s[u], obs.t

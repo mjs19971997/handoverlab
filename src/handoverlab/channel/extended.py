@@ -23,8 +23,11 @@ Received power of user u from beam b of cell c (site s, layer l)
     loss, LOS state, shadowing, time variation, penetration loss) of layer l.
 
 Measurements (SS-RSRP per resource element, TS 38.215 clause 5.1.1)
-    The power over the bandwidth minus 10 log10(B / SCS) (power per
-    subcarrier of a flat spectrum).  Every beam gets its own L1 error
+    The power over the bandwidth minus 10 log10(12 N_RB) (power per
+    subcarrier of a flat spectrum over the transmission bandwidth configuration
+    N_RB of TS 38.101-1 / TS 38.101-2 Table 5.3.2-1; since 2.1.0 with
+    ``radio.channel_detail: 3gpp``, otherwise and for bandwidths without a table
+    entry 10 log10(B / SCS)).  Every beam gets its own L1 error
     (``radio.l1_error_db``, stream ``beams``); the cell quality of a cell with
     beams follows TS 38.331 clause 5.5.3.3 (the highest beam, or the linear
     average of up to nrofSS-BlocksToAverage beams above
@@ -58,8 +61,39 @@ def default_scs_khz(carrier_ghz: float) -> float:
     return 30.0 if carrier_ghz <= 7.125 else 120.0
 
 
-def re_offset_db(bandwidth_mhz: float, scs_khz: float) -> float:
-    """10 log10(B / SCS): total power over the bandwidth minus power per subcarrier [dB]."""
+#: maximum transmission bandwidth configuration N_RB, (SCS kHz, bandwidth MHz) -> N_RB: FR1 from TS 38.101-1
+#: V19.7.0 Table 5.3.2-1, FR2 from TS 38.101-2 V19.5.0 Table 5.3.2-1 (N/A entries left out)
+N_RB_FR1 = {(15, 3): 15, (15, 5): 25, (15, 7): 35, (15, 10): 52, (15, 15): 79, (15, 20): 106, (15, 25): 133,
+            (15, 30): 160, (15, 35): 188, (15, 40): 216, (15, 45): 242, (15, 50): 270,
+            (30, 5): 11, (30, 10): 24, (30, 15): 38, (30, 20): 51, (30, 25): 65, (30, 30): 78, (30, 35): 92,
+            (30, 40): 106, (30, 45): 119, (30, 50): 133, (30, 60): 162, (30, 70): 189, (30, 80): 217,
+            (30, 90): 245, (30, 100): 273,
+            (60, 10): 11, (60, 15): 18, (60, 20): 24, (60, 25): 31, (60, 30): 38, (60, 35): 44, (60, 40): 51,
+            (60, 45): 58, (60, 50): 65, (60, 60): 79, (60, 70): 93, (60, 80): 107, (60, 90): 121, (60, 100): 135}
+N_RB_FR2 = {(60, 50): 66, (60, 100): 132, (60, 200): 264, (120, 50): 32, (120, 100): 66, (120, 200): 132,
+            (120, 400): 264, (480, 400): 66, (480, 800): 124, (480, 1600): 248, (960, 400): 33, (960, 800): 62,
+            (960, 1600): 124, (960, 2000): 148}
+
+
+def n_rb(bandwidth_mhz: float, scs_khz: float, carrier_ghz: float) -> Optional[int]:
+    """N_RB of TS 38.101-1 / -2 Table 5.3.2-1 for the frequency range of the carrier, or None (no entry)."""
+    from ..requirements import freq_range
+    fr = freq_range(carrier_ghz)
+    table = N_RB_FR1 if fr == "FR1" else N_RB_FR2 if fr.startswith("FR2") else {}
+    key = (int(round(scs_khz)), int(round(bandwidth_mhz)))
+    if abs(key[0] - scs_khz) > 1e-9 or abs(key[1] - bandwidth_mhz) > 1e-9:
+        return None
+    return table.get(key)
+
+
+def re_offset_db(bandwidth_mhz: float, scs_khz: float, carrier_ghz: Optional[float] = None,
+                 detail: str = "simple") -> float:
+    """Total power over the bandwidth minus power per subcarrier [dB]: 10 log10(12 N_RB) with ``detail`` "3gpp"
+    and a table entry for the carrier (TS 38.101-1 / -2 Table 5.3.2-1), else 10 log10(B / SCS) (2.0.0)."""
+    if detail == "3gpp" and carrier_ghz is not None:
+        n = n_rb(bandwidth_mhz, scs_khz, carrier_ghz)
+        if n is not None:
+            return 10.0 * math.log10(12.0 * n)
     return 10.0 * math.log10(bandwidth_mhz * 1e3 / scs_khz)
 
 
@@ -81,7 +115,7 @@ class Layer:
         else:
             self.beam_az = np.zeros(1)
             self.boresight = np.zeros(1)
-        self.re_off = re_offset_db(radio.bandwidth_mhz, scs_khz)
+        self.re_off = re_offset_db(radio.bandwidth_mhz, scs_khz, radio.carrier_ghz, radio.channel_detail)
         self.p0 = radio.tx_power_dbm + radio.ue_gain_db          # + antenna gain of the beam or the abstraction
 
 

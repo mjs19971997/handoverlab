@@ -49,10 +49,11 @@ def invariant_checks(rep, seed: int = 11, duration_s: float = 30.0) -> None:
     causes = {}
     for r in res:
         m = r.metrics
-        outs = [m["n_" + o] for o in ("useful", "unnecessary", "too_early", "wrong_cell", "too_late", "censored")]
+        outs = [m["n_" + o] for o in ("useful", "unnecessary", "too_early", "wrong_cell", "too_late", "censored",
+                                      "coverage")]
         ok = m["n_attempts"] == sum(outs)
-        txt = ("attempts %d = useful %d + unnecessary %d + too early %d + wrong cell %d + too late %d + censored %d;"
-               " failures %d" % ((m["n_attempts"],) + tuple(outs) + (m["n_failures"],)))
+        txt = ("attempts %d = useful %d + unnecessary %d + too early %d + wrong cell %d + too late %d + censored %d"
+               " + coverage %d; failures %d" % ((m["n_attempts"],) + tuple(outs) + (m["n_failures"],)))
         if r.family == "conditional":
             parts = (m["n_lost_configurations"], m["n_cancelled_preparations"], m["n_used_preparations"],
                      m["n_unused_preparations"], m["open_preparations"])

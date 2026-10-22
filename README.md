@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23409131.svg)](https://doi.org/10.5281/zenodo.23409131) [![PyPI](https://img.shields.io/pypi/v/handoverlab.svg)](https://pypi.org/project/handoverlab/)
 
-A system-level simulator for studying handover in dense 5G and beyond-5G networks, written in Python.
+A system-level handover simulator for 5G-Advanced and beyond-5G research, written in Python.
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
 conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility, conditional handover with
@@ -17,7 +17,8 @@ outcome label for every handover attempt.
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
 > the urban vehicles of TR 37.885, the path-loss constants of TR 38.901), so results differ from 1.x;
-> one switch, `LEGACY_1X`, gives every 1.x result back bit for bit
+> one switch, `LEGACY_1X`, gives every 1.x result back bit for bit (for the cards changed since 2.1.0
+> together with their old values in `LEGACY_CARDS`)
 > ([moving from 1.x to 2.0](https://github.com/mjs19971997/handoverlab/blob/main/docs/migration-2.0.md)).
 
 ## See it
@@ -99,7 +100,7 @@ event D2 of Release 18:
   pedestrian and vehicular speed profiles (by default the urban vehicles of TR 37.885: 60 km/h in one of
   two lanes) or your own speed groups.
 - **Traffic**: constant service rates per 5QI class, or a traffic model per user: full buffer,
-  periodic packets (as VoIP) or FTP model 3 of TR 36.814. The load of every cell, and so the
+  periodic packets (as VoIP) or FTP model 3 (TR 38.802, the 0.5 Mbyte files of TR 38.821). The load of every cell, and so the
   interference, follows the traffic of its users.
 - **Measurements**: L1 samples, the TS 38.331 L3 filter, Event A3 with time-to-trigger, periodic
   reporting for conditional handover.
@@ -111,9 +112,9 @@ event D2 of Release 18:
   epsilon-greedy bandit (`a3_bandit`, checked against an exhaustive search) and a deep Q-network
   (`dqn`, optional PyTorch).
 - **Failure model**: Qout/Qin with windows, N310/N311/T310, T304, lost commands and configurations,
-  execution failures, re-establishment (TR 36.839 / TR 36.842 values by default), the handover command
-  during T310 and the restart of the link monitoring on a new cell as TS 38.331 and TS 38.133 specify
-  (defaults since 2.0.0), with options for the link monitoring (own interferer load, ideal random access).
+  execution failures, re-establishment after a fixed outage (1 s, an assumption), the handover command
+  during T310 as TS 38.331 specifies and the restart of the link monitoring on a new cell as HandoverLab
+  reads TS 38.133 8.1.2.2 (defaults since 2.0.0), with options for the link monitoring (own interferer load, ideal random access).
 - **Metrics**: outcome of every attempt (useful, unnecessary, too early, wrong cell, too late,
   censored), failures by cause, ping-pong, preparation overhead, interruption, delivered rate,
   signalling (RRC messages, commands), L1 measurements of the device and network energy (EARTH
@@ -122,17 +123,47 @@ event D2 of Release 18:
   engine draws no random numbers; golden event-log fingerprints guard every change. An optional
   compiled kernel (`run.backend: numba`) gives the same event logs bit for bit.
 
-## Built for beyond-5G
+## Model boundaries
 
-HandoverLab targets the questions of dense beyond-5G networks: small cells 50-300 m apart, the
-upper mid-band (FR3, 7-24 GHz; the scenario `fr3-urban-15ghz`, 10 GHz by default), and the
-mobility procedures beyond baseline handover: conditional handover, DAPS handover,
-L1/L2-triggered mobility of Release 18 and conditional LTM from the Release 19 work, satellite access
-with the conditional handover events of Release 18 (non-terrestrial networks, since 2.0.0), next to rules
-that learn from handover outcomes and
-A3 tuned by mobility robustness optimisation, the fair baseline for a new rule. The cost
-of each procedure (signalling, prepared cells, interruption, energy) is measured next to its
-benefit.
+What HandoverLab is for, at a glance: questions about handover and mobility procedures and the rules that
+drive them, compared on the same worlds. What it abstracts or leaves out decides which conclusions it supports;
+the clause-by-clause detail is in [standard compliance](https://github.com/mjs19971997/handoverlab/blob/main/docs/standard-compliance.md).
+
+| Part | Modelled | Abstracted | Not modelled |
+|---|---|---|---|
+| Layouts | `street_grid` (TR 37.885 urban grid), `open_area`, `highway` (TR 37.885 / TR 36.885, wrap-around), `indoor` (TR 38.901 office), `ntn` (one LEO satellite, TR 38.821); explicit site lists | sites on the pavement with small cells (urban cards) | the 500 m macro grid of the TR 37.885 urban scenario, several satellites |
+| Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, InH), LOS from buildings, spatially consistent LOS and shadowing, penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step; a slow time-varying component instead of fast fading | fast fading (clauses 7.5, 7.7), Doppler, small-scale spreads |
+| Beams and carriers | SSB beams per sector, cell quality from beams, beam failure detection and recovery, several carriers with gaps and Event A5 | the TR 38.901 antenna element and DFT beams; isotropic UE | UE-side beamforming, dual connectivity and PSCell change |
+| Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
+| Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference | rate from SINR (Shannon-type mapping), no scheduler | slot scheduler, HARQ, RLC/PDCP, TCP and applications |
+| Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
+| Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
+| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; absolute failure rates are not calibrated: compare rules with each other |
+| Time | 10 ms step by default (`protocol.step_s`); the effect of the step is measured in [time step](https://github.com/mjs19971997/handoverlab/blob/main/docs/time-step.md) | events rounded to the step | sub-slot timing |
+
+Built-in cards: `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`, `urban-grid-28ghz-beams`, `dense-urban-2layer`,
+`open-area-10ghz`, `ns3-urban-3.5ghz`, `highway-tr37885-4ghz`, `highway-tr37885-30ghz`, `indoor-office-4ghz`,
+`rural-700mhz`, `ntn-leo600-2ghz`; each names the source of every value and its own limitations.
+
+## Scope: 5G-Advanced and beyond 5G
+
+HandoverLab is a system-level handover simulator for 5G-Advanced and beyond-5G research. It covers the
+mobility procedures of Releases 16 to 19 (conditional handover, DAPS handover, L1/L2-triggered mobility,
+conditional LTM, conditional handover with the location events of Release 18 for satellites) in dense
+networks with small cells 50-300 m apart. Three paths lead beyond 5G:
+
+- **The upper mid-band (FR3, 7-24 GHz)**, studied in TR 38.901 V19.5.0: the card `fr3-urban-15ghz` and every
+  layout at any carrier the path-loss models cover.
+- **Non-terrestrial networks**: a LEO satellite with earth-moving beams (TR 38.811, TR 38.821) and conditional
+  handover with condEventD2 (TS 38.331 Release 18).
+- **Learning-based mobility**: the rule interface gives a rule every measurement and the outcome of every
+  attempt; `a3_bandit` and `dqn` are examples, `a3_mro` the fair tuned baseline.
+
+6G itself is at the stage of requirements: TR 38.914 V20.1.0 (Release 20, last changed at RAN #113 in September
+2026) sets scenarios and key performance requirements but specifies no handover procedure, timer or measurement
+rule yet. HandoverLab therefore claims no 6G procedure; the paths above are where 6G mobility work is expected
+to build on 5G-Advanced. The cost of every procedure (signalling, prepared cells, interruption, energy) is
+measured next to its benefit.
 
 ## Calibrated against 3GPP
 
@@ -153,7 +184,9 @@ Every rule of the handover procedure is listed clause by clause against the offi
 [standard compliance](https://github.com/mjs19971997/handoverlab/blob/main/docs/standard-compliance.md),
 with what is followed, what is abstracted and what is not modelled yet. The 3GPP protocol profile of
 1.9.0 (`protocol: {cmd_during_t310: receive, t304_s: 1.0, rlm_holdoff_s: 0.2}`), the default since 2.0.0,
-makes the handover command and its execution behave as TS 38.331 specifies. Against handover statistics
+makes the handover command and its execution follow TS 38.331; the audit of 2.1.0 checked every procedure,
+requirement and value against TS 38.331 V18.11.0, TS 38.133, TS 38.300 and the TRs, and what remains an
+abstraction is listed on that page. Against handover statistics
 measured in commercial 5G networks (SIGCOMM, IMC and MobiCom measurement studies) the profile
 brings the handover failure rate from about six times above the measured range to just above it;
 ping-pong with the Verizon A3 setting and the handover distance in low-band rural cells match.
@@ -163,8 +196,8 @@ the DAPS and LTM interruptions are checked against TS 38.133 and published 3GPP 
 ## Checked against ns-3
 
 The same 24 Event-A3 settings were simulated in HandoverLab and in the packet-level simulator
-ns-3 with 5G-LENA. Handover and unnecessary-handover rates agree (median ratio 0.92, rank
-correlation 0.99). For failure rates, with the in-car loss of ns-3 and the restart of the link
+ns-3 with 5G-LENA. Handover and unnecessary-handover rates agree (median ratios 0.95 and 1.06,
+rank correlation 0.99; `handoverlab verify --ns3`, version 2.1.0). For failure rates, with the in-car loss of ns-3 and the restart of the link
 monitoring switched on, the order of settings and conditions agrees too, also on ns-3 results
 that were held back from any tuning (rank correlation 0.82-0.91). The absolute values
 differ, so compare failure rates between rules within HandoverLab. The causes are traced in
@@ -219,7 +252,7 @@ L1/L2-triggered mobility.
 - **1.4.0**: traffic models per user (`traffic.model`: full buffer, periodic, FTP model 3); a
   dashboard with confidence intervals, a map of where handovers and failures happen, and the status
   of a running study; the ns-3 link-monitoring finding in the calibration report.
-- **1.3.0**: optional restart of the link monitoring on a newly joined cell (TS 38.133).
+- **1.3.0**: optional restart of the link monitoring on a newly joined cell (an interpretation of TS 38.133 8.1.2.2).
 - **1.2.0**: optional penetration loss per user; the ns-3 comparison with the in-car loss of ns-3.
 - **1.1.0 / 1.1.1**: optional link-monitoring model; held-back ns-3 results; issue forms, CI on
   Windows for every test.

@@ -36,7 +36,7 @@ def test_three_late_handovers_lower_the_offset_by_one_step():
     off = r.a3_offsets(_Obs(9.99))
     assert np.all(off == 3.0)                         # window not closed yet
     off = r.a3_offsets(_Obs(10.0))
-    assert r.cio[0, 1] == -0.5 and off[0, 1] == 2.5 and off[0, 2] == 3.0 and off[1, 0] == 3.0
+    assert r.cio[0, 1] == -1.0 and off[0, 1] == 2.0 and off[0, 2] == 3.0 and off[1, 0] == 3.0   # step 1 dB
     assert r.late.sum() == 0 and r.next_update == 20.0
 
 
@@ -77,7 +77,7 @@ def test_pingpong_is_seen_in_the_serving_cell_and_counts_as_too_early():
     r.a3_offsets(_Obs(2.50, (0, 1)))                  # back to 0 after 1.5 s: not a ping-pong
     assert r.n_pingpong == 1 and r.early[0, 1] == 1 and r.early.sum() == 1
     r.a3_offsets(_Obs(10.0, (0, 1)))
-    assert r.cio[0, 1] == 0.5
+    assert r.cio[0, 1] == 1.0
     off = _rule(count_pingpong=False)
     for t, s in ((0.0, (0, 1)), (0.04, (1, 1)), (0.8, (0, 1))):
         off.a3_offsets(_Obs(t, s))

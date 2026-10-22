@@ -466,7 +466,8 @@ def build_report(root: str, figures: bool = True) -> Tuple[Doc, Dict[str, Any]]:
         doc.h(2, "Paired comparisons with %s" % res["baseline"])
         doc.p("Runs are paired by condition and seed (same world and radio samples). Difference = rule minus "
               "baseline. p: two-sided Wilcoxon signed-rank test (zero differences dropped, mid-ranks for ties, "
-              "exact null distribution up to %d pairs); p (Holm): adjusted within the family of the metric. "
+              "exact null distribution up to %d non-zero differences, normal approximation above); "
+              "p (Holm): adjusted within the family of the metric. "
               "Bootstrap intervals use %d resamples of the pairs." % (stats.EXACT_MAX, res["bootstrap"]))
         for m in metrics:
             unit = METRICS.get(m, ("", ""))[0]

@@ -5,8 +5,8 @@ since: 1.7.0
 purpose: >
   An indoor counterpart of the outdoor scenarios: the indoor office of TR 38.901 (a hall of
   120 m x 50 m, 12 ceiling sites 20 m apart in two rows, sites 3 m and users 1 m high) with the
-  InH-Office path loss and the LOS probability of the mixed office, the link budget of the
-  IMT-2020 Indoor Hotspot-eMBB evaluation at 4 GHz, and pedestrians at about 3 km/h.  Cells are
+  InH-Office path loss, the link budget and the LOS probability (open office) of the IMT-2020
+  Indoor Hotspot-eMBB evaluation at 4 GHz, and pedestrians at 3 km/h.  Cells are
   small and close together, so the neighbours are almost as strong as the serving cell: handovers
   are slow but frequent, and ping-pong and unnecessary handovers matter more than late ones.  Use
   it to see how a rule copes with dense, interference-limited coverage at walking speed.
@@ -18,9 +18,9 @@ scenario:
   name: indoor-office-4ghz
   layout: {kind: indoor, area_m: [120.0, 50.0], site_spacing_m: 20.0}
   radio: {carrier_ghz: 4.0, bandwidth_mhz: 20.0, tx_power_dbm: 24.0, bs_gain_db: 14.0,
-          bs_height_m: 3.0, ue_height_m: 1.0, pathloss: inh_office, shadow_los_db: 3.0, shadow_nlos_db: 8.03,
+          bs_height_m: 3.0, ue_height_m: 1.0, pathloss: inh_office_open, shadow_los_db: 3.0, shadow_nlos_db: 8.03,
           shadow_decorr_m: 10.0, los_corr_m: 10.0, soft_los: true}
-  mobility: {users: 20, profile: ped3}
+  mobility: {users: 20, profile: p3}
   run: {duration_s: 120.0, warmup_s: 20.0}
 sources:
   layout.kind: "TR 38.901 Table 7.2-2 and Figure 7.2-1 (indoor office)"
@@ -33,19 +33,22 @@ sources:
   radio.noise_figure_db: "ITU-R M.2412-0 Table 5a (UE noise figure at 4 GHz: 7 dB, the default)"
   radio.bs_height_m: "TR 38.901 Table 7.2-2 (3 m, ceiling)"
   radio.ue_height_m: "TR 38.901 Table 7.2-2 (1 m)"
-  radio.pathloss: "TR 38.901 Table 7.4.1-1 (InH-Office); LOS probability of the mixed office, Table 7.4.2-1"
+  radio.pathloss: "TR 38.901 Table 7.4.1-1 (InH-Office); LOS probability of the open office, TR 38.901 Table 7.4.2-1 and ITU-R M.2412-0 Table A1-9 (InH_x), as M.2412-0 clause 8.3.1 specifies for the 12-site Indoor Hotspot (since 2.1.0; until 2.0.0 the mixed office)"
   radio.shadow_los_db: "TR 38.901 Table 7.4.1-1 (InH LOS: 3 dB)"
   radio.shadow_nlos_db: "TR 38.901 Table 7.4.1-1 (InH NLOS: 8.03 dB)"
   radio.shadow_decorr_m: "TR 38.901 Table 7.5-6 Part-2 (Indoor-Office LOS: 10 m)"
   radio.los_corr_m: "TR 38.901 Table 7.6.3.1-2 (indoor LOS/NLOS state: 10 m)"
   radio.soft_los: "TR 38.901 clause 7.6.3.3 (optional soft LOS state, meant to avoid hard LOS/NLOS transitions in mobility simulations)"
-  mobility.profile: "TR 38.901 Table 7.2-2 and ITU-R M.2412-0 Table 5a (3 km/h); +-10 % spread is an assumption"
+  mobility.profile: "TR 38.901 Table 7.2-2 and ITU-R M.2412-0 Table 5a (fixed and identical speed of all UEs, 3 km/h; since 2.1.0, until 2.0.0 2.7-3.3 km/h)"
+  mobility.users: "assumption (20 users for run time; ITU-R M.2412-0 Table 5a: 10 UEs per TRxP)"
 limitations:
   - "Mixed sources: the UE height is the 1 m of TR 38.901 Table 7.2-2, the link budget that of ITU-R M.2412-0 Table 5a, which has 1.5 m."
-  - "No walls, doors or floors: the soft LOS state follows the InH LOS probability as a process along each user's path, and the place-tied shadowing field stands for the rest. One floor only. With the hard LOS state (radio.soft_los: false) A3 failed about 8 times as often in a check run (0.16 against 0.02 per user-minute, 3 seeds)."
+  - "No walls, doors or floors: the soft LOS state follows the InH LOS probability as a process along each user's path, and the place-tied shadowing field stands for the rest. One floor only. With the hard LOS state (radio.soft_los: false) A3 failed about 8 times as often in a check run with the model of 2.0.0 (0.16 against 0.02 per user-minute, 3 seeds)."
   - "One shadowing decorrelation distance: TR 38.901 gives 10 m for LOS and 6 m for NLOS links; here 10 m."
-  - "Random waypoints across the whole hall; real users walk along corridors and stop at desks."
+  - "Random waypoints across the whole hall; real users walk along corridors and stop at desks. Random waypoints are denser in the middle of the hall than near the walls, while ITU-R M.2412-0 Table 5a drops the users uniformly with a uniformly distributed direction."
+  - "20 users for 12 TRxPs instead of the 10 UEs per TRxP of ITU-R M.2412-0 Table 5a; the number is set for run time (the interference load of HandoverLab does not depend on it)."
+  - "LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6)."
   - "The InH formulas hold for 3D distances of 1 m to 150 m; the hall keeps every link inside that range."
   - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
 references:
-  - "Layout, heights, speeds, path loss, LOS probability and correlation distances checked against TR 38.901 V17.0.0 and the link budget against ITU-R M.2412-0; path loss and LOS probability against values computed by hand (handoverlab verify, group pathloss); determinism and invariant checks as for every scenario."
+  - "Layout, heights, speeds, path loss, LOS probability and correlation distances checked against TR 38.901 V19.5.0 (unchanged from V17.0.0) and the link budget against ITU-R M.2412-0; path loss and LOS probability against values computed by hand (handoverlab verify, group pathloss); determinism and invariant checks as for every scenario."

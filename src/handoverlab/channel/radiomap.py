@@ -28,23 +28,54 @@ from scipy.special import ndtri
 
 from ..layout import Layout, los_matrix
 from ..seeds import streams
-from .pathloss import los_shadow_sd, mix_db, p_los, path_loss, radio_kwargs, soft_los_power_weight
+from .pathloss import (MAX_DISTANCE_M, is_3gpp, los_shadow_sd, los_ut_height, mix_db, p_los, path_loss, radio_kwargs,
+                       site_corr, soft_los_power_weight, uma_effective_height)
 
 FLOOR_DB = -300.0
+
+
+def applicability_warning(layout: Layout, radio) -> None:
+    """Warn (``UserWarning``) if links of the layout can be longer than the upper end of the distance range of the
+    path-loss model in TR 38.901 Table 7.4.1-1 (the formulas are then used outside it; since 2.1.0,
+    ``channel_detail`` "3gpp" only)."""
+    import warnings
+    lim = MAX_DISTANCE_M.get(radio.pathloss)
+    if lim is None or getattr(layout, "n_sites", 0) == 0 or not is_3gpp(radio):
+        return
+    if getattr(radio, "los_model", "probability") == "los":
+        lim = (lim[0], lim[0])                                 # LOS links only
+    cx = np.array([layout.xmin, layout.xmax, layout.xmin, layout.xmax])
+    cy = np.array([layout.ymin, layout.ymin, layout.ymax, layout.ymax])
+    d = float(np.max(layout.distances(cx, cy)))
+    if radio.pathloss in ("inh_office", "inh_office_open"):
+        d = float(np.hypot(d, radio.bs_height_m - radio.ue_height_m))
+    if d > min(lim):
+        warnings.warn("radio.pathloss %s: links up to %.0f m, beyond the %.0f m of the applicability range of "
+                      "TR 38.901 Table 7.4.1-1; the formulas are used outside it" % (radio.pathloss, d, min(lim)),
+                      UserWarning, stacklevel=3)
 
 
 class GaussianField:
     """Unit-variance Gaussian random fields, one per site, on a raster.
 
-    Correlation exp(-(d / d_corr)^2); the fields of different sites share a
-    common component so that their mutual correlation is ``site_corr``.
+    ``kernel="exp"`` (since 2.1.0; ``radio.channel_detail`` "3gpp"): the exponential autocorrelation
+    exp(-d / d_corr) of TR 38.901 Eq. (7.4-5) in the horizontal plane (clause 7.4.4; clause 7.6.3.1 for the
+    LOS state), generated exactly at the raster points by circulant embedding (the FFT of the covariance on a
+    torus that is at least 6 d_corr larger than the raster, so that opposite edges stay uncorrelated); between
+    raster points the bilinear interpolation is divided by its own standard deviation, so that every point has
+    unit variance.  ``kernel="gauss"`` (the model of 2.0.0 and 1.x): a Gaussian filter, correlation
+    exp(-(d / d_corr)^2), each field scaled to unit sample variance.
+
+    The fields of different sites share a common component so that their mutual correlation is ``site_corr``.
 
     With a wrap-around period of the layout (since 1.11.0) the raster spans
-    exactly one period in x and the field is periodic in x: the filter wraps
-    around and the interpolation takes the neighbours across the seam.
+    exactly one period in x and the field is periodic in x: the filter (or the
+    torus of the embedding) wraps around in x and the interpolation takes the
+    neighbours across the seam.
     """
 
-    def __init__(self, rng, layout: Layout, n_sites: int, d_corr: float, res: float, site_corr: float):
+    def __init__(self, rng, layout: Layout, n_sites: int, d_corr: float, res: float, site_corr: float,
+                 kernel: str = "gauss"):
         self.period = layout.period_x
         if self.period:
             self.nx = max(2, int(round(self.period / res)))
@@ -58,10 +89,14 @@ class GaussianField:
         self.ny = int((layout.ymax - layout.ymin) / res) + 6
         s_pix = (d_corr / 2.0) / res
         ca, cb = np.sqrt(site_corr), np.sqrt(1.0 - site_corr)
-
-        def one():
-            g = gaussian_filter(rng.standard_normal((self.ny, self.nx), dtype=np.float32), s_pix, mode="wrap")
-            return g / g.std()
+        self.kernel = kernel
+        if kernel == "exp":
+            one = self._exponential(rng, d_corr)
+            self._rho = (float(np.exp(-res / d_corr)), float(np.exp(-np.sqrt(2.0) * res / d_corr)))
+        else:
+            def one():
+                g = gaussian_filter(rng.standard_normal((self.ny, self.nx), dtype=np.float32), s_pix, mode="wrap")
+                return g / g.std()
 
         common = one() if site_corr > 0 else 0.0
         f = np.empty((n_sites, self.ny, self.nx), dtype=np.float32)     # one contiguous plane per site
@@ -69,6 +104,35 @@ class GaussianField:
             f[m] = ca * common + cb * one()
         self.f = np.ascontiguousarray(f.transpose(1, 2, 0))              # (ny, nx, M) for fast lookups
         self._flat = self.f.reshape(-1, n_sites)
+
+    def _exponential(self, rng, d_corr: float):
+        """Generator of one field with the covariance exp(-r / d_corr) at the raster points (circulant embedding)."""
+        from scipy import fft
+        pad = int(np.ceil(6.0 * d_corr / self.res))
+        nye = fft.next_fast_len(self.ny + pad)
+        nxe = self.nx if self.period else fft.next_fast_len(self.nx + pad)    # periodic in x: the torus itself
+        iy = np.arange(nye, dtype=float)
+        ix = np.arange(nxe, dtype=float)
+        ry = np.minimum(iy, nye - iy) * self.res                   # distances on the torus
+        rx = np.minimum(ix, nxe - ix) * self.res
+        lam = fft.rfft2(np.exp(-np.hypot(ry[:, None], rx[None, :]) / d_corr)).real
+        amp = np.sqrt(np.maximum(lam, 0.0))                        # eigenvalues of the circulant covariance
+        ny, nx = self.ny, self.nx
+
+        def one():
+            w = rng.standard_normal((nye, nxe))
+            return fft.irfft2(amp * fft.rfft2(w), s=(nye, nxe))[:ny, :nx].astype(np.float32)
+        return one
+
+    def _interp_sd(self, tx, ty):
+        """Standard deviation of the bilinear interpolation of a unit-variance field with the exponential
+        correlation at the fractional positions (tx, ty) between four raster points (``kernel="exp"``)."""
+        rh, rd = self._rho
+        a, b = 1.0 - tx, tx
+        c, e = 1.0 - ty, ty
+        aa, cc = a * a + b * b, c * c + e * e
+        var = aa * cc + 2.0 * rh * (a * b * cc + c * e * aa) + 4.0 * rd * a * b * c * e
+        return np.sqrt(var).astype(np.float32)
 
     def _periodic(self, x, y):
         """Values (P, M) at points with the field periodic in x."""
@@ -78,8 +142,11 @@ class GaussianField:
         jx = (ix + 1) % self.nx
         tx, ty = (gx - ix).astype(np.float32)[:, None], (gy - iy).astype(np.float32)[:, None]
         f = self.f
-        return (f[iy, ix] * (1 - tx) * (1 - ty) + f[iy, jx] * tx * (1 - ty) + f[iy + 1, ix] * (1 - tx) * ty
-                + f[iy + 1, jx] * tx * ty)
+        v = (f[iy, ix] * (1 - tx) * (1 - ty) + f[iy, jx] * tx * (1 - ty) + f[iy + 1, ix] * (1 - tx) * ty
+             + f[iy + 1, jx] * tx * ty)
+        if self.kernel == "exp":
+            v /= self._interp_sd(gx - ix, gy - iy)[:, None]
+        return v
 
     def _weights(self, x, y):
         gx = np.clip((x - self.x0) / self.res, 0.0, self.nx - 1.001)
@@ -107,6 +174,8 @@ class GaussianField:
             w *= a
             w *= b
             v += w
+        if self.kernel == "exp":
+            v /= self._interp_sd(tx[:, 0].astype(float), ty[:, 0].astype(float))[:, None]
         return v
 
     def at_pairs(self, x, y, p, m) -> np.ndarray:
@@ -123,6 +192,8 @@ class GaussianField:
             w = f[kk, m] * a
             w *= b
             v += w
+        if self.kernel == "exp":
+            v /= self._interp_sd(tx.astype(float), ty.astype(float))
         return v
 
 
@@ -134,6 +205,10 @@ class RadioMap:
         self.imported = False
         self.is_grid = layout.is_grid
         res = float(radio.map_res_m) if self.is_grid else max(float(radio.map_res_m), 2.0)
+        if layout.period_x and is_3gpp(radio):
+            # a whole number of pixels per wrap-around period (since 2.1.0): the pixels at x and x + period
+            # coincide, so that the rough field of Eq. (7.4-5) is interpolated alike on both sides of the seam
+            res = layout.period_x / max(1, int(round(layout.period_x / res)))
         pad = 3.0 * res
         self.res = res
         self.x0, self.y0 = layout.xmin - pad, layout.ymin - pad
@@ -141,7 +216,13 @@ class RadioMap:
         self.ny = int(np.ceil((layout.ymax - layout.ymin + 2 * pad) / res)) + 1
         M = layout.n_sites
         XX, YY = np.meshgrid(self.x0 + np.arange(self.nx) * res, self.y0 + np.arange(self.ny) * res)
-        rng_shadow, rng_los = streams(seed, "map", 2, sub)    # sub: a further layer (since 1.10.0)
+        # sub: a further layer (since 1.10.0); the third stream (since 2.1.0) draws the UMa effective
+        # environment height of every link
+        rng_shadow, rng_los, rng_he = streams(seed, "map", 3, sub)
+        detail = is_3gpp(radio)
+        kernel = "exp" if detail else "gauss"
+        hut_los = los_ut_height(radio)
+        applicability_warning(layout, radio)
 
         self._nominal_plan(layout, pad)
 
@@ -152,11 +233,17 @@ class RadioMap:
         self.idx = np.full((self.ny, self.nx), P, dtype=np.int64)    # pixel -> row; off-street -> dummy row P
         self.idx[mask] = np.arange(P)
         self.has_field = radio.place_share > 0.0
+        # correlation of the field between neighbouring map pixels, for lookup_field (open area, highway, indoor
+        # with the exponential field: the map pixels hold the field values exactly)
+        self._field_rho = None
+        if detail and self.has_field and not self.is_grid:
+            self._field_rho = (float(np.exp(-res / radio.shadow_decorr_m)),
+                               float(np.exp(-np.sqrt(2.0) * res / radio.shadow_decorr_m)))
         shadow = None
         if self.has_field:
             fres = min(2.0, radio.shadow_decorr_m / 4.0) if radio.shadow_decorr_m >= 4.0 else res
             shadow = GaussianField(rng_shadow, layout, M, radio.shadow_decorr_m, max(fres, res),
-                                   radio.shadow_site_corr).at(px, py)
+                                   site_corr(radio), kernel).at(px, py)
             shadow *= np.float32(np.sqrt(radio.place_share))
         self.los = None
         self.los_share = float("nan")
@@ -165,19 +252,24 @@ class RadioMap:
         if self.is_grid:
             los = los_matrix(px, py, layout.sites, layout.buildings)
             d2 = np.hypot(px[:, None] - layout.sites[None, :, 0], py[:, None] - layout.sites[None, :, 1])
+            he = None
+            if detail and radio.pathloss == "uma" and radio.ue_height_m >= 13.0:
+                # effective environment height of every link (TR 38.901 Table 7.4.1-1 note 1; since 2.1.0)
+                he = uma_effective_height(rng_he.random(d2.shape), rng_he.random(d2.shape),
+                                          np.maximum(d2, radio.pl_min_distance_m), radio.ue_height_m)
             if radio.clutter_los:
                 # spatially consistent LOS state; only links that the buildings leave clear need it
                 ip, im = np.nonzero(los)
-                lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0).at_pairs(px, py, ip, im)
+                lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0, kernel).at_pairs(px, py, ip, im)
                 dd = d2[ip, im]
-                thr = ndtri(np.clip(p_los(dd, radio.pathloss), 1e-9, 1.0 - 1e-9))
+                thr = ndtri(np.clip(p_los(dd, radio.pathloss, hut_los), 1e-9, 1.0 - 1e-9))
                 los[ip, im] = lat < thr
                 if radio.soft_los:                        # soft LOS on the links the buildings leave clear
                     w = soft_los_power_weight(thr - lat, radio.carrier_ghz, radio.soft_los_d_m)
                     sh = shadow[ip, im].astype(np.float64) if shadow is not None else 0.0
                     del lat, thr
             gain[...] = path_loss(d2, los, radio.pathloss, radio.carrier_ghz, radio.bs_height_m,
-                                  radio.ue_height_m, **radio_kwargs(radio))
+                                  radio.ue_height_m, **radio_kwargs(radio), h_e=he)
             np.negative(gain, out=gain)
             if shadow is not None:
                 if radio.shadow_los_far_db is None:
@@ -187,8 +279,9 @@ class RadioMap:
                 gain += shadow
             if radio.clutter_los and radio.soft_los:
                 args = (radio.pathloss, radio.carrier_ghz, radio.bs_height_m, radio.ue_height_m)
-                g_l = -path_loss(dd, True, *args, **radio_kwargs(radio)) + los_shadow_sd(dd, radio) * sh
-                g_n = -path_loss(dd, False, *args, **radio_kwargs(radio)) + radio.shadow_nlos_db * sh
+                hp = None if he is None else he[ip, im]
+                g_l = -path_loss(dd, True, *args, **radio_kwargs(radio), h_e=hp) + los_shadow_sd(dd, radio) * sh
+                g_n = -path_loss(dd, False, *args, **radio_kwargs(radio), h_e=hp) + radio.shadow_nlos_db * sh
                 gain[ip, im] = mix_db(w, g_l, g_n)
                 del g_l, g_n, w, sh
             self.los = np.zeros((P + 1, M), dtype=bool)
@@ -239,6 +332,7 @@ class RadioMap:
         self.gain[:P] = gain
         self.gain[P] = FLOOR_DB
         self.has_field = False
+        self._field_rho = None
         if "los" in d:
             self.los = np.zeros((P + 1, layout.n_sites), dtype=bool)
             self.los[:P] = d["los"]
@@ -283,6 +377,24 @@ class RadioMap:
         for q in (1, 2, 3):
             v += np.take(self.gain, p[q], axis=0) * w[q][:, None]
         return v
+
+    def lookup_field(self, x, y) -> np.ndarray:
+        """The place-tied unit shadowing field at points (P,) -> (P, M) (open area, highway, indoor).
+
+        With the exponential field (``channel_detail`` "3gpp", since 2.1.0) the bilinear interpolation between
+        the map pixels is divided by its own standard deviation, so that every point has unit variance
+        (see :class:`GaussianField`); otherwise it is :meth:`lookup`.
+        """
+        v = self.lookup(x, y)
+        if self._field_rho is None:
+            return v
+        gx, gy = self._grid_coords(x, y)
+        tx, ty = gx - gx.astype(np.int64), gy - gy.astype(np.int64)
+        rh, rd = self._field_rho
+        a, b, c, e = 1.0 - tx, tx, 1.0 - ty, ty
+        aa, cc = a * a + b * b, c * c + e * e
+        sd = np.sqrt(aa * cc + 2.0 * rh * (a * b * cc + c * e * aa) + 4.0 * rd * a * b * c * e)
+        return v / sd.astype(np.float32)[:, None]
 
     def los_at(self, x, y) -> np.ndarray:
         """Line-of-sight state at points (nearest pixel) -> (P, M) bool (street grid only)."""

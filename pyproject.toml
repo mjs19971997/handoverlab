@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handoverlab"
-version = "2.0.0"
-description = "System-level simulator of handover and mobility procedures in dense 5G and beyond-5G networks"
+version = "2.1.0"
+description = "System-level handover simulator for 5G-Advanced and beyond-5G research"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

@@ -45,6 +45,20 @@ METRIC_ALIASES: Dict[str, str] = {}
 #: scenario overrides that give the results of HandoverLab 1.x (since 2.0.0).  Apply them with
 #: ``scenario.with_overrides(LEGACY_1X)``; a scenario on the urban grid also needs ``mobility.profile: veh16``
 #: (the 1.x cards smoke, urban-grid-10ghz, fr3-urban-15ghz, urban-grid-28ghz-beams and open-area-10ghz).
+#: ``radio.channel_detail: simple`` (since 2.1.0) restores the large-scale channel of 2.0.0 and 1.x.  The built-in
+#: cards whose values 2.1.0 changed also need the old card values of :data:`LEGACY_CARDS`:
+#:
+#: * smoke, urban-grid-10ghz, fr3-urban-15ghz, urban-grid-28ghz-beams: ``radio.ue_height_m: 1.5`` (2.1.0: the
+#:   1.6 m antenna of vehicle type 2, TR 37.885 clause 6.1.2);
+#: * indoor-office-4ghz: ``mobility.profile: ped3`` and ``radio.pathloss: inh_office`` (2.1.0: ``p3``, the fixed
+#:   3 km/h of ITU-R M.2412-0 Table 5a, and the open-office LOS probability of its Table A1-9);
+#: * rural-700mhz: ``mobility.profile: veh120`` (2.1.0: ``v120``, the fixed 120 km/h of M.2412-0 Table 5c);
+#: * dense-urban-2layer: ``mobility.groups: [{share: 1.0, v_min: 8.33, v_max: 8.33, lateral_m: [0, 0]}]``
+#:   (2.1.0: ``v30``, 30/3.6 m/s, M.2412-0 Table 5b);
+#: * highway-tr37885-4ghz, highway-tr37885-30ghz: ``mobility.profile: v140`` (2.1.0: ``v140c``, on the lane
+#:   centre, TR 37.885 clause 6.1.2 gives no lateral spread);
+#: * ntn-leo600-2ghz (a 2.0.0 card): ``ntn.los_model: probability`` (2.1.0: ``los``, TR 38.821 Table 6.1.1.1-5).
+#:
 #: ``handoverlab verify --only fingerprints`` checks that these settings reproduce every 1.x golden run.
 LEGACY_1X: Dict[str, object] = {
     "radio.breakpoint_c_mps": 299792458.0,    # 1.x: the exact speed of light in the breakpoint distances
@@ -52,6 +66,25 @@ LEGACY_1X: Dict[str, object] = {
     "protocol.cmd_during_t310": "lost",       # 1.x: a handover command is lost while T310 runs
     "protocol.t304_s": None,                  # 1.x: no T304
     "protocol.rlm_holdoff_s": 0.0,            # 1.x: link monitoring not restarted on a new cell
+    "protocol.rrc_detail": "simple",          # 2.0.0 and before: the engine before the audit of 2.1.0
+    "radio.channel_detail": "simple",         # 1.x and 2.0: the large-scale channel before 2.1.0
+    "radio.energy_ntrx": 1,                   # 1.x and 2.0: the EARTH model without N_TRX
+}
+
+#: built-in card -> the card values of 2.0.0 (and 1.x) that 2.1.0 changed (see :data:`LEGACY_1X`); apply them
+#: after :data:`LEGACY_1X` to a scenario built from that card
+LEGACY_CARDS: Dict[str, Dict[str, object]] = {
+    "smoke": {"radio.ue_height_m": 1.5},
+    "urban-grid-10ghz": {"radio.ue_height_m": 1.5},
+    "fr3-urban-15ghz": {"radio.ue_height_m": 1.5},
+    "urban-grid-28ghz-beams": {"radio.ue_height_m": 1.5},
+    "indoor-office-4ghz": {"mobility.profile": "ped3", "radio.pathloss": "inh_office"},
+    "rural-700mhz": {"mobility.profile": "veh120"},
+    "dense-urban-2layer": {"mobility.profile": "v60", "mobility.groups": [
+        {"share": 1.0, "v_min": 8.33, "v_max": 8.33, "lateral_m": [0.0, 0.0]}]},
+    "highway-tr37885-4ghz": {"mobility.profile": "v140"},
+    "highway-tr37885-30ghz": {"mobility.profile": "v140"},
+    "ntn-leo600-2ghz": {"ntn.los_model": "probability"},
 }
 
 
@@ -177,7 +210,8 @@ def public_surface() -> Dict[str, Any]:
     )
 
 
-__all__ = ["SCHEMA_VERSION", "RULE_API_VERSION", "METRIC_ALIASES", "LEGACY_1X", "HandoverLabDeprecationWarning",
+__all__ = ["SCHEMA_VERSION", "RULE_API_VERSION", "METRIC_ALIASES", "LEGACY_1X", "LEGACY_CARDS",
+           "HandoverLabDeprecationWarning",
            "deprecated",
            "deprecated_alias", "metric_name", "check_schema", "count_names", "public_surface"]
 

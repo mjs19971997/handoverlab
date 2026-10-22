@@ -1,0 +1,53 @@
+# The reference study of 2.1.0: one question, fixed before the runs, answered with paired tests.
+# Question: on the card urban-grid-10ghz with the 2.0.0 defaults, full interference (isolation 1) and vehicles at
+# 30 m/s, does conditional handover, tuned on the same failure budget as Event A3, give fewer unnecessary handovers?
+# Primary endpoint: unnecessary_pm of CHO@standard against A3@standard over the 20 test seeds (Wilcoxon
+# signed-rank, Holm over the compared rules); claimed only if p < 0.05 after Holm and both meet the budget.
+#   handoverlab study examples/study_reference.yaml --workers 4 --report
+# The result and how to read it: docs/reference-study.md.  About an hour with 4 workers.
+schema: 1
+name: study-reference
+description: CHO against A3 at equal failure budgets on the TR 37.885 urban grid at 10 GHz, full interference, 30 m/s.
+scenario:
+  base: urban-grid-10ghz
+  radio: {isolation: 1.0}           # every cell interferes with its full power, so that failures occur
+  mobility: {users: 40, profile: veh30}
+  run: {duration_s: 60.0, warmup_s: 10.0}
+seeds:
+  tuning: {first: 901, last: 908}   # never used in the test stage (gate 'seed_overlap')
+  test: {first: 1, last: 20}
+tuning:
+  settings: 8
+  random: 5
+  reference: {rule: a3, name: A3-ref, off_db: 3.0, ttt_s: 0.16}
+  budgets: {standard: 1.0, strict: 0.5}
+  tolerance: 0.05
+  min_reference_failures: 3
+  extend_steps: 2
+  max_extensions: 2
+  gates:
+    grid_edge: extend
+    budget_binding: warn
+    budget_met: warn
+    equal_budget: block
+    seed_overlap: block
+    flat_optimum: warn
+methods:
+  A3:
+    rule: a3
+    grid:
+      off_db: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+      ttt_s: [0.0, 0.04, 0.08, 0.16, 0.32]
+    natural_bounds: {ttt_s: lower}
+  CHO:
+    rule: cho
+    fixed: {o_prep_db: -2.0, n_max: 4}
+    grid:
+      o_exec_db: [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+      ttt_exec_s: [0.0, 0.04, 0.08, 0.16, 0.32]
+    natural_bounds: {ttt_exec_s: lower}
+compare:
+  baseline: A3@standard
+  metrics: [unnecessary_pm, failures_pm, handovers_pm, interruption_s_pm, prepared_cells_mean]
+  bootstrap: 2000
+output: results/study-reference

@@ -43,6 +43,16 @@ PROFILES: Dict[str, List[SpeedGroup]] = {
     # 120 km/h (TR 38.913 rural evaluation; TR 38.901 Table 7.2-3 gives the users as 50 % indoor, 50 % in car)
     "ped3": [SpeedGroup(1.0, 2.7 / 3.6, 3.3 / 3.6, (0.0, 0.0))],      # about 3 km/h
     "veh120": [SpeedGroup(1.0, 108.0 / 3.6, 132.0 / 3.6, (0.0, 0.0))],  # about 120 km/h
+    # fixed and identical speeds (since 2.1.0): ITU-R M.2412-0 Tables 5a-5c, "Fixed and identical speed |v| of all
+    # UEs" -- 3 km/h (indoor users, Table 5a; TR 38.901 Table 7.2-2), 30 km/h (in-car users of Dense Urban,
+    # Table 5b) and 120 km/h (in-car users of Rural, Table 5c)
+    "p3": [SpeedGroup(1.0, 3.0 / 3.6, 3.0 / 3.6, (0.0, 0.0))],
+    "v30": [SpeedGroup(1.0, 30.0 / 3.6, 30.0 / 3.6, (0.0, 0.0))],
+    "v120": [SpeedGroup(1.0, 120.0 / 3.6, 120.0 / 3.6, (0.0, 0.0))],
+    # TR 37.885 clause 6.1.2, highway option A, on the lane centre (since 2.1.0): v140 and v70 without the
+    # lateral spread of +-0.5 m, which TR 37.885 does not specify
+    "v140c": [SpeedGroup(1.0, 140.0 / 3.6, 140.0 / 3.6, (0.0, 0.0))],
+    "v70c": [SpeedGroup(1.0, 70.0 / 3.6, 70.0 / 3.6, (0.0, 0.0))],
 }
 
 _DX = np.array([1.0, 0.0, -1.0, 0.0])      # heading index 0: east, 1: north, 2: west, 3: south

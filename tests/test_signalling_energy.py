@@ -14,8 +14,8 @@ RULES = [{"rule": "a3", "name": "A3", "off_db": 1.0, "ttt_s": 0.0}, {"rule": "ch
 
 @pytest.fixture(scope="module")
 def runs():
-    sc = hl.builtin_scenario("smoke").with_overrides(SC)
-    return {r.rule: r.metrics for r in hl.simulate(sc, RULES, seeds=[2])}, sc
+    sc = hl.builtin_scenario("smoke").with_overrides(dict(SC, **{"protocol.rrc_detail": "simple"}))
+    return {r.rule: r.metrics for r in hl.simulate(sc, RULES, seeds=[2])}, sc   # the counting of 1.5.0-2.0.0
 
 
 def test_commands_and_rrc_messages(runs):
@@ -39,10 +39,20 @@ def test_l1_measurements_and_energy(runs):
     per_min = 60.0 / sc.protocol.l1_period_s * world.layout.n_sites      # every cell in every L1 period
     assert 0.8 * per_min < x["l1_measurements_pm"] <= per_min * 1.0001  # connected most of the time
     p_tx = 10 ** (sc.radio.tx_power_dbm / 10) / 1000
-    assert x["site_power_w"] == pytest.approx(56.0 + 2.6 * p_tx * x["mean_load"])
+    assert x["site_power_w"] == pytest.approx(2 * 56.0 + 2.6 * p_tx * x["mean_load"])   # N_TRX 2 (Auer Table 2)
     bits = x["rate_mbps"] * 1e6 * sc.mobility.users
     assert x["energy_uj_per_bit"] == pytest.approx(1e6 * world.layout.n_sites * x["site_power_w"] / bits, rel=1e-9)
     sc0 = sc.with_overrides({"radio.energy_p0_w": 0.0, "radio.energy_slope": 0.0})
     (r0,) = hl.simulate(sc0, RULES[:1], seeds=[2])
     assert r0.metrics["site_power_w"] == 0.0 and r0.metrics["energy_uj_per_bit"] == 0.0
     assert not math.isnan(x["energy_uj_per_bit"])
+
+
+def test_rrc_messages_one_by_one():
+    """Since 2.1.0 (rrc_detail 3gpp) every message counts once; for A3: report, command and Complete."""
+    sc = hl.builtin_scenario("smoke").with_overrides(SC)
+    (a3,) = hl.simulate(sc, RULES[:1], seeds=[2])
+    m = a3.metrics
+    assert m["n_handovers"] > 0
+    n = m["n_reports"] + m["n_commands"] + m["n_handovers"]
+    assert m["rrc_messages_pm"] == pytest.approx(n / m["ue_minutes"])

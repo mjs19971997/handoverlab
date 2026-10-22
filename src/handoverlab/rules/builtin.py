@@ -183,10 +183,10 @@ class CLTM(CLTMRule):
     """Conditional L1/L2-triggered mobility with fixed offsets (3GPP Rel-19 work on LTM).
 
     Specification: TS 38.300 clause 9.2.3.5 (LTM, Rel-18) for the candidate configuration, L1
-    measurements and RACH-less execution; the Rel-19 work item on further NR mobility
-    enhancements adds conditional LTM, in which the UE executes a configured LTM cell switch when
-    a condition holds, without the cell switch command.  As the Rel-19 text was not frozen when
-    this rule was written, the condition is modelled like the LTM switch condition: a configured
+    measurements and RACH-less execution; conditional LTM is TS 38.300 V19.4.0 clause 9.2.3.7: the
+    UE executes a configured LTM cell switch when L1-based or L3-based execution conditions are met,
+    without the cell switch command.  The rule was written before that text was frozen; it models an
+    L1-based condition like the LTM switch condition: a configured
     candidate whose unfiltered L1 measurement is better than the serving cell by ``o_switch_db``
     at every L1 sample for ``ttt_switch_s``; the UE then executes at once (``exec_s``).
 
@@ -235,35 +235,48 @@ class CHOD2(CHO):
     reference location); leaving when ``Ml1 + Hys < Thresh1`` or ``Ml2 - Hys > Thresh2``.  The reference
     locations are ``ctx.cell_center(t)``: the beam centres on the ground, which move with the satellite; on cells
     that do not move (terrestrial sites) the event is Event D1 (5.5.4.15).  TS 38.331 (CondReconfigToAddMod)
-    has the network configure a second event (A3, A4 or A5) together with D1 or D2; here the execution needs both
-    the D2 state and the A3 condition of :class:`CHO` (``o_exec_db``), held together for ``ttt_exec_s`` (one
-    time-to-trigger for both events, a simplification).  Distances use the UE's reported position.
+    has the network configure a second event (A3, A4 or A5) together with D1 or D2, except for a CHO with only
+    D1, D2 or T1; the rule uses D2 with A3.  Since 2.1.0 the two events
+    follow TS 38.331 5.3.5.13.4 (V18.11.0): each has its own time-to-trigger (``ttt_d2_s`` is timeToTrigger-r18 of
+    condEventD2, ``ttt_exec_s`` that of condEventA3); an event turns fulfilled when its entry condition has held
+    for its time-to-trigger and not fulfilled when its leaving condition has held for it, and the UE executes
+    when both are fulfilled (2.0.0: one time-to-trigger over both conditions together).  Distances use the UE's
+    reported position.
 
     d_thresh1_m  distanceThreshFromReference1 [m] (serving cell); default: half the 50 km nadir beam diameter of
                  the LEO-600 S-band beams of TR 38.821 Table 6.1.1.1-1 (TS 38.331 gives no default)
     d_thresh2_m  distanceThreshFromReference2 [m] (candidate); the same default
-    hys_m        hysteresisLocation [m]
-    Other parameters as :class:`CHO`.
+    hys_m        hysteresisLocation [m] (a multiple of 10 m, TS 38.331 HysteresisLocation)
+    ttt_d2_s     timeToTrigger of condEventD2 [s] (since 2.1.0; a TimeToTrigger value)
+    Other parameters as :class:`CHO`.  The thresholds are multiples of 50 m (distanceThreshFromReference).
     """
     exec_condition_used = True
 
     def __init__(self, d_thresh1_m: float = 25000.0, d_thresh2_m: float = 25000.0, hys_m: float = 1000.0,
                  o_prep_db: float = -2.0, o_exec_db: float = 0.0, ttt_exec_s: float = 0.08, ttt_prep_s: float = 0.0,
-                 n_max: int = 4, rel_hys_db: float = 3.0, name: str = "CHO-D2"):
+                 n_max: int = 4, rel_hys_db: float = 3.0, ttt_d2_s: float = 0.0, name: str = "CHO-D2"):
         super().__init__(o_prep_db, o_exec_db, ttt_exec_s, ttt_prep_s, n_max, rel_hys_db, False, name)
-        if d_thresh1_m < 0 or d_thresh2_m < 0 or hys_m < 0:
-            raise ValueError("distance thresholds and hysteresis must be >= 0")
+        if d_thresh1_m < 0 or d_thresh2_m < 0 or hys_m < 0 or ttt_d2_s < 0:
+            raise ValueError("distance thresholds, hysteresis and ttt_d2_s must be >= 0")
         self.d_thresh1_m, self.d_thresh2_m, self.hys_m = float(d_thresh1_m), float(d_thresh2_m), float(hys_m)
+        self.ttt_d2_s = float(ttt_d2_s)
 
     def params(self):
         p = super().params()
         p.pop("immediate")
-        p.update(d_thresh1_m=self.d_thresh1_m, d_thresh2_m=self.d_thresh2_m, hys_m=self.hys_m)
+        p.update(d_thresh1_m=self.d_thresh1_m, d_thresh2_m=self.d_thresh2_m, hys_m=self.hys_m, ttt_d2_s=self.ttt_d2_s)
         return p
 
     def reset(self, ctx):
         super().reset(ctx)
         self.d_on = np.zeros((ctx.n_users, ctx.n_sites), dtype=bool)
+        self.d_in = np.full((ctx.n_users, ctx.n_sites), np.inf)       # entry condition holds since
+        self.d_out = np.full((ctx.n_users, ctx.n_sites), np.inf)      # leaving condition holds since
+
+    def release_user(self, u):
+        self.d_on[u] = False
+        self.d_in[u] = np.inf
+        self.d_out[u] = np.inf
 
     def exec_condition(self, obs):
         ref = self.ctx.cell_center(obs.t) if self.ctx.cell_center is not None else self.ctx.sites
@@ -271,7 +284,11 @@ class CHOD2(CHO):
         ml1 = d[np.arange(len(obs.serving)), obs.serving][:, None]
         enter = (ml1 - self.hys_m > self.d_thresh1_m) & (d + self.hys_m < self.d_thresh2_m)
         leave = (ml1 + self.hys_m < self.d_thresh1_m) | (d - self.hys_m > self.d_thresh2_m)
-        self.d_on = (self.d_on | enter) & ~leave
+        t = float(obs.t)
+        self.d_in = np.where(enter, np.minimum(self.d_in, t), np.inf)
+        self.d_out = np.where(leave, np.minimum(self.d_out, t), np.inf)
+        eps = 1e-9
+        self.d_on = (self.d_on | (t - self.d_in >= self.ttt_d2_s - eps)) & ~(t - self.d_out >= self.ttt_d2_s - eps)
         return self.d_on
 
 

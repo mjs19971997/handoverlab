@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 1.0.2. It explains the ideas behind a run, the built-in
+This guide covers version 2.1.0. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -98,9 +98,10 @@ Both are off by default; without them every result of 1.x is unchanged.
 DFT weights (at most L_max: 4 up to 3 GHz, 8 in FR1, 64 in FR2). The cell quality comes from the
 beams (TS 38.331 5.5.3.3, `ssb_avg`, `ssb_thresh_dbm`). The gNB moves the serving beam (TCI state)
 after periodic L1-RSRP reports (`report_s`, `switch_db`, `tci_delay_s`). Beam failure detection
-and recovery follow TS 38.213 clause 6, TS 38.321 clause 5.17 and TS 38.133 clause 8.5: an
+and recovery follow TS 38.213 clause 6, TS 38.321 clause 5.17 and TS 38.133 clause 8.5 (the SSB of the
+serving beam as BFD-RS, which TS 38.133 8.5.1 allows): an
 indication every max(2 ms, T_SSB) when the serving beam's quality, averaged over the BFD evaluation
-period, is below Qout; `bfi_max` (beamFailureInstanceMaxCount) indications within
+period, is below Qout_LR (Qout + 4 dB since 2.1.0, TS 38.133 Tables 8.5.2.1-1 and 8.1.2.1-1; 2.0.0: Qout); `bfi_max` (beamFailureInstanceMaxCount) indications within
 `bfd_timer` (beamFailureDetectionTimer) periods start random access: contention-free on a
 candidate beam above `rsrp_thresh_ssb_dbm` while `bfr_timer_s` runs, else contention-based; after
 `preamble_max` failed attempts the random-access problem is a radio-link failure. Radio-link
@@ -207,23 +208,24 @@ output: results/metrics.csv
 | | `bs_gain_db`, `ue_gain_db` | `20`, `0` | beam gain towards a served or measuring user; UE gain |
 | | `noise_figure_db` | `7` | UE noise figure |
 | | `isolation` | `0.3` | mean-to-peak gain of an interfering data beam (1 = no beam isolation) |
-| | `bs_height_m`, `ue_height_m` | `10`, `1.5` | antenna heights |
-| | `pathloss` | `umi_street_canyon` | or `uma`, `rma` (0.5-30 GHz), `inh_office` (TR 38.901 Table 7.4.1-1; the last two since 1.7.0) |
+| | `bs_height_m`, `ue_height_m` | `10`, `1.5` | antenna heights; with `channel_detail: 3gpp` they must lie in the applicability ranges of TR 38.901 Table 7.4.1-1 (UMa, UMi: 1.5 m <= h_UT <= 22.5 m; RMa: 10-150 m and 1-10 m) |
+| | `pathloss` | `umi_street_canyon` | or `uma`, `rma` (0.5-30 GHz), `inh_office` (TR 38.901 Table 7.4.1-1; the last two since 1.7.0; LOS probability of the mixed office), `inh_office_open` (since 2.1.0: InH-Office with the LOS probability of the open office, as ITU-R M.2412-0 Table A1-9) |
 | | `shadow_los_db`, `shadow_nlos_db` | `4`, `7.82` | shadowing standard deviation |
 | | `shadow_los_far_db` | none | optional (1.7.0): standard deviation of LOS links beyond the breakpoint distance (RMa: `6`) |
 | | `shadow_decorr_m` | `10` | shadowing decorrelation distance |
-| | `shadow_site_corr` | `0.5` | correlation of the shadowing between sites |
+| | `shadow_site_corr` | none | correlation of the shadowing between sites; unset (since 2.1.0): 0 with `channel_detail: 3gpp` (TR 38.901 clause 7.5 step 4), 0.5 with `simple` (the value of 2.0.0 and 1.x) |
 | | `place_share` | `1` | share of shadowing variance tied to place (rest moves with the user) |
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
 | | `breakpoint_c_mps` | `3.0e8` | speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1 notes 1 and 5; since 2.0.0, 1.x: 299792458) |
 | | `pl_min_distance_m` | `10` | smallest 2D distance the RMa, UMa and UMi formulas are evaluated at (their applicability range; since 2.0.0, 1.x: 0) |
+| | `channel_detail` | `3gpp` | since 2.1.0: `3gpp` -- place-tied shadowing and LOS fields with the exponential autocorrelation exp(-d / d_cor) of TR 38.901 Eq. (7.4-5), shadowing uncorrelated between sites, UMa with C'(h_UT) and the random effective environment height (h_UT >= 13 m), height and co-sited-layer checks, the tabled NTN beamwidth; `simple` -- the model of 2.0.0 and 1.x (part of `LEGACY_1X`) |
 | | `map_file` | none | radio map from a file: path gain of every site and pixel from a ray tracer or measurements (TR 38.901 clause 8; since 1.12.0; see [your own radio map](guides/radio-maps.md)); `map_sha256` is filled on loading |
 | | `los_model` | `probability` | `los`: every link LOS (TR 37.885 Table 6.2.1-2, highway); not on the street grid (since 1.11.0) |
 | | `soft_los`, `soft_los_d_m` | `false`, `20` | optional (1.7.0): soft LOS state of TR 38.901 clause 7.6.3.3 instead of a hard switch (see below) |
 | | `time_var_db`, `time_var_tau_s` | `1.5`, `1` | time-varying component (moving blockers) |
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
-| | `energy_p0_w`, `energy_slope` | `56`, `2.6` | site power for the energy metrics (1.5.0): EARTH model of a micro base station |
+| | `energy_p0_w`, `energy_slope`, `energy_ntrx` | `56`, `2.6`, `2` | cell power for the energy metrics (1.5.0; `energy_ntrx` since 2.1.0): EARTH model of a micro base station, Auer et al. 2011 Eq. 1 and Table 2 |
 | | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
@@ -243,13 +245,13 @@ output: results/metrics.csv
 | | `cfg_loss_as_failure` | `false` | check mode: a lost conditional configuration fails like a lost handover command |
 | | `lm_load`, `lm_load_per_ue` | `null`, `0` | optional (1.1.0): interferer load at link monitoring, plus a part per user served by the interfering cell; `null` and `0` keep the load of the data channel ([calibration](calibration.md)) |
 | | `exec_can_fail` | `true` | `false`: the execution always joins the target (ideal random access) |
-| | `rlm_holdoff_s` | `0.2` | no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (TS 38.133 clause 8.1; since 1.3.0, default since 2.0.0; 1.x: `0`) |
+| | `rlm_holdoff_s` | `0.2` | no out-of-sync on a newly joined cell for this time, as radio-link monitoring restarts there (an interpretation of TS 38.133 8.1.2.2; since 1.3.0, default since 2.0.0; 1.x: `0`) |
 | | `cmd_during_t310` | `receive` | (1.9.0; default since 2.0.0, 1.x: `lost`) a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); since 2.0.0 a CHO or LTM candidate configuration is received the same way, without stopping T310 (5.3.5.13) |
 | | `t304_s` | `1.0` | T304 (1.9.0; default since 2.0.0, 1.x: none): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
 | | `meas_periods` | `sample` | `ts38133` (1.10.0): every cell's L1 result is the average over its measurement period of TS 38.133 (intra-frequency Tables 9.2.5.2-1/-2, inter-frequency within gaps Tables 9.3.5-1/-2) and enters the L3 filter once per period |
 | | `ssb_period_s` | `0.02` | SSB and SMTC periodicity T_SSB used by the TS 38.133 formulas (1.10.0) |
 | | `gap_pattern` | `0` | measurement gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms) (1.10.0) |
-| | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.2 and 9.3.4 (1.10.0) |
+| | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.1 and 9.3.4 (1.10.0) |
 | | `rlm_eval` | `fixed` | `ts38133` (1.10.0): Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 for the serving cell's frequency range (FR2: 1.6 s / 0.8 s at T_SSB 20 ms) instead of `qout_window_s` / `qin_window_s` |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
@@ -257,9 +259,9 @@ output: results/metrics.csv
 | | `load_tau_s`, `rate_scale`, `label_load` | `0.2`, `1`, `1` | load smoothing; rate multiplier; load assumed by the label |
 | | `model` | `fixed` | traffic model (1.4.0): `fixed` (constant service rates), `full_buffer`, `periodic`, `ftp3`; see `examples/traffic_models.py` |
 | | `period_s`, `packet_bytes` | `0.02`, `100` | `periodic`: one packet every period |
-| | `ftp_file_bytes`, `ftp_rate_hz` | `500000`, `0.1` | `ftp3`: file size (TR 36.814 FTP model 3) and file arrivals per user and second |
+| | `ftp_file_bytes`, `ftp_rate_hz` | `500000`, `0.1` | `ftp3`: file size (FTP model 3, 0.5 Mbyte as TR 38.821 Table 6.1.1.1-7) and file arrivals per user and second |
 | `mobility` | `users` | `40` | number of users |
-| | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120`; highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h, since 1.11.0) |
+| | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120` (about 3 and 120 km/h, +-10 %); `p3`, `v30`, `v120` (since 2.1.0: exactly 3, 30, 120 km/h, the fixed speeds of ITU-R M.2412-0 Tables 5a-5c); highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h with up to 0.5 m lateral offset, since 1.11.0), `v140c`, `v70c` (since 2.1.0: the same on the lane centre) |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
 | `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
@@ -283,7 +285,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 | `a3_bandit` | baseline | `arms_db` ([1, 2, 3, 4, 5]), `ttt_s` (0.16), `epsilon` (0.1), `epoch` (10), `w_unnecessary` (1.0), `w_failure` (2.0), `name` |
 | `a3a5` | baseline | `off_db` (3.0), `ttt_s` (0.16), `a5_thresh1_dbm` (-110), `a5_thresh2_dbm` (-105), `a5_hys_db` (1.0), `a5_ttt_s` (0.32), `a3_inter` (false), `a5_down_thresh1_dbm`, `a5_down_thresh2_dbm` (none: as above), `name` (since 1.10.0): Event A3 within a carrier, Event A5 towards other carriers |
 | `dqn` | baseline | `offsets_db` ([0, 1, 2, 3, 4, 5]), `ttt_s` (0.16), `mode` ("train" or "test"), `weights` (none), `hidden` (32), `lr` (0.001), `gamma` (0.9), `epsilon` (0.1), `batch` (32), `buffer` (5000), `train_every` (4), `target_every` (100), `w_unnecessary` (1.0), `w_failure` (2.0), `name` (since 1.11.0; needs `pip install handoverlab[torch]`; see the [learning-rule guide](guides/learning-rule.md)) |
-| `a3_mro` | baseline | `off_db` (3.0), `ttt_s` (0.16), `step_db` (0.5), `window_s` (10.0), `min_db` (-4.0), `max_db` (4.0), `min_events` (1), `count_pingpong` (true), `pingpong_s` (none: `protocol.pingpong_s`), `count_unnecessary` (false), `name` (since 1.7.0) |
+| `a3_mro` | baseline | `off_db` (3.0), `ttt_s` (0.16), `step_db` (1.0; 0.5 before 2.1.0), `window_s` (10.0), `min_db` (-4.0), `max_db` (4.0), `min_events` (1), `count_pingpong` (true), `pingpong_s` (none: `protocol.pingpong_s`), `count_unnecessary` (false), `name` (since 1.7.0) |
 
 `daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`
 unchanged.
@@ -296,12 +298,14 @@ The family of a rule selects the procedure the engine runs around its decisions:
   report, preparation (`prep_s`), handover command, execution (`exec_s`, an interruption), join of
   the target if its SINR is at least Qout.
 - **conditional** (`cho`, TS 38.300 clause 9.2.3.4): prepared cells with execution conditions that
-  the UE evaluates itself; faster recovery into a prepared cell after a failure.
+  the UE evaluates itself; faster recovery into a prepared cell after a failure (9.2.3.1, 9.2.7).
 - **daps** (`daps`, Rel-16 DAPS handover, TS 38.300 clause 9.2.3.2): triggered like a baseline
   handover, but the source keeps carrying data during the execution, so the execution counts
   `interruption_s` (default 0) instead of `exec_s` in `interruption_exec_s_pm`, and the user keeps
-  its rate. If the target cannot be joined while the source SINR is still at least Qout, the UE falls
-  back to the source (TS 38.331 clause 5.3.5.8.3): the attempt ends as `too_early` with the cause
+  its rate. The source link is monitored during the execution; if the target cannot be joined before
+  T304 expires and no radio-link failure of the source was detected, the UE falls back to the source
+  (TS 38.331 clauses 5.3.10.1, 5.3.5.8.3; since 2.1.0, before: if the source SINR was at least Qout).
+  No DAPS from FR2 to FR2 and none for NTN (TS 38.300). The attempt ends as `too_early` with the cause
   `daps_fallback`, without a failure or a re-establishment. `too_early_pm` therefore includes
   fallbacks for DAPS, `failures_pm` does not. With `fallback: false, source_data: false` the rule
   gives exactly the results of `a3`.
@@ -309,8 +313,9 @@ The family of a rule selects the procedure the engine runs around its decisions:
   configured like the prepared cells of a conditional handover (L3 reports with `o_prep_db`, at most
   `n_max`); the network then switches the UE to a candidate whose *unfiltered L1* measurement beats
   the serving cell by `o_switch_db` for `ttt_switch_s`. The cell switch command (MAC CE) reaches
-  the UE after `cmd_delay_s` and is lost if T310 runs; the execution (RACH-less, with early timing
-  advance) takes `exec_s`. Preparation counts (`preparations_pm`, `unused_preparations_pm`, ...)
+  the UE after `cmd_delay_s` (while T310 runs it is received when the link reaches Qout); the
+  execution (RACH-less, with early timing advance) takes `exec_s`, 20 ms more between FR1 and FR2;
+  the other candidates stay configured after a switch (TS 38.331 5.3.5.18.6). Preparation counts (`preparations_pm`, `unused_preparations_pm`, ...)
   count candidate configurations; `recoveries_pm` counts failures recovered into a candidate.
 - **cltm** (`cltm`, conditional LTM, Rel-19 work on LTM; since 1.6.0): candidates as for `ltm`, but
   the UE evaluates the L1 switch condition itself and executes as soon as it holds, without a cell
@@ -464,16 +469,26 @@ full catalogue with units is `handoverlab.engine.METRICS`, listed in the
 **Outcome of an attempt** (exactly one per attempt; `n_attempts` equals their sum):
 
 - `too_late`: the command or configuration was lost, or the link failed while the handover was in
-  preparation;
+  preparation, and the UE re-established in another cell than its serving cell;
 - `too_early`: the execution failed, or the link failed in the target before the evaluation window
-  closed, and the UE re-established in the source or the target; for DAPS handover also an
-  execution that fell back to the source (cause `daps_fallback`, not counted as a failure);
-- `wrong_cell`: the same, but the UE re-established in a third cell;
+  closed, and the UE re-established in the source; for DAPS handover also an execution that fell back
+  to the source (cause `daps_fallback`, not counted as a failure);
+- `wrong_cell`: the same, but the UE re-established in a cell other than source and target;
+- `coverage` (since 2.1.0): a failure of the attempt after which the UE re-established in its serving
+  cell (the target after a handover); TS 38.300 15.5.2.2.2 defines no mobility class for it;
 - `unnecessary`: completed, the source link would not have failed during the window, and the stay
   was shorter than `t_min_s` of the user's service or the mean SINR gain over the window was below
   `theta_q_db`;
 - `useful`: completed and not unnecessary;
 - `censored`: the run ended before the outcome was known.
+
+These are the classes of TS 38.300 V18.11.0 clause 15.5.2.2.2 with `protocol.rrc_detail: 3gpp`; with
+`simple` (2.0.0) a re-establishment in the target counted as too early and a lost command as too late in
+any cell. The evaluation window opens when the handover completes and closes after `t_min_s` of the
+user's service class (2 to 7 s) or at the next execution: it plays the part of the network's
+threshold such as Tstore_UE_cntxt (TS 38.300 15.5.2.2.2 and 15.5.2.5: one value configured by OAM, compared
+with the UE's timeConnFailure, the time since the execution of the last RRCReconfiguration with
+reconfigurationWithSync, TS 38.331 5.3.10.5), but is set per service and counted from completion.
 
 **Failures by cause** (`failures_pm` is their sum): `command_lost`, `rlf_in_preparation`,
 `rlf_without_handover` (re-established in another cell), `coverage_rlf` (in the same cell),
@@ -506,7 +521,7 @@ result or a fingerprint. The event-log columns and units are in
 | `ue`, `kind` | user; `ho` baseline handover, `cho` conditional handover, `daps` DAPS handover, `ltm` L1/L2-triggered mobility, `cltm` conditional LTM, `rlf` failure without handover |
 | `src`, `tgt` | source cell; target cell (for `rlf`: cell of the re-establishment) |
 | `outcome`, `cause` | outcome label (section 7) and failure cause |
-| `dwell`, `gain_db` | time of stay in the target [s]; mean SINR gain over the evaluation window [dB] |
+| `dwell`, `gain_db` | stay in the target observed in the evaluation window [s] (capped at `t_min_s`; it ends at the next execution start or the failure), not the full time of stay of TR 36.839 5.2.2; mean SINR gain over the evaluation window [dB] |
 | `n_prepared`, `o_exec` | prepared cells at the attempt; execution or A3 offset (-99 if none) [dB] |
 | `x`, `y` | position at `t_end` [m] |
 
@@ -804,8 +819,9 @@ intervals are wide; the report shows them next to every estimate.
 
 - Received-power level only: no link-level physical layer, no fast fading, no HARQ, no beam
   management (one beam gain and one isolation factor), no packet-level protocol stack.
-- The failure model follows the TR 36.839 approach and is not calibrated in absolute terms; failure
-  rates are best read relative to each other.
+- The failure model uses the SINR thresholds and timers of TR 36.839 with the procedures of TS 38.331 and
+  TS 38.133 (see [standard compliance](standard-compliance.md)); it is not calibrated in absolute terms, so
+  failure rates are best read relative to each other.
 - The radio map of a large grid takes some time and memory to build (for the default 3 x 3 grid at
   100 m spacing, 76 sites and 0.2 million street pixels: about 17 s on a modest machine, see
   [performance.md](performance.md)). Use a larger `site_spacing_m`, a coarser `map_res_m` or fewer
@@ -814,7 +830,7 @@ intervals are wide; the report shows them next to every estimate.
   platforms, averaged quantities can differ in the last bits and, rarely, a single threshold event can
   move; event-log fingerprints show whether this happened.
 - Compared with ns-3 / 5G-LENA, handover and unnecessary-handover rates agree (median ratios 0.95 and
-  1.04 over 24 A3 settings), failure rates do not: 0.13 against 0.43 per UE-minute (see the
+  1.06 over 24 A3 settings, version 2.1.0), failure rates do not: 0.03 against 0.43 per UE-minute (see the
   validation section of [verification.md](verification.md)). Compare failure rates between rules
   within HandoverLab, not with absolute values from other simulators or from the field. An attempt
   to calibrate the failure model against ns-3 found no setting that holds on independent ns-3

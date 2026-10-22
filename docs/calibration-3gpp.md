@@ -10,6 +10,16 @@ range, and none is more than about 1 dB from the industry mean. `handoverlab ver
 check (group `calibration`). With c = 3.0e8 m/s in the breakpoint distances (2.0.0) every number of this
 page is unchanged.
 
+**Version.** The drop uses the formulas of TR 38.901 V19.5.0 with one exception: the IRR-glass loss of the
+high-loss O2I model. V19.5.0 Table 7.4.3-1 gives 25.4 + 0.11 f dB (note 2: updated in the Release 19 study
+on 7-24 GHz); the calibration keeps the earlier 23 + 0.3 f dB of TR 38.901 V17.0.0, because the companies of
+R1-165974 worked before that change (`IRR_GLASS_R1_165974` in `handoverlab.verify.calibration`; pass
+`irr_glass=IRR_GLASS_V19` to `simulate_drops` for the V19.5.0 value). With the V19.5.0 value (30 000 users,
+seed 1) the 6 GHz cases stay inside the company range, but at 30 GHz the coupling loss and the SINR of UMa
+and UMi leave it (coupling loss: UMa 15 of 19 percentiles inside, largest distance from the mean 3.30 dB;
+UMi 11 of 19, 3.25 dB): the higher glass loss at 30 GHz is a change of the model, not an error of the
+reproduction.
+
 ![HandoverLab against the 21 companies of 3GPP R1-165974](images/calibration_38901.png)
 
 ## The reference
@@ -34,10 +44,10 @@ of the simulator (a test checks that they give exactly the values of `handoverla
 | Layout | UMa: 19 sites, ISD 500 m, BS 25 m; UMi: 19 sites, ISD 200 m, BS 10 m; geographical wrap-around | TR 38.901 Tables 7.2-1 and 7.8-1 |
 | Indoor office | 12 ceiling sites, 20 m apart, in a 120 m x 50 m hall, BS 3 m, users 1 m | Table 7.2-2, Figure 7.2-1 |
 | Sectors and antenna | 3 sectors per site (30, 150, 270 deg); element pattern of Table 7.3-1 (8 dBi); 10 vertical elements, d_V = lambda / 2, DFT tilt 102 deg (UMa, UMi), 110 deg (indoor) | Tables 7.3-1, 7.8-1; Eq. 7.3-1 |
-| Users | uniform; UMa and UMi 80 % indoor at height 3 (n_fl - 1) + 1.5 m, n_fl ~ uniform(1, N_fl), N_fl ~ uniform(4, 8); minimum 2D distance 35 m (UMa), 10 m (UMi), applied to d2D-out | Table 7.2-1; TR 36.873 Table 6-1 |
+| Users | uniform; UMa and UMi 80 % indoor at height 3 (n_fl - 1) + 1.5 m, n_fl ~ uniform(1, N_fl), N_fl ~ uniform(4, 8); minimum 2D distance 35 m (UMa), 10 m (UMi), applied to d2D-out | Table 7.2-1 ("Same as 3D-UMa in TR36.873"); the formula as in ITU-R M.2412-0 Table 5b (TR 36.873 itself is not in the local sources) |
 | Path loss and LOS | Table 7.4.1-1 (UMa with the random effective environment height of note 1), Table 7.4.2-1 (UMa with C'(h_UT), indoor open office) | TR 38.901 |
 | Shadowing | LOS / NLOS of Table 7.4.1-1; 7 dB for indoor users of UMa and UMi; independent between sites, shared by the sectors of a site | Tables 7.4.1-1 and 7.5-6 |
-| O2I loss | 50 % low loss, 50 % high loss; d2D-in = min of two uniform(0, 25 m) | clause 7.4.3.1, Table 7.4.3-2 |
+| O2I loss | 50 % low loss, 50 % high loss; d2D-in = min of two uniform(0, 25 m); IRR glass 23 + 0.3 f dB (see Version above) | clause 7.4.3.1, Tables 7.4.3-1 (V17.0.0 value), 7.4.3-2 |
 | Link budget | 49 dBm (UMa), 44 dBm (UMi) at 6 GHz with 20 MHz; 35 dBm at 30 GHz with 100 MHz; 24 dBm indoor; UT noise figure 9 dB; isotropic UT | Table 7.8-1 |
 | Association | sector with the highest received power (handover margin 0 dB), no fast fading | Table 7.8-1 |
 

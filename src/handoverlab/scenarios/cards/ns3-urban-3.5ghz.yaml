@@ -47,6 +47,7 @@ limitations:
   - "Seeds are different realisations in the two simulators; only averages over settings and conditions can be compared."
   - "The interfering load is defined differently in the two simulators, so failure rates are reported without a pass limit."
   - "Only baseline handover can be compared: 5G-LENA has no conditional handover."
+  - "The shadowing along each user's path has one decorrelation distance, the UMi LOS value of 10 m, also on NLOS links (TR 38.901 Table 7.5-6 Part-1: NLOS 13 m)."
 references:
   - "ns-3 / 5G-LENA results for 24 Event-A3 settings on four conditions (site distance 200 / 400 m, 16 / 30 m/s), stored in handoverlab/verify/data/ns3_urban_a3.json; acceptance limits: median ratio of handover and of unnecessary-handover rates in [0.8, 1.25], rank correlation over the settings at least 0.9 (`handoverlab verify --ns3`)."
   - "Result of version 0.2.0a1 (one seed per condition): median ratio HandoverLab / ns-3 of 0.95 for the handover rate and 1.04 for the unnecessary-handover rate, rank correlation 0.99 for both; failure rate 0.13 against 0.43 per UE-minute (rank correlation 0.54), mean serving SINR 26.2 dB against 11.5 dB."

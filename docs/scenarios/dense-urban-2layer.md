@@ -20,38 +20,31 @@ Values in **bold** differ from the HandoverLab defaults.
 | Key | Value | Source |
 |---|---|---|
 | `layout.kind` | **open_area** | ITU-R M.2412-0 clause 8.3 (no topographical details; regular hexagonal macro grid) |
-| `layout.blocks` | [3, 3] | TR 37.885 Table A-1 (minimum 3 x 3 blocks) |
-| `layout.pitch_m` | [433, 250] | TR 37.885 Annex A (433 m x 250 m) |
-| `layout.street_width_m` | 20 | TR 37.885 Annex A (20 m) |
 | `layout.site_spacing_m` | **200** | ITU-R M.2412-0 Table 5b (macro layer ISD 200 m) |
-| `layout.site_offset_m` | 9 | assumption (sites on the pavement) |
 | `layout.sites` | **23 entries** | hexagonal macro grid with ISD 200 m in the area (ITU-R M.2412-0 clause 8.3) |
 | `layout.area_m` | **[800, 700]** | assumption (800 m x 700 m, about 23 macro sites) |
 | `layout.min_site_distance_m` | **35** | TR 38.901 Table 7.2-1 (UMa: minimum BS-UT distance 35 m; applied to the start and waypoints, macro sites only) |
 | `radio.carrier_ghz` | **4** | ITU-R M.2412-0 Table 5b, Configuration C (macro layer 4 GHz) |
 | `radio.bandwidth_mhz` | **20** | ITU-R M.2412-0 Table 5b (20 MHz TDD at 4 GHz) |
 | `radio.tx_power_dbm` | **44** | ITU-R M.2412-0 Table 5b (macro 4 GHz: 44 dBm for 20 MHz) |
-| `radio.bs_gain_db` | 20 | assumption (beam gain, no beam management) |
 | `radio.ue_gain_db` | 0 | ITU-R M.2412-0 Table 5b (UE antenna element gain 0 dBi at 4 GHz) |
 | `radio.noise_figure_db` | 7 | ITU-R M.2412-0 Table 5b (UE noise figure 7 dB at 4 GHz) |
-| `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | **25** | ITU-R M.2412-0 Table 5b (25 m for macro sites) |
 | `radio.ue_height_m` | 1.5 | ITU-R M.2412-0 Table 5 (outdoor UEs: 1.5 m), within 1.5-22.5 m of TR 38.901 Table 7.4.1-1 |
 | `radio.pathloss` | **uma** | TR 38.901 UMa (macro) and UMi street canyon (micro), as ITU-R M.2412-0 Annex 1 Table A1-1 uses for Dense Urban |
 | `radio.shadow_los_db` | 4 | TR 38.901 Table 7.4.1-1 (UMa LOS: 4 dB); micro layer UMi LOS: 4 dB |
 | `radio.shadow_nlos_db` | **6** | TR 38.901 Table 7.4.1-1 (UMa NLOS: 6 dB); micro layer UMi NLOS: 7.82 dB |
 | `radio.shadow_decorr_m` | **50** | TR 38.901 Table 7.5-6 Part-1 (UMa NLOS: 50 m; micro layer UMi NLOS: 13 m) |
-| `radio.shadow_site_corr` | 0.5 | assumption (correlation between sites) |
+| `radio.shadow_site_corr` | none | unset: uncorrelated between sites, TR 38.901 clause 7.5 step 4 (radio.channel_detail simple: 0.5) |
 | `radio.place_share` | 1 | assumption (blockage tied to place) |
-| `radio.clutter_los` | true | TR 38.901 clause 7.6.3.3 (spatially consistent LOS state) |
 | `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state: UMa and UMi 50 m) |
 | `radio.time_var_db` | 1.5 | assumption (moving blockers) |
 | `radio.time_var_tau_s` | 1 | assumption |
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
 | `radio.penetration_db` | **9** | ITU-R M.2412-0 Annex 1 clause 3.3 and TR 38.901 clause 7.4.3.2 (in-car users: 9 dB) |
 | `radio.penetration_sd_db` | **5** | ITU-R M.2412-0 Annex 1 clause 3.3 and TR 38.901 clause 7.4.3.2 (5 dB, per user) |
-| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011): 56 W |
-| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011): 2.6 |
+| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011, Table 2): 56 W |
+| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011, Table 2): 2.6 |
 | `radio.map_res_m` | 1 | numerical setting |
 | `radio.scs_khz` | **30** | assumption (30 kHz at 4 GHz) |
 | `radio.beams.sectors` | 3 | default of the beam model (user guide) |
@@ -89,14 +82,14 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.t310_s` | 1 | TR 36.839 (1 s) |
 | `protocol.prep_s` | 0.05 | TR 36.839 (50 ms) |
 | `protocol.exec_s` | 0.04 | TR 36.839 (40 ms) |
-| `protocol.reest_s` | 1 | TR 36.842 (assumption: 1 s outage) |
-| `protocol.cho_recovery_s` | 0.4 | TS 38.300 clause 9.2.3.4 (recovery into a prepared cell; assumption 0.4 s) |
+| `protocol.reest_s` | 1 | assumption (1 s outage); TS 38.133 6.2.1.2.1 bounds the delay by 50 ms + cell identification (FR1: 200 ms known, 800 ms unknown cell, Table 6.2.1.2.1-1) + system information + PRACH; TR 36.842 Table E.1-2 uses 250 ms |
+| `protocol.cho_recovery_s` | 0.4 | TS 38.300 clauses 9.2.3.1 and 9.2.7 (recovery into a CHO candidate; assumption 0.4 s) |
 | `protocol.pingpong_s` | 1 | TR 36.839 (minimum time of stay, 1 s) |
 | `protocol.cfg_loss_as_failure` | false | check mode only |
 | `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
-| `protocol.rlm_holdoff_s` | 0.2 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
+| `protocol.rlm_holdoff_s` | 0.2 | 0.2 s since 2.0.0: an interpretation of TS 38.133 8.1.2.2 (evaluation over the last T_Evaluate_out, 200 ms in FR1) on a newly joined cell |
 | `protocol.meas_periods` | **ts38133** | TS 38.133 Tables 9.2.5.2-1/-2 and 9.3.5-1/-2 (gap pattern 0 of Table 9.1.2-1) |
 | `protocol.rlm_eval` | **ts38133** | TS 38.133 Tables 8.1.2.2-1/-2 |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
@@ -110,13 +103,15 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.model` | fixed | fixed: constant service rates (the model of 1.0) |
 | `traffic.period_s` | 0.02 | periodic model: 20 ms, as VoIP |
 | `traffic.packet_bytes` | 100 | periodic model: assumption |
-| `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
+| `traffic.ftp_file_bytes` | 500000 | FTP model 3 (TR 36.872 Annex A.1) with 0.5 Mbyte files (TR 38.802 Table A.2.1-1; TR 38.821 Table 6.1.1.1-7) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
-| `mobility.users` | **20** | assumption |
-| `mobility.profile` | v60 | TR 37.885 clause 6.1.2 (urban option A: 60 km/h in all lanes) and Table A-1 (2 lanes of 3.5 m per direction): profile v60 (since 2.0.0) |
-| `mobility.groups` | **1 entries** | ITU-R M.2412-0 Table 5b: outdoor (in-car) users at 30 km/h; the 80 % indoor users are not simulated |
+| `mobility.users` | **20** | assumption (20 users for run time; ITU-R M.2412-0 Table 5b: 10 UEs per TRxP) |
+| `mobility.profile` | **v30** | ITU-R M.2412-0 Table 5b: fixed and identical speed of the outdoor (in-car) users, 30 km/h = 8.333 m/s (since 2.1.0; until 2.0.0 8.33 m/s); the 80 % indoor users are not simulated |
+| `mobility.groups` | none | profile |
 | `run.duration_s` | 120 | numerical setting |
 | `run.warmup_s` | 20 | numerical setting |
+
+Not read by this layout and radio model, so not listed: `layout.blocks`, `layout.pitch_m`, `layout.site_offset_m`, `layout.street_width_m`, `radio.bs_gain_db`, `radio.clutter_los`, `radio.isolation`.
 
 ## Known limitations
 
@@ -126,6 +121,8 @@ Values in **bold** differ from the HandoverLab defaults.
 - The micro-site positions are one draw; other draws give other statistics.
 - One shadowing decorrelation distance per layer, that of the NLOS links (TR 38.901 Table 7.5-6 Part-1: UMa LOS 37 m, UMi LOS 10 m).
 - The minimum distance of 35 m holds for the macro sites; the 10 m of UMi (TR 38.901 Table 7.2-1) to the micro sites is not enforced.
+- 20 users for 69 macro TRxPs instead of the 10 UEs per TRxP of ITU-R M.2412-0 Table 5b; the number is set for run time (the interference load of HandoverLab does not depend on it). Users move between random waypoints, which are denser in the middle of the area, while M.2412-0 drops them uniformly with a uniformly distributed direction.
+- LOS and NLOS links share one unit shadowing realisation per layer, scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6).
 - Changed in 1.11.0: until 1.10.0 the macro layer had the UMi shadowing (7.82 dB NLOS, 10 m) and the in-car users no car penetration loss.
 
 ## Reference results

@@ -53,7 +53,9 @@ only appended.
 
 2.0.0 changed defaults (see [moving from 1.x to 2.0](migration-2.0.md)). `handoverlab.stability.LEGACY_1X`
 holds the 1.x values of every changed key; with it (and `mobility.profile: veh16` on the urban-grid cards) a
-configuration gives the 1.x event log bit for bit. `handoverlab verify --only fingerprints` checks this on
+configuration gives the 1.x event log bit for bit. Since 2.1.0 it also holds `radio.channel_detail: simple`
+(the large-scale channel of 2.0.0 and 1.x), and `handoverlab.stability.LEGACY_CARDS` holds the old values of
+the built-in cards that 2.1.0 changed (apply them after `LEGACY_1X` to a scenario built from such a card). `handoverlab verify --only fingerprints` checks this on
 every golden run of 1.12.0 (section `fingerprints-1x`).
 
 ```python

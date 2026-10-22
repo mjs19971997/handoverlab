@@ -9,8 +9,9 @@ with the location condition D2 of Release 18). The model follows the 3GPP NTN st
 | Part | Source |
 |---|---|
 | Earth as a sphere of 6371 km, satellite antenna `4 |J1(ka sin t)/(ka sin t)|^2` | TR 38.811 V15.4.0 clauses 6.3, 6.4.1 |
-| LOS probability per elevation, `PLb = FSPL + SF + CL`, slant range, shadowing and clutter tables, atmospheric loss `Azenith / sin(alpha)` | TR 38.811 Table 6.6.1-1, Eqs. 6.6-2..6.6-4, Tables 6.6.2-1..3, Eq. 6.6-8 |
-| LEO-600 Set-1 S band (2 m aperture, 34 dBW/MHz), handheld UE (0 dBi, NF 7 dB), 19 beams on the UV plane, reuse 1 | TR 38.821 V16.2.0 Tables 6.1.1.1-1, -3, -4, -5 |
+| LOS probability per elevation (`ntn.los_model: probability`, the value of the nearest reference elevation, as clause 6.6.1 prescribes), `PLb = FSPL + SF + CL`, slant range, shadowing and clutter tables, atmospheric loss `Azenith / sin(alpha)` | TR 38.811 Table 6.6.1-1, Eqs. 6.6-2..6.6-4, Tables 6.6.2-1..3, Eq. 6.6-8 |
+| Baseline propagation condition of the system-level simulations, "Clear Sky, Line of sight" (`ntn.los_model: los`, since 2.1.0; used by the card) | TR 38.821 Tables 6.1.1.1-5, 6.1.1.1-7 |
+| LEO-600 Set-1 S band (2 m aperture, 3 dB beamwidth 4.4127 degrees, 34 dBW/MHz), handheld UE (0 dBi, NF 7 dB), 19 beams on the UV plane spaced sqrt(3) sin(HPBW / 2) from the tabled beamwidth (since 2.1.0), reuse 1 | TR 38.821 V16.2.0 Tables 6.1.1.1-1, -3, -4, -5 |
 | 7.56 km/s, round-trip delay 25.77 ms (transparent LEO, scenario C2) | TR 38.821 Table 7.1-1 |
 | CondEvent D2 (moving reference locations), combined with A3 | TS 38.331 V18 5.5.4.15a and CondReconfigToAddMod |
 
@@ -34,8 +35,13 @@ output: results/ntn.csv
 ```
 
 The `ntn` section holds the satellite (`altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`,
-`centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m`); the
-card names the source of every value. `ctx.cell_center(t)` gives a rule the beam centres on the ground at time
+`centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m`, and
+since 2.1.0 `hpbw_deg` and `los_model`); the card names the source of every value. `hpbw_deg` unset takes the
+3 dB beamwidth of TR 38.821 Tables 6.1.1.1-1/-2 for the aperture (4.4127 degrees for 2 m, 8.8320 degrees for
+1 m at 2 GHz), as Table 6.1.1.1-4 asks ("Only the 3dB beam width parameters should be used"), and scales the
+Bessel pattern to it; with `radio.channel_detail: simple` the width comes from the aperture, as in 2.0.0.
+`scintillation_db` (2.2 dB) is the link-budget margin of Table 6.1.3.2-1 (note 1: 1 % of the time) applied to
+every link; the calibration of Table 6.1.1.1-5 (note 2) sets it to zero. `ctx.cell_center(t)` gives a rule the beam centres on the ground at time
 `t`, the moving reference locations of Event D2.
 
 ## 2. What `verify --only ntn` checks
@@ -45,13 +51,13 @@ The criteria were fixed before the first run:
 | Check | Result |
 |---|---|
 | N1: slant range, free-space loss, atmospheric loss and CNR of the 8 S-band LEO cases of TR 38.821 Table 6.1.3.3-1 within 0.1 dB | passed: largest difference 0.028 dB |
-| N2: 3 dB beamwidth of the Bessel pattern for the apertures 2 m and 1 m within 0.01 degree of Tables 6.1.1.1-1/-2 | **failed** for 1 m: 8.8462 against 8.8320 degrees (2 m: 4.4198 against 4.4127); both are 0.16 % wider than the table |
-| N3: orbital speed at 600 km within 0.5 % of 7.56 km/s, nadir footprint within 10 % of 50 km | passed: 7562 m/s, 46.3 km |
+| N2 (since 2.1.0): the beams have the tabled 3 dB beamwidth of Tables 6.1.1.1-1/-2 for the apertures 2 m and 1 m, the pattern scaled to it has that width within 0.0001 degree, and the beam spacing is within 0.0002 of the informative values 0.0668 and 0.1334 of Table 6.1.1.1-6 | passed: spacing 0.06668 and 0.13336. Until 2.0.0 the width came from the aperture and N2 failed for 1 m (8.8462 against 8.8320 degrees; 2 m: 4.4198 against 4.4127, both 0.16 % wider) |
+| N3: orbital speed at 600 km within 0.5 % of 7.56 km/s, nadir footprint within 10 % of 50 km | passed: 7562 m/s, 46.2 km (46.3 km with the beamwidth of the aperture, until 2.0.0) |
 
 ## 3. What to expect, and what is not modelled
 
 - With A3 (3 dB, 160 ms) a user completes about 4.7 handovers and has 1.34 link failures per minute in the
-  check run (seed 1); together they match the 5.7 beam changes per minute of the sweep (beam centres 72 km
+  check run of 2.0.0 (seed 1, LOS probability of TR 38.811); together they match the 5.7 beam changes per minute of the sweep (beam centres 72 km
   apart along the track, passed at about 6.85 km/s on the ground).
 - Frequency reuse 1 (option 1 of TR 38.821) makes the beam edges interference-limited: most link failures are
   coverage failures, where no beam is good enough. Reuse 3 or 2 (options 2 and 3) are not modelled yet.
@@ -59,4 +65,10 @@ The criteria were fixed before the first run:
   Table 6.1.1.1-1; TS 38.331 gives no default. A first guess of 20/15 km was replaced after a first run had been
   seen (it gave 3.8 failures per user-minute); no further tuning was done.
 - Not modelled: condEventT1, earth-fixed beams, several satellites, the feeder link, Doppler, the Ka band, the
-  user's own round-trip delay (the worst case of C2 is used for every user).
+  user's own round-trip delay (the worst case of C2 is used for every user), and the two tiers of wrap-around
+  beams that TR 38.821 clause 6.1.1.1 adds around the 19 beams for frequency reuse 1.
+- The card points the central beam at 30 degrees elevation (case 2 of Table 6.1.1.1-4, the LEO target of the
+  link budget, Table 6.1.3.2-1); the system-level baseline of Table 6.1.1.1-6 for C2/D2 is nadir (90 degrees).
+- Shadowing (and, with `los_model: probability`, the LOS state) varies with the user's own displacement only;
+  TR 38.811 clause 6.5.1 considers drop-based simulations only, so the change of the line of sight with the
+  moving satellite has no specified effect on them.

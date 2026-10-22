@@ -82,7 +82,9 @@ def n_rlm(carrier_ghz: float) -> int:
 
 
 def rx_sweep_factor(carrier_ghz: float) -> int:
-    """Scaling factor N of TS 38.133 clauses 8.1 and 8.5: 8 in FR2-1, 12 in FR2-2, otherwise 1."""
+    """Scaling factor N of TS 38.133 clauses 8.1 and 8.5 (RLM, BFD, CBD): 8 in FR2-1, 12 in FR2-2, otherwise 1.
+
+    The L1-RSRP period of 9.5.4.1 has N = 8 in all of FR2 (Tables 9.5.4.1-2/-3); the engine applies that there."""
     fr = freq_range(carrier_ghz)
     return 8 if fr == "FR2-1" else 12 if fr == "FR2-2" else 1
 
@@ -119,7 +121,8 @@ def l1_rsrp_period(t_ssb: float, n: int = 1, m: int = 3, p: float = 1.0, t_repor
 
 
 def meas_m_intra(carrier_ghz: float, power_class: int = 3) -> int:
-    """M_meas_period_w/o_gaps of TS 38.133 clause 9.2.5.2 (FR2): 24 or 40 in FR2-1, 36 or 60 in FR2-2."""
+    """M_meas_period_w/o_gaps of TS 38.133 clause 9.2.5.1 (used in Table 9.2.5.2-2): 24 or 40 in FR2-1, 36 or 60
+    in FR2-2."""
     if freq_range(carrier_ghz) == "FR2-2":
         return 60 if power_class == 1 else 36
     return 40 if power_class in (1, 5) else 24
@@ -192,7 +195,9 @@ def daps_interruption(scs_khz: float, synchronous: bool = True) -> Dict[str, flo
     """Allowed interruptions of an FR1 intra-frequency DAPS handover [s] (TS 38.133 clause 6.1.3.2.2).
 
     T_interrupt1 on the source cell during D_handover1 (Table 6.1.3.2.2-1) and T_interrupt2 at the release
-    of the source when the target uses the same BWP (Table 6.1.3.2.2-5); slot length 1 ms / 2^mu.
+    of the source when the target uses the same BWP (Table 6.1.3.2.2-5); slot length 1 ms / 2^mu.  Table
+    6.1.3.2.2-5 has the columns "Interruption length X" and "T_interrupt2 for asynchronous DAPS HO" and no
+    synchronous column: X is read as the synchronous value (an interpretation; X is not defined in 6.1.3.2.2).
     """
     mu = {15.0: 0, 30.0: 1, 60.0: 2}[float(scs_khz)]
     slot = 0.001 / 2 ** mu

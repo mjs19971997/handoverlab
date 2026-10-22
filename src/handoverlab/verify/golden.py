@@ -117,10 +117,12 @@ def cases() -> Dict[str, Dict[str, Any]]:
 
 
 def legacy(scenario):
-    """The 1.x version of a golden scenario: :data:`LEGACY_1X`, and the 1.x urban profile where 2.0 uses v60."""
-    from ..stability import LEGACY_1X
+    """The 1.x version of a golden scenario: :data:`LEGACY_1X`, the old values of its card (:data:`LEGACY_CARDS`,
+    since 2.1.0), and the 1.x urban profile where 2.0 uses v60."""
+    from ..stability import LEGACY_1X, LEGACY_CARDS
     base, own = getattr(scenario, "_golden", (scenario, {}))
     over = dict(LEGACY_1X)
+    over.update(LEGACY_CARDS.get(base.name, {}))
     if base.mobility.profile == "v60":
         over["mobility.profile"] = "veh16"
     return base.with_overrides(over).with_overrides(own)   # the case's own settings win, as in 1.x

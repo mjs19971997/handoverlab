@@ -39,8 +39,11 @@ class L3Filter:
     The first sample initialises the filter (TS 38.331: F_0 = M_1).
     """
 
-    def __init__(self, k: int = 4, sample_period_s: float = 0.04):
-        self.a = l3_coefficient(k, sample_period_s)
+    def __init__(self, k: int = 4, sample_period_s: float = 0.04, ref_period_s=0.2):
+        # ref_period_s: X of TS 38.331 5.5.3.2, one intra-frequency L1 measurement period of the frequency range
+        # (TS 38.133); a scalar or one value per cell (then ``a`` has one value per cell)
+        ref = np.asarray(ref_period_s, dtype=float) if np.ndim(ref_period_s) else float(ref_period_s)
+        self.a = l3_coefficient(k, sample_period_s, ref)
         self.value = None
 
     def reset(self, first_sample) -> np.ndarray:

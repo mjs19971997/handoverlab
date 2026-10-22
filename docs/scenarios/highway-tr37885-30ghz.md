@@ -20,11 +20,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | Key | Value | Source |
 |---|---|---|
 | `layout.kind` | **highway** | TR 37.885 Annex A, Table A-1 (highway: 3 lanes in each direction, 4 m lane width, length >= 2000 m, wrap-around) |
-| `layout.blocks` | [3, 3] | TR 37.885 Table A-1 (minimum 3 x 3 blocks) |
-| `layout.pitch_m` | [433, 250] | TR 37.885 Annex A (433 m x 250 m) |
-| `layout.street_width_m` | 20 | TR 37.885 Annex A (20 m) |
 | `layout.site_spacing_m` | **500** | TR 37.885 Table 6.1.3-2 (above 6 GHz, inter macro: 500 m) |
-| `layout.site_offset_m` | 9 | assumption (sites on the pavement) |
 | `layout.sites` | none | regular placement along the streets |
 | `layout.lanes` | 3 | TR 37.885 Table A-1 (highway: 3 lanes per direction) |
 | `layout.lane_width_m` | 4 | TR 37.885 Table A-1 (highway: 4 m lanes) |
@@ -34,21 +30,16 @@ Values in **bold** differ from the HandoverLab defaults.
 | `layout.highway_sites` | **hex19** | TR 37.885 Table 6.1.3-2 (above 6 GHz: BS placement as in Figure A.1.3-3 of TR 36.885) and TR 36.885 clause A.1.3, option 2 (wrap around of 19 x 3 hexagonal cells with 500 m ISD) |
 | `radio.carrier_ghz` | **30** | TR 37.885 Table 6.1.1-2 (highway, macro to/from vehicle: 30 GHz) |
 | `radio.bandwidth_mhz` | 200 | TR 37.885 Table 6.1.1-2 (simulation bandwidth 200 MHz, DL+UL) |
-| `radio.tx_power_dbm` | **43** | TR 37.885 Table 6.1.1-2 (macro BS: 43 dBm; EIRP at most 78 dBm) |
-| `radio.bs_gain_db` | 20 | assumption (beam gain, no beam management) |
+| `radio.tx_power_dbm` | **43** | TR 37.885 Table 6.1.1-2 (macro BS: 43 dBm; EIRP at most 78 dBm; the system bandwidth is taken equal to the simulation bandwidth, so the PA power is not scaled down) |
 | `radio.ue_gain_db` | **11** | assumption: vehicle type 2, option 1, one rooftop panel of (1, 4, 2, 1, 4) of TR 37.885 Table 6.1.4-9 with 5 dBi elements (Table 6.1.4-8): 5 + 10 log10(4) dB |
 | `radio.noise_figure_db` | **13** | TR 37.885 Table 6.1.1-2 (UE receiver noise figure 13 dB baseline) |
-| `radio.isolation` | 0.3 | assumption (mean-to-peak gain of an interfering data beam) |
 | `radio.bs_height_m` | **25** | TR 37.885 Table 6.1.4-1 (highway: 25 m for ISD 500 m) |
 | `radio.ue_height_m` | **1.6** | TR 37.885 clause 6.1.2 (vehicle type 2: antenna height 1.6 m) |
 | `radio.pathloss` | **uma** | TR 37.885 Table 6.2.1-2 (highway, above 6 GHz, V2B/B2V: TR 38.901 UMa LOS); oxygen absorption, TR 38.901 Table 7.6.1-1, is 0 dB/km up to 52 GHz |
 | `radio.shadow_los_db` | 4 | TR 37.885 clause 6.2.2 and TR 38.901 Table 7.4.1-1 (UMa LOS: 4 dB) |
-| `radio.shadow_nlos_db` | 7.82 | TR 38.901 Table 7.4.1-1 (UMi NLOS: 7.82 dB) |
 | `radio.shadow_decorr_m` | **37** | TR 38.901 Table 7.5-6 Part-1 (UMa LOS: 37 m) |
-| `radio.shadow_site_corr` | 0.5 | assumption (correlation between sites) |
+| `radio.shadow_site_corr` | none | unset: uncorrelated between sites, TR 38.901 clause 7.5 step 4 (radio.channel_detail simple: 0.5) |
 | `radio.place_share` | 1 | assumption (blockage tied to place) |
-| `radio.clutter_los` | true | TR 38.901 clause 7.6.3.3 (spatially consistent LOS state) |
-| `radio.los_corr_m` | 50 | TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m) |
 | `radio.los_model` | **los** | TR 37.885 clause 6.2.1 (LOS propagation type is used for V2B and B2R links in the highway scenario) |
 | `radio.breakpoint_c_mps` | 3e+08 | TR 38.901 Table 7.4.1-1 notes 1 and 5 (c = 3.0e8 m/s in the breakpoint distances) |
 | `radio.pl_min_distance_m` | 10 | TR 38.901 Table 7.4.1-1 (applicability range of RMa, UMa, UMi: 10 m <= d2D) |
@@ -57,13 +48,14 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.l1_error_db` | 1 | assumption (error of one L1 RSRP sample) |
 | `radio.penetration_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car |
 | `radio.penetration_sd_db` | 0 | off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car |
-| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011): 56 W |
-| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011): 2.6 |
+| `radio.energy_p0_w` | 56 | EARTH model, micro base station (Auer et al. 2011, Table 2): 56 W |
+| `radio.energy_slope` | 2.6 | EARTH model, micro base station (Auer et al. 2011, Table 2): 2.6 |
+| `radio.energy_ntrx` | 2 | EARTH model, micro base station (Auer et al. 2011, Eq. 1 and Table 2): 2 transceivers |
 | `radio.map_res_m` | **2** | numerical setting |
-| `radio.beams.sectors` | 3 | default of the beam model (user guide) |
+| `radio.beams.sectors` | 3 | TR 36.885 clause A.1.3, option 2 (19 x 3 hexagonal cells) |
 | `radio.beams.sector_az0_deg` | **6.587** | TR 38.901 Table 7.8-1 (3 sectors per cell site: 30, 150 and 270 degrees), turned by -23.413 degrees with the layout |
-| `radio.beams.n_ssb` | 8 | default of the beam model (user guide) |
-| `radio.beams.panel` | [4, 8] | default of the beam model (user guide) |
+| `radio.beams.n_ssb` | 8 | assumption (8 SSB beams per sector; TS 38.213 clause 4.1, Case D at 120 kHz, has 64 candidate SS/PBCH blocks in FR2) |
+| `radio.beams.panel` | [4, 8] | TR 37.885 Table 6.1.4-3 (30 GHz: (M, N, P, Mg, Ng) = (4, 8, 2, 2, 2)); one panel of one polarisation per sector is modelled |
 | `radio.beams.tilt_deg` | **102** | TR 37.885 Table 6.1.4-3 (antenna tilt 102 degrees for 500 m ISD) |
 | `radio.beams.beam_span_deg` | none | default of the beam model (user guide) |
 | `radio.beams.ssb_avg` | none | default of the beam model (user guide) |
@@ -94,14 +86,15 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.t310_s` | 1 | TR 36.839 (1 s) |
 | `protocol.prep_s` | 0.05 | TR 36.839 (50 ms) |
 | `protocol.exec_s` | 0.04 | TR 36.839 (40 ms) |
-| `protocol.reest_s` | 1 | TR 36.842 (assumption: 1 s outage) |
-| `protocol.cho_recovery_s` | 0.4 | TS 38.300 clause 9.2.3.4 (recovery into a prepared cell; assumption 0.4 s) |
+| `protocol.reest_s` | 1 | assumption (1 s outage); TS 38.133 6.2.1.2.1 bounds the delay by 50 ms + cell identification (FR1: 200 ms known, 800 ms unknown cell, Table 6.2.1.2.1-1) + system information + PRACH; TR 36.842 Table E.1-2 uses 250 ms |
+| `protocol.cho_recovery_s` | 0.4 | TS 38.300 clauses 9.2.3.1 and 9.2.7 (recovery into a CHO candidate; assumption 0.4 s) |
 | `protocol.pingpong_s` | 1 | TR 36.839 (minimum time of stay, 1 s) |
 | `protocol.cfg_loss_as_failure` | false | check mode only |
 | `protocol.lm_load` | none | off by default: link monitoring sees the load of the data channel (calibration option) |
 | `protocol.lm_load_per_ue` | 0 | off by default (calibration option) |
 | `protocol.exec_can_fail` | true | TR 36.839: the execution fails when the target is below Qout |
-| `protocol.rlm_holdoff_s` | 0.2 | off by default; TS 38.133 clause 8.1: out-of-sync evaluation of 0.2 s on a new cell |
+| `protocol.rlm_holdoff_s` | 0.2 | 0.2 s since 2.0.0: an interpretation of TS 38.133 8.1.2.2 (evaluation over the last T_Evaluate_out, 200 ms in FR1) on a newly joined cell |
+| `protocol.rrc_detail` | 3gpp |  |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |
@@ -113,10 +106,10 @@ Values in **bold** differ from the HandoverLab defaults.
 | `traffic.model` | fixed | fixed: constant service rates (the model of 1.0) |
 | `traffic.period_s` | 0.02 | periodic model: 20 ms, as VoIP |
 | `traffic.packet_bytes` | 100 | periodic model: assumption |
-| `traffic.ftp_file_bytes` | 500000 | TR 36.814 A.2.1.3 (FTP model 3: 0.5 Mbyte) |
+| `traffic.ftp_file_bytes` | 500000 | FTP model 3 (TR 36.872 Annex A.1) with 0.5 Mbyte files (TR 38.802 Table A.2.1-1; TR 38.821 Table 6.1.1.1-7) |
 | `traffic.ftp_rate_hz` | 0.1 | ftp3 model: assumption (file arrival rate per user) |
 | `mobility.users` | **158** | TR 37.885 clause 6.1.2: about 82.8 m per vehicle at 140 km/h (gap with mean speed x 2 s behind a 5 m vehicle), so 2179 m / 82.8 m x 6 lanes = 158 |
-| `mobility.profile` | **v140** | TR 37.885 clause 6.1.2, highway option A (all vehicles type 2, 140 km/h baseline) |
+| `mobility.profile` | **v140c** | TR 37.885 clause 6.1.2, highway option A (all vehicles type 2, 140 km/h baseline), on the lane centre (since 2.1.0; until 2.0.0 profile v140 with a lateral offset of up to 0.5 m, which TR 37.885 does not specify) |
 | `mobility.groups` | none | profile |
 | `run.duration_s` | **60** | numerical setting |
 | `run.warmup_s` | **10** | numerical setting |
@@ -131,17 +124,21 @@ Values in **bold** differ from the HandoverLab defaults.
 | `ntn.scintillation_db` | 2.2 |  |
 | `ntn.sf_corr_m` | 37 |  |
 | `ntn.los_corr_m` | 60 |  |
+| `ntn.hpbw_deg` | none | unset: the tabled 3 dB beamwidth of TR 38.821 Tables 6.1.1.1-1/-2 (Table 6.1.1.1-4: only the 3 dB beamwidth is used) |
+| `ntn.los_model` | probability | probability: the LOS probability of TR 38.811 Table 6.6.1-1 |
+
+Not read by this layout and radio model, so not listed: `layout.blocks`, `layout.pitch_m`, `layout.site_offset_m`, `layout.street_width_m`, `radio.bs_gain_db`, `radio.clutter_los`, `radio.isolation`, `radio.los_corr_m`, `radio.shadow_nlos_db`.
 
 ## Known limitations
 
 - One panel of one polarisation per sector with DFT beams (the beam model of handoverlab 1.10.0), not the 2 x 2 panels with two polarisations of TR 37.885 Table 6.1.4-3.
 - Vehicles are placed independently and uniformly along their lane (a Poisson process), without the minimum gap of 2 m; their number is fixed at the mean, not drawn.
-- The place-tied shadowing field is periodic along the road only (vehicles stay on the road); it is half correlated between sites (shadow_site_corr 0.5, an assumption).
-- The road passes under the centre site (TR 36.885 Figure A.1.3-3): within 10 m of it the UMa LOS formula, specified for 10 m <= d2D, is used below that bound (with d3D it stays finite; about 0.8 dB less loss at d2D = 0 than at 10 m).
+- The place-tied shadowing field is periodic along the road only (vehicles stay on the road); it is uncorrelated between sites: TR 37.885 clause 6.2.2 takes the shadowing of the TR 38.901 path-loss model for B2V links, and TR 38.901 clause 7.5 step 4 has uncorrelated LSPs for different BS-UT links (since 2.1.0; until 2.0.0 half correlated, a value of the TR 36.885 model).
+- The road passes under the centre site (TR 36.885 Figure A.1.3-3): within 10 m of it the UMa LOS formula, specified for 10 m <= d2D (TR 38.901 Table 7.4.1-1), is evaluated at d2D = 10 m (radio.pl_min_distance_m, since 2.0.0).
 - TR 37.885 clause 6.2.1 sets the effective environment height hE to 0.25 m for these links; the simulator's UMa uses hE = 1 m. Only the breakpoint distance depends on it (5.8 km instead of 13.4 km), and both lie beyond every distance on this road, so the path loss is the same.
 - Received-power level only: no fast fading, no Doppler, no sidelink.
 - The failure model is not calibrated in absolute terms; read failure rates relative to each other.
 
 ## Reference results
 
-- Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V17.0.0; geometry, wrap-around and the coupling loss of the link are checked by handoverlab verify (group highway).
+- Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V19.5.0 (unchanged from V17.0.0); geometry, wrap-around and the coupling loss of the link are checked by handoverlab verify (group highway).

@@ -21,7 +21,11 @@ class _Eng:
         self.P, self.qout, self.t0c = _P(), 1.0, 0.0
         self.run = np.array([run])
         self.sl_now = np.array([sl])
-        self.C = {"cmd": 0}
+        self.C = {"cmd": 0, "rrc": 0}
+        self.proc = type("_Proc", (), {"kind": "a3"})()
+
+    def msg(self, t, n=1):
+        self.C["rrc"] += n
 
 
 def test_receive_waits_below_qout_and_stops_t310_at_qout():
@@ -58,9 +62,13 @@ def test_defaults_and_keys_checked():
 
 def test_t304_shorter_than_the_execution_is_the_default_model():
     sc = hl.builtin_scenario("smoke").with_overrides(STRESS)
-    a = hl.simulate(sc.with_overrides({"protocol.t304_s": None}), RULES, seeds=[3])       # no T304 (1.x default)
-    b = hl.simulate(sc.with_overrides({"protocol.t304_s": 0.001}), RULES, seeds=[3])
-    assert [r.fingerprint for r in a] == [r.fingerprint for r in b]
+    for detail, rules in (("simple", RULES), ("3gpp", RULES[:2])):
+        # since 2.1.0 (3gpp) T304 also bounds the source-link monitoring of DAPS (TS 38.331 5.3.10.1), so a T304
+        # shorter than the execution is no longer the model without T304 for DAPS
+        s = sc.with_overrides({"protocol.rrc_detail": detail})
+        a = hl.simulate(s.with_overrides({"protocol.t304_s": None}), rules, seeds=[3])       # no T304 (1.x default)
+        b = hl.simulate(s.with_overrides({"protocol.t304_s": 0.001}), rules, seeds=[3])
+        assert [r.fingerprint for r in a] == [r.fingerprint for r in b]
 
 
 def test_profile_runs_with_invariants_and_has_no_lost_commands():

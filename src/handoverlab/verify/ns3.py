@@ -47,9 +47,13 @@ def car_loss(speed_mps: float) -> Dict:
 FAIL_LIMITS = dict(a_ratio=(0.8, 1.25), a_rank=0.9, ttt_trend=20.0, holdout_ratio=(0.67, 1.5), holdout_rank=0.8)
 
 
-def load_reference() -> dict:
-    with open(PATH, encoding="utf-8") as f:
-        return json.load(f)
+def load_reference(path: Optional[str] = None) -> dict:
+    """The stored reference, or the file ``path`` in the same format (benchmarks/ns3 writes one; since 2.1.0)."""
+    with open(path or PATH, encoding="utf-8") as f:
+        ref = json.load(f)
+    if not isinstance(ref, dict) or "rows" not in ref or "sites" not in ref:
+        raise ValueError("%s: not an ns-3 reference file (needs 'sites' and 'rows')" % (path or PATH))
+    return ref
 
 
 def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrides: Optional[Dict] = None,
@@ -77,13 +81,13 @@ def spearman(a: Sequence[float], b: Sequence[float]) -> float:
 
 
 def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
-            overrides: Optional[Dict] = None, car: bool = False) -> Dict:
+            overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None) -> Dict:
     """Run part A of the reference in HandoverLab and return the per-setting table and the summary.
 
     ``overrides`` change the scenario of every condition and ``car`` adds the in-car loss of ns-3
-    (see :func:`scenario_for`).
+    (see :func:`scenario_for`); ``reference`` is another reference file (:func:`load_reference`).
     """
-    ref = load_reference()
+    ref = load_reference(reference)
     rows = [r for r in ref["rows"] if r["part"] == "A"]
     settings = sorted({(r["a3_offset_db"], r["ttt_ms"]) for r in rows})
     conds = sorted({(r["isd_m"], r["speed_mps"]) for r in rows})
@@ -127,14 +131,14 @@ def _trend(table, who: str) -> float:
 
 
 def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
-            overrides: Optional[Dict] = None, car: bool = False) -> Dict:
+            overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None) -> Dict:
     """Run the held-back parts B and C of the reference (see the module text) and compare them cell by cell.
 
     Part B: two A3 settings on six conditions; part C: one setting with one parameter changed per cell
     (users, preparation delay, T310, site distance, run length, speed).  ``overrides`` change every
     scenario and ``car`` adds the in-car loss of ns-3, as in :func:`compare`; tune only on part A.
     """
-    ref = load_reference()
+    ref = load_reference(reference)
     cells = [r for r in ref["rows"] if r["part"] in ("B", "C")]
     jobs: Dict[tuple, list] = {}
     for r in cells:
@@ -167,10 +171,10 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
     return dict(table=table, summary=summ)
 
 
-def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None) -> Dict:
-    rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s)"
-                % (len(seeds), "s" if len(seeds) > 1 else ""))
-    out = compare(seeds, progress)
+def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Optional[str] = None) -> Dict:
+    rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s%s)"
+                % (len(seeds), "s" if len(seeds) > 1 else "", "; reference %s" % reference if reference else ""))
+    out = compare(seeds, progress, reference=reference)
     s, L = out["summary"], LIMITS
     for x in out["table"]:
         rep.note("A3 %g dB / %4d ms" % (x["a3_offset_db"], x["ttt_ms"]),

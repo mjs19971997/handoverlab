@@ -18,6 +18,7 @@ Check groups (all run by default, in this order):
 
 Optional:
 
+``values``        RRC parameter values of the built-in cards and rules against TS 38.331 V18.11.0 (since 2.1.0)
 ``learning``      the learning rule a3_bandit against an exhaustive search over its arms (``--only learning``;
                   about 20 minutes; since 1.11.0)
 ``ntn``           NTN link budget, antenna and orbit against TR 38.821 / TR 38.811 (``--only ntn``; since 2.0.0)
@@ -33,13 +34,14 @@ from typing import Callable, Optional, Sequence
 
 from .report import FAIL, NOTE, PASS, Check, Report, header
 
-GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended", "highway")
+GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended", "highway",
+          "values")
 OPTIONAL_GROUPS = ("learning", "ntn")
 
 
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
                ns3_seeds: int = 1, results: Optional[str] = None, sample: Optional[int] = None,
-               printer: Optional[Callable[[str], None]] = print) -> Report:
+               printer: Optional[Callable[[str], None]] = print, ns3_reference: Optional[str] = None) -> Report:
     """Run the check groups ``groups`` (default: all of :data:`GROUPS`) and return the report.
 
     ``full`` uses three seeds for the radio statistics and 60 s runs for the
@@ -77,6 +79,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "highway" in groups:
         from .highway import highway_checks
         highway_checks(rep)
+    if "values" in groups:
+        from .values import values_checks
+        values_checks(rep)
     if "ntn" in groups:
         from .ntn import ntn_checks
         ntn_checks(rep)
@@ -85,7 +90,7 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
         learning_checks(rep)
     if ns3:
         from .ns3 import ns3_checks
-        ns3_checks(rep, seeds=tuple(500 + i for i in range(ns3_seeds)), progress=printer)
+        ns3_checks(rep, seeds=tuple(500 + i for i in range(ns3_seeds)), progress=printer, reference=ns3_reference)
     if results:
         from .stored import stored_checks
         stored_checks(rep, results, sample)

@@ -123,9 +123,10 @@ class BeamConfig:
 
     Beam failure detection and recovery (``bfd``; TS 38.213 clause 6,
     TS 38.321 clause 5.17, TS 38.133 clause 8.5): the BFD reference signal is
-    the SSB of the serving beam; a beam failure instance is indicated when its
+    the SSB of the serving beam (an SSB in q0, as TS 38.133 8.5.1 allows); a beam failure instance is indicated when its
     quality, averaged over the evaluation period of TS 38.133 Table 8.5.2.2-1/-2,
-    is below Qout_LR (= protocol.qout_db, 10 % BLER); ``bfi_max`` =
+    is below Qout_LR (10 % BLER of a hypothetical PDCCH at 0 dB to the SSS, TS 38.133 Table 8.5.2.1-1;
+    protocol.qout_db + 4 dB in SSB SINR, as Qout has +4 dB, Table 8.1.2.1-1; since 2.1.0); ``bfi_max`` =
     beamFailureInstanceMaxCount, ``bfd_timer`` = beamFailureDetectionTimer in
     indication periods (pbfdN); then random access on the SpCell: contention-free
     on the best candidate SSB with L1-RSRP above ``rsrp_thresh_ssb_dbm``
@@ -169,9 +170,10 @@ class LayerConfig:
     Unset values are taken from the scenario's ``radio`` (carrier, link budget,
     propagation) and ``layout`` (site placement).  ``cosited`` puts the layer on
     the sites of the first layer with the same LOS states, shadowing and
-    blockers (TR 38.901 clause 7.6.5); otherwise the layer has its own sites
-    (``sites``, ``sites_file`` or ``site_spacing_m`` / ``site_offset_m``) and
-    independent random fields.
+    blockers (TR 38.901 clause 7.6.5; with ``radio.channel_detail`` "3gpp" such a
+    layer must not change ``pathloss``, ``los_corr_m`` or ``shadow_decorr_m``, since
+    2.1.0); otherwise the layer has its own sites (``sites``, ``sites_file`` or
+    ``site_spacing_m`` / ``site_offset_m``) and independent random fields.
     """
     name: str = "layer2"
     carrier_ghz: Optional[float] = None
@@ -214,6 +216,22 @@ class RadioConfig:
     measurements are SS-RSRP per resource element (the power over the
     bandwidth minus 10 log10(bandwidth / ``scs_khz``)); ``scs_khz`` unset is
     30 kHz below 7.125 GHz and 120 kHz above.
+
+    ``channel_detail`` (since 2.1.0) selects how closely the large-scale channel follows TR 38.901 V19.5.0:
+
+    * ``"3gpp"`` (the default): the place-tied shadowing and LOS fields have the exponential
+      autocorrelation exp(-d / d_cor) of Eq. (7.4-5) (clause 7.4.4; clause 7.6.3.1 for the LOS state),
+      the shadowing of different sites is uncorrelated unless ``shadow_site_corr`` is set (clause 7.5,
+      step 4), the UMa LOS probability has the factor C'(h_UT) of Table 7.4.2-1 and the UMa path loss the
+      random effective environment height h_E of Table 7.4.1-1 note 1 (both matter only for
+      h_UT >= 13 m), a co-sited layer must keep the LOS-state and shadowing settings of the first layer
+      (clause 7.6.5), the antenna heights must lie in the applicability ranges of Table 7.4.1-1, and an
+      NTN satellite takes the tabled 3 dB beamwidth of TR 38.821 Tables 6.1.1.1-1/-2 (Table 6.1.1.1-4);
+    * ``"simple"``: the model of 2.0.0 and 1.x (Gaussian-shaped field correlation exp(-(d / d_cor)^2),
+      shadowing 0.5-correlated between sites, no C'(h_UT), h_E = 1 m, no checks of the heights or of
+      co-sited layers, the beamwidth computed from the aperture).
+
+    ``shadow_site_corr`` unset (``None``, since 2.1.0) is 0 with ``"3gpp"`` and 0.5 with ``"simple"``.
     """
     carrier_ghz: float = 10.0
     bandwidth_mhz: float = 200.0
@@ -224,12 +242,16 @@ class RadioConfig:
     isolation: float = 0.30             # mean-to-peak gain of an interfering data beam
     bs_height_m: float = 10.0
     ue_height_m: float = 1.5
-    pathloss: str = "umi_street_canyon"  # or "uma", "rma" (since 1.7.0), "inh_office" (since 1.7.0)
+    # or "uma", "rma" (since 1.7.0), "inh_office" (since 1.7.0; LOS probability of the mixed office) and
+    # "inh_office_open" (since 2.1.0; the same path loss with the LOS probability of the open office)
+    pathloss: str = "umi_street_canyon"
     shadow_los_db: float = 4.0
     shadow_nlos_db: float = 7.82
     shadow_los_far_db: Optional[float] = None  # LOS beyond the breakpoint (since 1.7.0; RMa: 6 dB); None: shadow_los_db
     shadow_decorr_m: float = 10.0
-    shadow_site_corr: float = 0.5       # correlation of the shadowing between sites
+    # correlation of the shadowing between sites; None (since 2.1.0): 0 with channel_detail "3gpp"
+    # (TR 38.901 clause 7.5 step 4), 0.5 with "simple" (the value of 1.x and 2.0)
+    shadow_site_corr: Optional[float] = None
     place_share: float = 1.0            # share of shadowing variance tied to place (1 = fully place-tied)
     clutter_los: bool = True            # spatially consistent LOS state on top of the buildings
     los_corr_m: float = 50.0
@@ -247,6 +269,9 @@ class RadioConfig:
     # (the lower end of their applicability range, 10 m for RMa, UMa and UMi; 1.x: 0)
     breakpoint_c_mps: float = 3.0e8
     pl_min_distance_m: float = 10.0
+    # large-scale channel as TR 38.901 V19.5.0 specifies it ("3gpp") or as in 2.0.0 and 1.x ("simple"); see the
+    # class text (since 2.1.0)
+    channel_detail: str = "3gpp"
     # radio map from a file (since 1.12.0; TR 38.901 clause 8, map-based model: ray tracing or measurements):
     # path gain of every site and pixel, see handoverlab.mapfile; map_sha256 is filled when the scenario is loaded
     map_file: Optional[str] = None
@@ -258,10 +283,12 @@ class RadioConfig:
     # clause 7.4.3.2: a user in a standard car has 9 dB mean and 5 dB standard deviation)
     penetration_db: float = 0.0
     penetration_sd_db: float = 0.0
-    # site power for the energy metrics (since 1.5.0): EARTH model of a micro base station
-    # (Auer et al., IEEE Wireless Communications 2011): P_in = energy_p0_w + energy_slope x P_tx x load
+    # site power for the energy metrics (since 1.5.0): EARTH model of a micro base station (Auer et al., IEEE
+    # Wireless Communications 2011, Eq. 1 and Table 2: N_TRX 2, P0 56 W, slope 2.6, P_max 6.3 W per transceiver):
+    # P_in = energy_ntrx x energy_p0_w + energy_slope x P_tx x load, with P_tx shared by the N_TRX transceivers
     energy_p0_w: float = 56.0
     energy_slope: float = 2.6
+    energy_ntrx: int = 2                # N_TRX of Eq. 1 (since 2.1.0; 1.x and 2.0.0: 1)
     map_res_m: float = 1.0
     # optional SSB beams and further carriers (since 1.10.0)
     scs_khz: Optional[float] = None
@@ -309,7 +336,7 @@ class ProtocolConfig:
     lm_load: Optional[float] = None     # interferer load at link monitoring; None: the load of the data channel
     lm_load_per_ue: float = 0.0         # added to lm_load per user served by the interfering cell
     exec_can_fail: bool = True          # False: the execution always joins the target (ideal random access)
-    rlm_holdoff_s: float = 0.2          # no out-of-sync on a newly joined cell for this time (TS 38.133 8.1; 1.x: 0)
+    rlm_holdoff_s: float = 0.2          # no out-of-sync on a newly joined cell (TS 38.133 8.1.2.2 read; 1.x: 0)
     # handover command and execution as TS 38.331 specifies them (since 1.9.0; the defaults keep the model of 1.x):
     # "receive": a command that reaches a UE while T310 runs is received at the first step with link-monitoring
     # SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); "lost": it is lost at once
@@ -322,9 +349,14 @@ class ProtocolConfig:
     meas_periods: str = "sample"
     ssb_period_s: float = 0.02          # SSB and SMTC periodicity (T_SSB)
     gap_pattern: int = 0                # gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms)
-    fr2_power_class: int = 3            # FR2 UE power class (sets M_meas of TS 38.133 9.2.5.2 and 9.3.4)
+    fr2_power_class: int = 3            # FR2 UE power class (sets M_meas of TS 38.133 9.2.5.1 and 9.3.4)
     # rlm_eval "ts38133": Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 instead of qout_window_s / qin_window_s
     rlm_eval: str = "fixed"
+    # rrc_detail "3gpp" (since 2.1.0): the details of TS 38.331 / 38.133 found in the audit of 2.1.0 (out-of-sync
+    # and in-sync indications every max(10 ms, T_SSB) with the N310/N311 counting of clause 7.2, the source link
+    # of DAPS monitored during T304, ltm-Config kept across an LTM cell switch, the L3 filter reference X of the
+    # frequency range, beam failure detection fixes); "simple": the engine of 2.0.0
+    rrc_detail: str = "3gpp"
 
 
 @dataclass
@@ -361,7 +393,7 @@ class TrafficConfig:
     label_load: float = 1.0             # load assumed for the SINR of the outcome label
     # traffic model of the users (since 1.4.0): "fixed" keeps the constant service rates of 1.0;
     # "full_buffer" (always as much as the link carries), "periodic" (a packet every period_s, as
-    # VoIP) and "ftp3" (files of ftp_file_bytes with Poisson arrivals, TR 36.814 FTP model 3) give
+    # VoIP) and "ftp3" (files of ftp_file_bytes with Poisson arrivals, FTP model 3, TR 36.872 / TR 38.802) give
     # each user a buffer that the scheduler empties
     model: str = "fixed"
     period_s: float = 0.02
@@ -413,6 +445,17 @@ class NtnConfig:
     pointing at the area centre with 30 degrees elevation (case 2; the target elevation of the LEO link budget,
     Table 6.1.3.2-1), the rural tables of TR 38.811, the atmospheric zenith attenuation of the link budget of
     Table 6.1.3.3-1 through Eq. 6.6-8 and the ionospheric scintillation loss of 2.2 dB (Table 6.1.3.2-1, note 1).
+
+    ``hpbw_deg`` (since 2.1.0) is the 3 dB beamwidth from which the adjacent beam spacing sqrt(3) sin(HPBW / 2)
+    is computed and to which the Bessel pattern is scaled (TR 38.821 Table 6.1.1.1-4: "Only the 3dB beam width
+    parameters should be used").  Unset, it is the tabled width of TR 38.821 Tables 6.1.1.1-1 and -2 for the
+    S-band apertures of 2 m (4.4127 degrees) and 1 m (8.8320 degrees) at 2 GHz with ``radio.channel_detail``
+    "3gpp", and otherwise the 3 dB width of the Bessel pattern of the aperture (the model of 2.0.0).
+
+    ``los_model`` (since 2.1.0): "probability" draws the LOS state from the LOS probability of TR 38.811
+    Table 6.6.1-1 (NLOS links get the clutter loss and the NLOS shadowing of Tables 6.6.2-1..3); "los" makes
+    every link LOS, the baseline propagation condition of TR 38.821 Table 6.1.1.1-5 ("Clear Sky, Line of
+    sight"), which Table 6.1.1.1-7 keeps for the performance evaluation.
     """
     altitude_km: float = 600.0
     aperture_m: float = 2.0
@@ -424,6 +467,8 @@ class NtnConfig:
     scintillation_db: float = 2.2
     sf_corr_m: float = 37.0
     los_corr_m: float = 60.0
+    hpbw_deg: Optional[float] = None
+    los_model: str = "probability"
 
 
 @dataclass
@@ -517,6 +562,8 @@ class Scenario:
             _check(N.environment in ("dense_urban", "urban", "rural"), "ntn.environment",
                    "must be 'dense_urban', 'urban' or 'rural' (TR 38.811 Tables 6.6.1-1, 6.6.2-1..3)")
             _check(R.carrier_ghz < 6.0, "radio.carrier_ghz", "the NTN model of this version covers the S band only")
+            _check(N.los_model in ("probability", "los"), "ntn.los_model", "must be 'probability' or 'los'")
+            _check(N.hpbw_deg is None or 0.0 < N.hpbw_deg < 90.0, "ntn.hpbw_deg", "must be between 0 and 90 degrees")
         _check(L.min_site_distance_m >= 0, "layout.min_site_distance_m", "must be >= 0")
         _check(L.area_m is None or (L.area_m[0] > 0 and L.area_m[1] > 0), "layout.area_m",
                "width and height must be positive")
@@ -545,24 +592,32 @@ class Scenario:
         _check(L.blocks[0] >= 1 and L.blocks[1] >= 1, "layout.blocks", "needs at least 1 x 1 blocks")
         _check(L.site_spacing_m > 0, "layout.site_spacing_m", "must be positive")
         _check(L.street_width_m > 0, "layout.street_width_m", "must be positive")
-        _check(R.pathloss in ("umi_street_canyon", "uma", "rma", "inh_office"), "radio.pathloss",
-               "must be 'umi_street_canyon', 'uma', 'rma' or 'inh_office'")
+        _check(R.pathloss in PATHLOSS_MODELS, "radio.pathloss", "must be one of %s" % ", ".join(PATHLOSS_MODELS))
         _check(0.5 <= R.carrier_ghz <= 100.0, "radio.carrier_ghz", "TR 38.901 covers 0.5-100 GHz")
         _check(R.pathloss != "rma" or R.carrier_ghz <= 30.0, "radio.carrier_ghz",
                "the TR 38.901 RMa model covers 0.5-30 GHz")
+        _check(R.channel_detail in ("3gpp", "simple"), "radio.channel_detail", "must be '3gpp' or 'simple'")
+        if R.channel_detail == "3gpp" and L.kind != "ntn" and not R.map_file:
+            _check_heights(R.pathloss, R.bs_height_m, R.ue_height_m, "radio")
         _check(0.0 <= R.place_share <= 1.0, "radio.place_share", "must be in [0, 1]")
-        _check(0.0 <= R.shadow_site_corr <= 1.0, "radio.shadow_site_corr", "must be in [0, 1]")
+        _check(R.shadow_site_corr is None or 0.0 <= R.shadow_site_corr <= 1.0, "radio.shadow_site_corr",
+               "must be in [0, 1] or null")
         _check(R.map_res_m > 0, "radio.map_res_m", "must be positive")
         _check(R.soft_los_d_m > 0, "radio.soft_los_d_m", "must be positive")
         _check(R.shadow_los_far_db is None or R.shadow_los_far_db >= 0, "radio.shadow_los_far_db", "must be >= 0")
         _check(R.penetration_sd_db >= 0, "radio.penetration_sd_db", "must be >= 0")
         _check(R.energy_p0_w >= 0 and R.energy_slope >= 0, "radio.energy_p0_w", "energy parameters must be >= 0")
+        _check(isinstance(R.energy_ntrx, int) and R.energy_ntrx >= 1, "radio.energy_ntrx", "must be an integer >= 1")
         _check(P.step_s > 0, "protocol.step_s", "must be positive")
         mp = P.l1_period_s / P.step_s
         _check(abs(mp - round(mp)) < 1e-9 and mp >= 1, "protocol.l1_period_s",
                "must be a whole multiple of protocol.step_s")
         _check(P.l3_k >= 0, "protocol.l3_k", "must be >= 0")
         _check(P.n310 >= 1 and P.n311 >= 1, "protocol.n310", "N310 and N311 must be >= 1")
+        _check(P.t310_s >= 0, "protocol.t310_s", "must be >= 0")
+        _check(P.report_interval_s > 0, "protocol.report_interval_s", "must be positive")
+        _check(P.prep_s >= 0 and P.exec_s >= 0 and P.reest_s >= 0 and P.cho_recovery_s >= 0, "protocol.prep_s",
+               "delays must be >= 0")
         _check(P.lm_load is None or P.lm_load >= 0, "protocol.lm_load", "must be >= 0 or null")
         _check(P.lm_load_per_ue >= 0, "protocol.lm_load_per_ue", "must be >= 0")
         _check(P.rlm_holdoff_s >= 0, "protocol.rlm_holdoff_s", "must be >= 0")
@@ -570,9 +625,23 @@ class Scenario:
         _check(P.t304_s is None or P.t304_s > 0, "protocol.t304_s", "must be positive or null")
         _check(P.meas_periods in ("sample", "ts38133"), "protocol.meas_periods", "must be 'sample' or 'ts38133'")
         _check(P.rlm_eval in ("fixed", "ts38133"), "protocol.rlm_eval", "must be 'fixed' or 'ts38133'")
+        _check(P.rrc_detail in ("3gpp", "simple"), "protocol.rrc_detail", "must be '3gpp' or 'simple'")
         _check(P.ssb_period_s > 0, "protocol.ssb_period_s", "must be positive")
         _check(0 <= P.gap_pattern <= 25, "protocol.gap_pattern", "TS 38.133 Table 9.1.2-1 defines the ids 0-25")
         _check(1 <= P.fr2_power_class <= 5, "protocol.fr2_power_class", "must be 1-5")
+        carriers = [R.carrier_ghz] + [ly.carrier_ghz for ly in (R.layers or []) if ly.carrier_ghz is not None]
+        _check(P.fr2_power_class <= 3 or all(f < 52.6 for f in carriers), "protocol.fr2_power_class",
+               "FR2-2 defines the power classes 1-3 only (TS 38.133 9.2.5.1 and 9.3.4)")
+        if P.rrc_detail == "3gpp" and P.meas_periods == "ts38133" and len(set(carriers)) > 1:
+            from .requirements import freq_range
+            frs = {freq_range(f) for f in carriers}
+            # per-UE gaps of TS 38.133 V18.15.0 Table 9.1.2-3 (SA): FR2 serving and measuring FR2 only: ids 12-25;
+            # any FR1 serving or measured frequency: ids 0-11, 24, 25 (FR3 has no row: not checked)
+            ids = (set(range(12, 26)) if all(fr.startswith("FR2") for fr in frs) else
+                   set(range(12)) | {24, 25} if "FR1" in frs and frs <= {"FR1", "FR2-1", "FR2-2"} else None)
+            _check(ids is None or P.gap_pattern in ids, "protocol.gap_pattern",
+                   "TS 38.133 Table 9.1.2-3 allows the ids %s for the frequency ranges %s"
+                   % ("12-25" if 12 in (ids or ()) else "0-11, 24, 25", ", ".join(sorted(frs))))
         self._validate_extended()
         _check(M.users >= 1, "mobility.users", "must be >= 1")
         if M.groups is None:
@@ -606,9 +675,20 @@ class Scenario:
             f = R.carrier_ghz if ly.carrier_ghz is None else ly.carrier_ghz
             _check(0.5 <= f <= 100.0, key + ".carrier_ghz", "TR 38.901 covers 0.5-100 GHz")
             pl = ly.pathloss or R.pathloss
-            _check(pl in ("umi_street_canyon", "uma", "rma", "inh_office"), key + ".pathloss",
-                   "must be 'umi_street_canyon', 'uma', 'rma' or 'inh_office'")
+            _check(pl in PATHLOSS_MODELS, key + ".pathloss", "must be one of %s" % ", ".join(PATHLOSS_MODELS))
             _check(pl != "rma" or f <= 30.0, key + ".carrier_ghz", "the TR 38.901 RMa model covers 0.5-30 GHz")
+            if R.channel_detail == "3gpp":
+                hb = R.bs_height_m if ly.bs_height_m is None else ly.bs_height_m
+                _check_heights(pl, hb, R.ue_height_m, key)
+                if ly.cosited:
+                    # TR 38.901 clause 7.6.5: the propagation conditions (Step 2) and the large-scale parameters
+                    # (Step 4, among them the shadow fading) are the same for all frequencies
+                    for k in ("pathloss", "los_corr_m", "shadow_decorr_m"):
+                        own = getattr(ly, k)
+                        _check(own is None or own == getattr(R, k), key + "." + k,
+                               "a co-sited layer shares the LOS state and the shadowing of the first layer "
+                               "(TR 38.901 clause 7.6.5); leave it unset or equal to radio.%s "
+                               "(or set radio.channel_detail: simple)" % k)
             _check(ly.bandwidth_mhz is None or ly.bandwidth_mhz > 0, key + ".bandwidth_mhz", "must be positive")
             _check(ly.scs_khz is None or ly.scs_khz in SCS_KHZ, key + ".scs_khz", "must be one of %s" % (SCS_KHZ,))
             _check(not (ly.cosited and (ly.sites is not None or ly.sites_file or ly.site_spacing_m is not None
@@ -626,9 +706,10 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                     "area_m", "min_site_distance_m", "wrap", "highway_sites"),
                                          "radio": ("soft_los", "soft_los_d_m", "shadow_los_far_db", "scs_khz",
                                                    "beams", "layers", "los_model", "map_file", "map_sha256",
-                                                   "breakpoint_c_mps", "pl_min_distance_m"),
+                                                   "breakpoint_c_mps", "pl_min_distance_m", "channel_detail",
+                                                   "energy_ntrx"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
-                                                      "gap_pattern", "fr2_power_class", "rlm_eval")}
+                                                      "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")
@@ -660,6 +741,27 @@ def _check(ok: bool, key: str, msg: str) -> None:
         raise ConfigError("scenario.%s: %s" % (key, msg))
 
 
+#: names of the path-loss models of ``radio.pathloss``
+PATHLOSS_MODELS: Tuple[str, ...] = ("umi_street_canyon", "uma", "rma", "inh_office", "inh_office_open")
+
+#: antenna heights [m] inside which TR 38.901 V19.5.0 Table 7.4.1-1 gives the formulas ("applicability range"):
+#: model -> (h_BS range or None, h_UT range); InH-Office has a 3D-distance range only (1 m <= d3D <= 150 m)
+HEIGHT_RANGES: Dict[str, Tuple[Optional[Tuple[float, float]], Optional[Tuple[float, float]]]] = {
+    "umi_street_canyon": (None, (1.5, 22.5)), "uma": (None, (1.5, 22.5)), "rma": ((10.0, 150.0), (1.0, 10.0)),
+    "inh_office": (None, None), "inh_office_open": (None, None)}
+
+
+def _check_heights(model: str, h_bs: float, h_ut: float, key: str) -> None:
+    """Antenna heights inside the applicability range of ``model`` (TR 38.901 Table 7.4.1-1; ``channel_detail``
+    "3gpp" only)."""
+    bs, ut = HEIGHT_RANGES.get(model, (None, None))
+    hint = " (TR 38.901 Table 7.4.1-1, applicability range of %s; radio.channel_detail: simple allows any height)"
+    if ut is not None:
+        _check(ut[0] <= h_ut <= ut[1], "radio.ue_height_m", "must be %g-%g m%s" % (ut[0], ut[1], hint % model))
+    if bs is not None:
+        _check(bs[0] <= h_bs <= bs[1], key + ".bs_height_m", "must be %g-%g m%s" % (bs[0], bs[1], hint % model))
+
+
 def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     """Range checks of a :class:`BeamConfig` on a carrier of ``carrier_ghz``."""
     from .requirements import ssb_max
@@ -670,7 +772,8 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     _check(b.panel[0] >= 1 and b.panel[1] >= 1, key + ".panel", "needs at least 1 x 1 elements")
     _check(0.0 < b.tilt_deg < 180.0, key + ".tilt_deg", "must be between 0 and 180 degrees")
     _check(b.beam_span_deg is None or 0.0 < b.beam_span_deg <= 360.0, key + ".beam_span_deg", "must be in (0, 360]")
-    _check(b.ssb_avg is None or 2 <= b.ssb_avg <= b.n_ssb, key + ".ssb_avg", "nrofSS-BlocksToAverage must be 2-n_ssb")
+    _check(b.ssb_avg is None or 2 <= b.ssb_avg <= min(b.n_ssb, 16), key + ".ssb_avg",
+           "nrofSS-BlocksToAverage must be 2 to min(n_ssb, 16) (maxNrofSS-BlocksToAverage = 16, TS 38.331)")
     _check(b.report_s > 0 and b.tci_delay_s >= 0 and b.switch_db >= 0, key + ".report_s",
            "report_s must be positive, tci_delay_s and switch_db >= 0")
     _check(b.rx_sweep_n is None or b.rx_sweep_n >= 1, key + ".rx_sweep_n", "must be >= 1")

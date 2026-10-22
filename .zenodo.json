@@ -1,12 +1,16 @@
 {
-  "title": "HandoverLab: system-level simulation of handover and mobility beyond 5G",
-  "description": "HandoverLab is an open-source, system-level simulator of 3GPP mobility procedures (baseline handover with Event A3, Release-16 conditional and DAPS handover, Release-18 L1/L2-triggered mobility) for many users in dense 5G and beyond-5G networks, on a street grid, in an open area, along a highway, in an indoor office or in rural macro cells. It provides a TR 38.901 received-power radio model, an L3-filtered measurement chain, a radio-link failure model, an outcome label for every handover attempt, a plug-in interface for handover rules, equal-budget tuning studies with paired statistics, and verification against hand-computed values, golden event-log fingerprints and ns-3 / 5G-LENA.",
+  "title": "HandoverLab: system-level handover simulator for 5G-Advanced and beyond-5G research",
+  "description": "HandoverLab is an open-source, system-level simulator of 3GPP mobility procedures (baseline handover with Event A3, Release-16 conditional and DAPS handover, Release-18 L1/L2-triggered mobility, conditional handover with the location events of Release 18) for many users in dense 5G-Advanced and beyond-5G networks, on a street grid, in an open area, along a highway, in an indoor office, in rural macro cells or under the earth-moving beams of a LEO satellite. It provides a TR 38.901 received-power radio model (TR 38.811 for the satellite), an L3-filtered measurement chain, a radio-link failure model, an outcome label for every handover attempt, a plug-in interface for handover rules, equal-budget tuning studies with paired statistics, and verification against hand-computed values, golden event-log fingerprints and ns-3 / 5G-LENA.",
   "upload_type": "software",
   "access_right": "open",
   "license": "MIT",
   "creators": [
-    {"name": "Jalili Sanjarani, Mostafa"},
-    {"name": "Elmi Sola, Yasser"}
+    {
+      "name": "Jalili Sanjarani, Mostafa"
+    },
+    {
+      "name": "Elmi Sola, Yasser"
+    }
   ],
   "keywords": [
     "handover",
@@ -21,6 +25,10 @@
     "Python"
   ],
   "related_identifiers": [
-    {"identifier": "https://github.com/mjs19971997/handoverlab", "relation": "isSupplementTo", "scheme": "url"}
+    {
+      "identifier": "https://github.com/mjs19971997/handoverlab",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
   ]
 }

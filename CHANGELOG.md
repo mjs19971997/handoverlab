@@ -7,6 +7,120 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-21
+
+A clause-by-clause audit of the protocol engine against TS 38.331 V18.11.0, TS 38.133, TS 38.300 V18.11.0 and
+TS 38.321, of the value domains against the ASN.1 of TS 38.331, and of the large-scale channel and the scenario
+cards against TR 38.901 V19.5.0, TR 37.885 V15.3.0, TR 38.811 V15.4.0, TR 38.821 V16.2.0 and ITU-R M.2412-0.
+Every change that alters results sits behind a switch: `protocol.rrc_detail: simple` and
+`radio.channel_detail: simple` (both now in `handoverlab.stability.LEGACY_1X`) and the card values of
+`handoverlab.stability.LEGACY_CARDS` give the 2.0.0 model back, and the 1.x golden fingerprints are still
+reproduced. Results of an unchanged configuration differ from 2.0.0 (`MODEL_VERSION` 3; new golden
+fingerprints in `verify/data/golden.json`).
+
+### Added
+
+- `protocol.rrc_detail` (`3gpp`, the default, or `simple`, the engine of 2.0.0). With `3gpp`:
+  - out-of-sync and in-sync indications every max(10 ms, T_SSB) (TS 38.133 8.1.6); N310 counts consecutive
+    out-of-sync indications while T310 is stopped, N311 consecutive in-sync indications while it runs, each reset
+    by the other indication (TS 38.331 clause 7.2, 5.3.10.2), in all three engines and the compiled kernel;
+  - DAPS: T310 of the source keeps running at the reconfiguration with sync (5.3.5.5.2), the source link is
+    monitored during T304 and can fail (5.3.10.1, 5.3.10.3), and the UE falls back to the source only if no
+    source RLF was detected (5.3.5.8.3); no DAPS from FR2 to FR2 (TS 38.300 9.2.3.1) and none for NTN (refused,
+    16.14.3.2.1);
+  - LTM keeps its ltm-Config across a cell switch (5.3.5.18.6) and adds 20 ms of T_LTM-processing on a change of
+    frequency range (TS 38.133 6.3.1.3);
+  - CHO executes when the time-to-trigger of its condition expires, also between measurement instants, like the
+    report of 5.5.4.1 (5.3.5.13.4); CHO with condEventD2 and A3 keeps one state and time-to-trigger per event
+    (`ttt_d2_s`), updated at every measurement and reset on release; a recovery into a prepared cell is a
+    reconfiguration with sync and re-establishes if the cell cannot be joined before T304 expires (5.3.7.3);
+  - L3 filter with the intra-frequency L1 period of the frequency range as reference period (5.5.3.2),
+    Qout_LR = Qout + 4 dB for beam failure detection (TS 38.133 Tables 8.5.2.1-1 and 8.1.2.1-1), the RLM set
+    N_RLM, the BFD timer reset only after it expired, and L1-RSRP with N = 8 in FR2 (9.5.4.1);
+  - the RRC messages counted one by one: measurement reports, commands (an LTM cell switch is a MAC CE),
+    configurations once per user, Complete messages and releases.
+- Outcome `coverage` and metric `coverage_failures_pm`: a failure after which the UE re-establishes in its
+  serving (or target) cell is neither too early nor too late. The outcome classes follow TS 38.300 15.5.2.2.2
+  (too early: re-establishment in the source; wrong cell: in a cell other than source and target; too late: a
+  failure before a handover, re-establishment elsewhere), one class per failure; `too_late_pm` counts the classes.
+- `handoverlab.standard`: the value domains of TS 38.331 V18.11.0 (TimeToTrigger, Hysteresis,
+  MeasTriggerQuantityOffset, Q-OffsetRange, FilterCoefficient, ReportInterval, RLF timers and constants, t304,
+  SSB periodicity, RSRP-Range, maxNrofCondCells, the D2 distance steps) with the clause or page of each, and
+  `check_rule` / `check_scenario`; the `verify` group `values` checks every built-in card and rule default;
+  studies have a gate `standard_values` (blocking by default), and grid extensions stay on standard values.
+- `radio.channel_detail` (`3gpp`, the default, or `simple`): with `3gpp` the place-tied shadowing and LOS
+  fields have the exponential autocorrelation exp(-d / d_cor) of TR 38.901 Eq. (7.4-5) (circulant embedding,
+  periodic with the highway wrap-around), the shadowing is uncorrelated between sites (clause 7.5 step 4),
+  UMa has C'(h_UT) in the LOS probability and the random effective environment height of Table 7.4.1-1
+  note 1 (h_UT >= 13 m), antenna heights outside the applicability ranges of Table 7.4.1-1 are refused,
+  links beyond the upper distance bound give a warning, and a co-sited layer must keep the LOS-state and
+  shadowing settings of the first layer (clause 7.6.5).
+- `radio.pathloss: inh_office_open` (the open-office LOS probability); mobility profiles `p3`, `v30`, `v120`
+  (the fixed speeds of ITU-R M.2412-0 Tables 5a-5c) and `v140c`, `v70c` (TR 37.885 highway speeds on the lane
+  centre); `ntn.hpbw_deg` (unset: the tabled 3 dB beamwidth of TR 38.821 Tables 6.1.1.1-1/-2, from which the
+  beam spacing of Table 6.1.1.1-4 is computed) and `ntn.los_model` (`los`: the baseline "Clear Sky, Line of
+  sight" of TR 38.821 Table 6.1.1.1-5); `handoverlab.stability.LEGACY_CARDS`; the IRR-glass loss as a
+  parameter of the calibration module.
+- `benchmarks/ns3/`: the ns-3 / 5G-LENA side of the comparison as a package anyone can rerun: the A3-only ns-3
+  program of the reference scenario (`handoverlab-ns3-a3.cc`, GPL-2.0-only like ns-3, outside the Python
+  package), `run_benchmark.py` for parts A, B and C (resumable, parallel) and the library state of the
+  reference runs; `handoverlab verify --ns3 --ns3-reference FILE` compares HandoverLab with such a file.
+- "Model boundaries" and "Scope: 5G-Advanced and beyond 5G" in the README, with a test that keeps the table in
+  step with the registered rules, cards and layouts.
+- The page "The 10 ms step" (`docs/time-step.md`): 10, 5, 2 and 1 ms on two scenarios and four procedures, with
+  criteria fixed before the runs; all 30 met, the metrics identical seed by seed.
+- The reference study (`examples/study_reference.yaml`, `docs/reference-study.md`): CHO against A3 at an equal
+  failure budget. The confirmatory question is not answered: the study gates stopped it, as CHO meets the budget
+  at every setting up to 8 dB and 960 ms; an exploratory test stage shows the price (-90 % unnecessary
+  handovers, but 12 dB lower SINR and 25 % lower throughput).
+
+### Changed
+
+- `radio.shadow_site_corr` is unset by default (0 with `channel_detail: 3gpp`, 0.5 with `simple`).
+- Cards: UE antenna 1.6 m (TR 37.885 vehicle type 2) on `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`,
+  `urban-grid-28ghz-beams`; `indoor-office-4ghz` with `p3` and the open-office LOS probability;
+  `rural-700mhz` with `v120`; `dense-urban-2layer` with `v30`; highway cards with `v140c`; `ntn-leo600-2ghz`
+  with `ntn.los_model: los`. The card pages leave out keys that the layout and radio model do not read, keep
+  the card's own source for beam keys, and the cards state the remaining abstractions (one shadowing
+  decorrelation distance, LOS and NLOS on one shadowing realisation, LOS state on top of the buildings, user
+  numbers, scintillation as a link-budget margin, no wrap-around beam tiers).
+- `verify`: radio statistics expect the exponential correlation and no correlation between sites; highway
+  check H3 uses the uncorrelated shadowing of TR 38.901 and simulates it along each vehicle's path (the
+  place-tied exponential field leaves too few independent samples per road), H2 accepts a jump at the
+  wrap-around up to the size of the ordinary steps (the radio map has a whole number of pixels per period);
+  NTN check N2 checks the tabled beamwidth (it passes now for both S-band apertures).
+- `a3_mro`: `step_db` 1 dB by default (0.5 dB before), so that every offset is a Q-OffsetRange value; a
+  ping-pong must be strictly shorter than `pingpong_s`, and no ping-pong is counted across a re-establishment.
+- Validation: `ssb_avg` at most min(`n_ssb`, 16) (maxNrofSS-BlocksToAverage); FR2-2 power classes 1 to 3;
+  T310, delays and the report interval must not be negative; with `rrc_detail: 3gpp` and TS 38.133 measurement
+  periods on several carriers, `protocol.gap_pattern` must be one of the per-UE gap ids that TS 38.133 Table
+  9.1.2-3 allows for the frequency ranges (FR1 present: 0-11, 24, 25; FR2 only: 12-25).
+- Energy: each cell counts with the transmit power of its own layer (2.0.0: the base layer's power for every
+  cell), the metric is per cell, and the EARTH model has the number of transceivers of Auer et al. 2011 Eq. 1
+  (`radio.energy_ntrx`, 2 for the micro base station of Table 2; 1.x and 2.0.0: 1, now in `LEGACY_1X`).
+- SS-RSRP per resource element with beams or layers: the power is spread over the 12 N_RB subcarriers of
+  TS 38.101-1 / TS 38.101-2 Table 5.3.2-1 (`radio.channel_detail: 3gpp`; 2.0.0: B / SCS, guard bands included).
+- The title is "System-level handover simulator for 5G-Advanced and beyond-5G research" (README, PyPI, CITATION,
+  Zenodo, documentation site).
+
+### Fixed
+
+- Citations checked against the text of each document: FTP model 3 is defined in TR 36.872 Annex A.1 with the
+  0.5 Mbyte files of TR 38.802 Table A.2.1-1 and TR 38.821 Table 6.1.1.1-7 (TR 36.814 has models 1 and 2 only);
+  `protocol.reest_s` (1 s) is an assumption: TS 38.133 6.2.1.2.1 bounds the re-establishment delay by 50 ms +
+  cell identification (Table 6.2.1.2.1-1) + system information + PRACH, and TR 36.842 Table E.1-2 uses 250 ms;
+  MRO cites TS 28.313 clause 7.1.2; hand-calculated radio checks use c = 3e8 m/s; rows of
+  `docs/standard-compliance.md`, the user guide and the guides rewritten where the text said otherwise.
+- Every citation of TS 38.133, TS 38.300, TS 38.321, TS 38.213 and TS 38.215 checked against the V19 texts (and
+  the versions named): no DAPS from FR2 to FR2 is TS 38.300 9.2.3.1 (not 9.2.3.2); recovery into a CHO candidate
+  9.2.3.1 and 9.2.7 (not 9.2.3.4); M_meas_period_w/o_gaps TS 38.133 9.2.5.1; the BFD threshold in the user
+  guide is Qout_LR; the restart of link monitoring on a new cell is called what it is, an interpretation of
+  TS 38.133 8.1.2.2; the SSB as BFD reference signal cites TS 38.133 8.5.1; conditional LTM cites TS 38.300
+  V19.4.0 9.2.3.7.
+- The verify check of the configured LTM / DAPS interruption (V1e) runs with ideal random access, so that an
+  execution waiting for its target under T304 does not count against it; the README table of model boundaries is
+  checked against the built-in rules only.
+
 ## [2.0.0] - 2026-10-20
 
 2.0.0 makes the 3GPP values the defaults. Results of an unchanged configuration therefore differ from 1.x;
@@ -789,7 +903,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/mjs19971997/handoverlab/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/mjs19971997/handoverlab/compare/v1.12.0...v2.0.0
 [1.12.0]: https://github.com/mjs19971997/handoverlab/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/mjs19971997/handoverlab/compare/v1.10.0...v1.11.0

@@ -32,7 +32,7 @@ from .config import Study, label
 from .runner import MODEL_VERSION, Job, default_workers, run_jobs
 from .store import StudyStore, atomic_write_json, read_json, write_table
 from .tuning import (GateResult, MethodTuning, describe_setting, evaluate_gates, extension_values, first_round,
-                     refine, seed_overlap_gate, select, setting_key, summary_lines)
+                     refine, seed_overlap_gate, select, setting_key, standard_values_gate, summary_lines)
 
 
 class StudyError(RuntimeError):
@@ -177,7 +177,8 @@ def analyse_tuning(study: Study, store: StudyStore, jobs: Sequence[Job]) -> Dict
     """Selection and gates of every tuning group; writes ``tuned/<group>.json`` and ``tuned/gates.json``."""
     t = study.tuning
     means = _group_means(study, _records_by_job(store, jobs))
-    gates: List[GateResult] = [seed_overlap_gate(study.tuning_seeds, study.test_seeds, t.gates["seed_overlap"])]
+    gates: List[GateResult] = [seed_overlap_gate(study.tuning_seeds, study.test_seeds, t.gates["seed_overlap"]),
+                               standard_values_gate(study.methods, t.reference, t.gates["standard_values"])]
     groups: Dict[str, Any] = {}
     for g in sorted(means):
         gm = means[g]
@@ -271,7 +272,13 @@ def plan_extension(study: Study, gates: Sequence[GateResult], steps: int):
                 continue
             vals = m.grid[p]
             ok = []
-            for v in extension_values(vals, side, steps):
+            from .. import standard
+            kind = standard.domain_of(m.rule, p)
+            if kind in ("ttt", "a3sum"):                        # since 2.1.0: only values TS 38.331 allows
+                new = standard.extend(kind, vals, side, steps)
+            else:
+                new = extension_values(vals, side, steps)
+            for v in new:
                 cfg = {k: vv[0] for k, vv in m.grid.items()}
                 cfg[p] = v
                 try:
@@ -443,6 +450,9 @@ def run_study(study: Study, out: Optional[str] = None, workers: Optional[int] = 
     ov = seed_overlap_gate(study.tuning_seeds, study.test_seeds, study.tuning.gates["seed_overlap"])
     if study.has_tuning and ov.blocking:
         raise GateError(summary_lines([ov]))
+    sv = standard_values_gate(study.methods, study.tuning.reference, study.tuning.gates["standard_values"])
+    if sv.blocking:
+        raise GateError(summary_lines([sv]))
     man = _start_manifest(study, store, w)
     say("study %s -> %s (%d workers)" % (study.name, store.root, w))
     all_jobs: List[Job] = []
@@ -547,6 +557,8 @@ def dry_run(study: Study) -> List[str]:
         lines.append("stage tune2: %d jobs, up to %d rule runs" % (len(j1) if n2 else 0, n2 * len(j1)))
         g = seed_overlap_gate(study.tuning_seeds, study.test_seeds, study.tuning.gates["seed_overlap"])
         lines.append("gate seed_overlap: %s (%s)" % (g.status, g.message))
+    g = standard_values_gate(study.methods, study.tuning.reference, study.tuning.gates["standard_values"])
+    lines.append("gate standard_values: %s (%s)" % (g.status, g.message))
     names = study.test_rule_names()
     n_test = len(study.condition_list()) * len(study.test_seeds)
     lines.append("stage test: %d jobs x %d rules (%s)" % (n_test, len(names), ", ".join(names)))
