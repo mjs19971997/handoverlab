@@ -88,6 +88,7 @@ nav:
       - Radio calibration against 3GPP: calibration-3gpp.md
       - Failure-model calibration: calibration.md
       - Performance: performance.md
+      - Comparison with other simulators: comparison.md
   - Project:
       - Stability policy: stability.md
       - Releasing: RELEASING.md
