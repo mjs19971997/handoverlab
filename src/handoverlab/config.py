@@ -509,8 +509,9 @@ class RunConfig:
     """Length of a run and (since 1.11.0) the ``backend`` of the step loop.
 
     ``backend`` ``"numpy"`` (the default and the reference) or ``"numba"``: a compiled kernel for the
-    radio-link monitoring of every step (:mod:`handoverlab.engine._kernels`; needs ``pip install
-    handoverlab[fast]``).  Both give bit-identical results, so the backend is not part of the job IDs.
+    radio-link monitoring of every step and (since 2.4.0) for the slots of ``protocol.scheduler``
+    (:mod:`handoverlab.engine._kernels`; needs ``pip install handoverlab[fast]``).  Both give bit-identical
+    results, so the backend is not part of the job IDs.
     """
     duration_s: float = 120.0
     warmup_s: float = 20.0              # initial part not counted in the metrics

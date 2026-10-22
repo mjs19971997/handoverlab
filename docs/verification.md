@@ -38,6 +38,7 @@ writes the report with the versions of Python, NumPy and SciPy and the platform.
 | Learning rule (1.11.0) | `a3_bandit` against an exhaustive search over its arms, three criteria fixed before the run (one failed: see the [learning-rule guide](guides/learning-rule.md)) | `verify --only learning` (about 20 minutes) |
 | Imported radio maps (1.12.0) | an exported street-grid map imported again gives the identical event log (every golden case on the street grid); interpolation of measured points with its hold-out error; errors for a wrong format, other sites, a map that does not cover the area, a changed file | `tests/test_mapfile.py` |
 | Compiled kernel (1.11.0) | the golden fingerprints with `run.backend: numba` | `tests/test_v111.py` (with Numba installed) |
+| Compiled slot scheduler (2.4.0) | the slot loop with `run.backend: numba` equal (==) to the NumPy loop: delivered data, PRB shares, HARQ state, PF averages and statistics over random intervals, and fingerprint and every metric of whole runs (rr, pf, fast fading, buffers); the loop's logic also as plain Python without Numba | `tests/test_sched_kernel.py` |
 | Reference case | ns-3 / 5G-LENA, 24 A3 settings on four conditions | `verify --ns3` |
 | Rule contract | any rule plug-in: construction, parameters, debug run, determinism, global random state, independence, optional equivalence | `handoverlab.testing.check_rule` |
 

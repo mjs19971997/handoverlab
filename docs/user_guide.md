@@ -275,7 +275,7 @@ output: results/metrics.csv
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]`; `lanes_m` (2.0.0) lane centres; `indoor: true` (2.3.0) users inside buildings, with the O2I building penetration loss of `radio.o2i_model` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
 | `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
-| | `backend` | `numpy` | `numba`: compiled kernel of the step loop, bit-identical results, needs `pip install handoverlab[fast]` (since 1.11.0; see [performance](performance.md)); not part of the job IDs |
+| | `backend` | `numpy` | `numba`: compiled kernels of the step loop (since 1.11.0) and of the slot scheduler (since 2.4.0), bit-identical results, needs `pip install handoverlab[fast]` (see [performance](performance.md)); not part of the job IDs |
 
 In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a changed copy.
 `Scenario.to_dict()` leaves out the keys added after 1.0.0rc2 while they have their default value,

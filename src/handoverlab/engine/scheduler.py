@@ -25,9 +25,18 @@ decisions, so every rule compared on one seed sees the same draws.
 With the user-plane buffers (``protocol.buffers``, since 2.3.0) the engine also uses the first slot a user may be
 served in (forwarded data still on their way), the data of TBs lost after the last transmission, the data in the
 HARQ processes and their flush at a MAC reset.
+
+With ``run.backend: numba`` (since 2.4.0) the slots are played by the compiled loop
+:func:`handoverlab.engine._kernels.sched_slots`.  The MCS look-ups and block error probabilities still come from
+the functions and memos of the NumPy loop (tables filled per interval; the BLER of the later transmissions of a TB
+follows from its combined SINR, a fixed sequence of additions of the user's SINR, which is constant within the
+interval), and the loop itself uses only basic arithmetic in the NumPy loop's order, so the results are
+bit-identical.  The NumPy loop stays the reference and runs in debug mode.
 """
 from __future__ import annotations
 
+import math
+from functools import lru_cache
 from typing import Dict, Tuple
 
 import numpy as np
@@ -37,6 +46,12 @@ from ..seeds import streams
 
 N_HARQ = 8
 BLER_TARGET = 0.1
+
+
+@lru_cache(maxsize=None)
+def _tbs_row(nre: int) -> np.ndarray:
+    """TBS of every MCS of table 1 for ``nre`` REs."""
+    return np.array([ll.tbs(nre, m) for m in range(len(ll.MCS_TABLE1))], dtype=np.int64)
 
 
 class SlotScheduler:
@@ -66,6 +81,16 @@ class SlotScheduler:
         self.stats = dict(tb=0, tb_ok=0, tb_lost=0, retx=0)
         self.lost_bits = np.zeros(n_users)                   # data of TBs lost in the last interval [bit]
         self._sel: Dict[Tuple[int, int], Tuple[int, int, int]] = {}
+        self.kernel = None                                   # compiled slot loop (run.backend: numba, 2.4.0)
+
+    def use_kernel(self, kernel) -> None:
+        """Play the slots with ``kernel`` (:func:`handoverlab.engine._kernels.sched_slots`); same results."""
+        self.kernel = kernel
+        self.h_p = np.zeros((self.U, N_HARQ, self.max_tx + 1))   # BLER of each transmission of a process's TB
+        self._scratch = (np.zeros(self.U, dtype=np.bool_), np.zeros(self.U, dtype=np.bool_),
+                         np.zeros(self.U, dtype=np.int64), np.zeros(self.U), np.zeros(self.U),
+                         np.zeros(self.M, dtype=np.int64), np.zeros(self.M, dtype=np.int64),
+                         np.zeros(self.M, dtype=np.int64))
 
     def select(self, sinr_db: float, n_prb: int) -> Tuple[int, int, int]:
         """(MCS, TBS, coded bits) for ``n_prb`` PRBs at a reported SINR (0.1 dB steps); MCS -1 if none reaches the
@@ -81,6 +106,32 @@ class SlotScheduler:
                     break
                 best = (m, t, ncb)
             self._sel[key] = best
+        return self._sel[key]
+
+    def select_all(self, sinr_db: float, n_prb: int) -> Tuple[int, int, int]:
+        """:meth:`select` with the BLER of all MCS in one array operation (for the compiled loop, since 2.4.0):
+        the same operations element by element as :func:`handoverlab.linklevel.bler` (the log2 of the coded
+        bits by ``math.log2``), so the same values; shares the memo of :meth:`select`."""
+        key = (int(round(sinr_db * 10.0)), int(n_prb))
+        if key not in self._sel:
+            from scipy.special import ndtr
+            nre = ll.n_re(n_prb)
+            tb = _tbs_row(nre)
+            q = ll._QM
+            n = np.maximum(nre * q, 1)
+            s = np.array([key[0] / 10.0]) - self.loss
+            c = np.empty(len(q))
+            v = np.empty(len(q))
+            for qm in (2, 4, 6):
+                db, cap, disp = ll._bit_channel(qm)
+                j = q == qm
+                c[j] = np.interp(s, db, cap)[0]
+                v[j] = np.interp(s, db, disp)[0]
+            nf = n.astype(float)
+            p = ndtr(-(nf * c - (tb + 24) + 0.5 * np.array([math.log2(x) for x in n.tolist()])) / np.sqrt(nf * v))
+            over = np.nonzero(p > BLER_TARGET)[0]
+            m = (int(over[0]) if len(over) else len(q)) - 1
+            self._sel[key] = (m, int(tb[m]), int(nre * q[m])) if m >= 0 else (-1, 0, 0)
         return self._sel[key]
 
     def _new_tb(self, users: np.ndarray, nprb: np.ndarray, rep: np.ndarray):
@@ -141,6 +192,10 @@ class SlotScheduler:
         self.lost_bits = np.zeros(U)
         self._pmemo = {}                                     # BLER of a new TB per (user, MCS, TBS) this interval
         self._tbmemo = {}                                    # MCS / TBS per (user, PRBs) this interval
+        if self.kernel is not None:
+            self._serve_kernel(sinr, sinr_db, rep, draws, left, got, used, con, serv, prb_cell, first_slot)
+            self.slot += self.n_slots
+            return got, used / np.maximum(self.n_prb * self.n_slots, 1)
         share_memo = {}                                      # round-robin shares per set of active users
         for s in range(self.n_slots):
             k = self.slot + s
@@ -229,3 +284,73 @@ class SlotScheduler:
             self.avg[w] += self.a_pf * (rate_slot[w] - self.avg[w])
         self.slot += self.n_slots
         return got, used / np.maximum(self.n_prb * self.n_slots, 1)
+
+    def _later_bler(self, u, acc, k0, m, t, ncb, out):
+        """BLER of transmissions k0+1 .. ``harq_max_tx`` of TBs of users ``u`` whose combined SINR is ``acc``
+        after transmission ``k0``; the SINR of the interval is added once per transmission, in the order of the
+        NumPy loop, and ``out(rows, k, p)`` stores the values."""
+        acc = acc.copy()
+        for k in range(int(k0.min()) + 1, self.max_tx + 1):
+            j = np.nonzero(k > k0)[0]
+            acc[j] = acc[j] + self._sinr[u[j]]
+            if len(j):
+                out(j, k, ll.bler_vec(10.0 * np.log10(np.maximum(acc[j], 1e-30)), m[j], t[j], ncb[j], self.loss))
+
+    def _fill(self, us, ns, rep, sinr_db, sel, p_tab):
+        """Look up (MCS, TBS, coded bits) and the BLER of every transmission of a new TB for the pairs (user,
+        PRBs) with the functions and memos of the NumPy loop."""
+        for u, n in zip(us.tolist(), ns.tolist()):
+            if sel[u, n, 0] == -2:
+                v = self._tbmemo.get((u, n))
+                if v is None:
+                    v = self._tbmemo[(u, n)] = self.select_all(float(rep[u]), n)
+                sel[u, n] = v
+        fit = sel[us, ns, 0] >= 0
+        fit &= np.isnan(p_tab[us, ns, 1])
+        us, ns = us[fit], ns[fit]
+        if not len(us):
+            return
+        m, t, ncb = sel[us, ns, 0], sel[us, ns, 1], sel[us, ns, 2]
+        p_tab[us, ns, 1] = self._p_new(us, m, t, ncb, sinr_db)
+        if self.max_tx > 1:
+            def put(j, k, p):
+                p_tab[us[j], ns[j], k] = p
+            self._later_bler(us, self._sinr[us], np.ones(len(us), dtype=np.int64), m, t, ncb, put)
+
+    def _serve_kernel(self, sinr, sinr_db, rep, draws, left, got, used, con, serv, prb_cell, first_slot):
+        """The slots of :meth:`serve` in the compiled loop; the logarithms and BLERs come from the NumPy functions
+        (tables filled here, on request of the loop), so every value equals the NumPy loop's."""
+        U = self.U
+        sinr = np.ascontiguousarray(sinr, dtype=float)
+        self._sinr = sinr
+        serv = np.ascontiguousarray(serv, dtype=np.int64)
+        con = np.ascontiguousarray(con, dtype=np.bool_)
+        first = (np.zeros(U, dtype=np.int64) if first_slot is None
+                 else np.ascontiguousarray(first_slot, dtype=np.int64))
+        sel = np.full((U, self.n_prb + 1, 3), -2, dtype=np.int64)
+        p_tab = np.full((U, self.n_prb + 1, self.max_tx + 1), np.nan)
+        uu, hh = np.nonzero(self.h_bits > 0)                  # TBs carried over: BLER of their later transmissions
+        if len(uu):
+            def put(j, k, p):
+                self.h_p[uu[j], hh[j], k] = p
+            self._later_bler(uu, self.h_sinr[uu, hh], self.h_tx[uu, hh], self.h_mcs[uu, hh], self.h_bits[uu, hh],
+                             self.h_ncb[uu, hh], put)
+        if self.kind == "pf":                                  # one PRB count per user in the interval
+            us = np.nonzero(con & (prb_cell[serv] > 0))[0]
+            self._fill(us, prb_cell[serv[us]], rep, sinr_db, sel, p_tab)
+        req = np.full(U, -1, dtype=np.int64)
+        stats = np.zeros(4, dtype=np.int64)
+        s = 0
+        while True:
+            s_new = self.kernel(s, self.slot, self.kind == "pf", self.a_pf, self.max_tx, self.rtt, con, serv,
+                                prb_cell, first, sinr, draws, left, got, used, self.lost_bits, self.avg,
+                                self.h_bits, self.h_data, self.h_sinr, self.h_tx, self.h_due, self.h_mcs, self.h_ncb,
+                                self.h_p, sel, p_tab, req, stats, *self._scratch)
+            if s_new < 0:
+                break
+            us = np.nonzero(req >= 0)[0]
+            self._fill(us, req[us], rep, sinr_db, sel, p_tab)
+            req[us] = -1
+            s = s_new
+        for key, v in zip(("tb", "tb_ok", "tb_lost", "retx"), stats.tolist()):
+            self.stats[key] += v

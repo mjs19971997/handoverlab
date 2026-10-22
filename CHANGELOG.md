@@ -7,6 +7,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Compiled slot scheduler: with `run.backend: numba` (`pip install handoverlab[fast]`) the slots of
+  `protocol.scheduler` are played by a compiled loop (`handoverlab.engine._kernels.sched_slots`). The MCS
+  look-ups, logarithms and block error probabilities still come from the NumPy functions of the reference loop
+  (per-interval tables), and the loop uses only basic arithmetic in the reference order, so every result is
+  bit-identical to the NumPy loop (`tests/test_sched_kernel.py`, which also runs the loop's logic as plain Python
+  without Numba). On the ns-3 card the engine time with the scheduler drops by a factor of 8 to 60 (case and machine load) (about 3 times the rate model instead of 50-80 times; see `docs/performance.md`). The NumPy loop stays the reference and the default and runs in debug mode.
+
 ## [2.3.0] - 2026-10-22
 
 ### Added
