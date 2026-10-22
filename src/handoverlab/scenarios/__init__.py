@@ -235,7 +235,7 @@ _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "r
              "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s",
              "radio.scs_khz", "radio.beams", "radio.layers", "protocol.meas_periods", "protocol.ssb_period_s",
              "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval", "radio.map_file",
-             "radio.map_sha256", "radio.channel_detail")
+             "radio.map_sha256", "radio.channel_detail", "protocol.dc")
 
 _GRID_GEOMETRY = ("layout.blocks", "layout.pitch_m", "layout.street_width_m")
 _HIGHWAY_KEYS = ("layout.lanes", "layout.lane_width_m", "layout.road_length_m", "layout.wrap", "layout.highway_sites")
@@ -293,6 +293,10 @@ def card_markdown(name: str, figure: str = None) -> str:
     flat = _flat(sc.to_dict(full=sc.layout.kind == "highway"))
     for key in _KEYS_1_7:                           # keys of 1.7.0 and later: shown only where a card sets them
         if key in flat and flat[key] == default.get(key):
+            del flat[key]
+    from ..config import BEAM_LATE_KEYS
+    for key in [k for k in flat if k.rsplit(".", 1)[-1] in BEAM_LATE_KEYS and ".beams." in k]:
+        if flat[key] == BEAM_LATE_KEYS[key.rsplit(".", 1)[-1]]:     # beam keys of 2.3.0 and later, while default
             del flat[key]
     skipped = sorted(k for k in unused_keys(sc) if k in flat)   # keys this layout and radio model do not read
     for key in skipped:

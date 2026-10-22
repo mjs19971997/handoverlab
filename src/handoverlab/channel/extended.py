@@ -233,7 +233,7 @@ class ExtendedRadio:
                 continue
             th, ph = self._angles(x[sel], y[sel], cells[sel])
             b = L.beams
-            g = beam_gain_db(th, ph, L.beam_az, b.tilt_deg, b.panel[0], b.panel[1])
+            g = beam_gain_db(th, ph, L.beam_az, b.tilt_deg, b.panel[0], b.panel[1], b.am_db)
             out[sel] = np.take_along_axis(g, beams[sel][:, None], axis=-1)[:, 0]
         return out
 
@@ -254,7 +254,7 @@ class ExtendedRadio:
             b = L.beams
             # single precision: the gains are needed to a small fraction of a dB
             out[:, cells, :L.n_beams] = beam_gain_db(th.astype(np.float32), ph.astype(np.float32), L.beam_az,
-                                                     b.tilt_deg, b.panel[0], b.panel[1])
+                                                     b.tilt_deg, b.panel[0], b.panel[1], b.am_db)
         return out
 
     def mean_gain_db(self, g_all: np.ndarray) -> np.ndarray:

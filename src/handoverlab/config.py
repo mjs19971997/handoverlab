@@ -139,7 +139,9 @@ class BeamConfig:
     (TS 38.331 RadioLinkMonitoringConfig: no RS configured), ``"beams"`` the
     N_RLM best beams of the last report (TS 38.133 Table 8.1.1-2).
     ``rx_sweep_n`` is the scaling factor N of TS 38.133 (unset: 1 in FR1 and
-    FR3, 8 in FR2-1, 12 in FR2-2).
+    FR3, 8 in FR2-1, 12 in FR2-2).  ``am_db`` (since 2.3.0) is A_m of the element
+    pattern of TR 38.901 Table 7.3-1, its front-to-back ratio (30 dB in the
+    table); a larger value lowers the back lobe.
     """
     sectors: int = 3
     sector_az0_deg: float = 30.0
@@ -161,6 +163,12 @@ class BeamConfig:
     ra_attempt_s: float = 0.01
     preamble_max: int = 10
     rlm_rs: str = "tci"
+    am_db: float = 30.0
+
+
+#: keys of :class:`BeamConfig` added after 1.10.0 and their defaults, left out of :meth:`Scenario.to_dict` while
+#: they have them
+BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0}
 
 
 @dataclass
@@ -313,6 +321,33 @@ class RadioConfig:
 
 
 @dataclass
+class DcConfig:
+    """Dual connectivity (NR-DC of TS 37.340), optional since 2.3.0; see :mod:`handoverlab.engine.dual`.
+
+    The master cell group (MCG) runs on every cell that is not on the carrier of ``scg_layer``, the name of an
+    entry of ``radio.layers`` (unset: the first entry); the secondary cell group (SCG) has one serving cell, the
+    PSCell, on that layer.  SN addition (TS 37.340 clause 10.2): event A4, the best SCG cell's L3 RSRP above
+    ``add_thresh_dbm`` for ``add_ttt_s``; PSCell change (clauses 10.5, 10.6): event A3 among SCG cells with
+    ``change_off_db`` for ``change_ttt_s``; SN release (clause 10.4): the PSCell's L3 RSRP below
+    ``release_thresh_dbm`` for ``release_ttt_s``.  Each takes ``prep_s`` between the nodes (unset:
+    ``protocol.prep_s``), and an addition or change random access ``exec_s`` (unset: ``protocol.exec_s``) and
+    succeeds when the PSCell SINR reaches Qout while T304 runs.  ``on_mcg_ho`` is what the target MN does with
+    the SN at an MCG handover (clause 10.7): ``"keep"`` or ``"release"``.  Thresholds are SS-RSRP per resource
+    element [dBm].
+    """
+    scg_layer: Optional[str] = None
+    add_thresh_dbm: float = -110.0
+    add_ttt_s: float = 0.16
+    change_off_db: float = 3.0
+    change_ttt_s: float = 0.16
+    release_thresh_dbm: float = -120.0
+    release_ttt_s: float = 0.16
+    prep_s: Optional[float] = None
+    exec_s: Optional[float] = None
+    on_mcg_ho: str = "keep"
+
+
+@dataclass
 class ProtocolConfig:
     """Measurement chain, handover timing and the failure model.
 
@@ -370,6 +405,8 @@ class ProtocolConfig:
     # of DAPS monitored during T304, ltm-Config kept across an LTM cell switch, the L3 filter reference X of the
     # frequency range, beam failure detection fixes); "simple": the engine of 2.0.0
     rrc_detail: str = "3gpp"
+    # dual connectivity (since 2.3.0; None: off), see DcConfig
+    dc: Optional[DcConfig] = None
 
 
 @dataclass
@@ -518,6 +555,10 @@ class Scenario:
                 for k in LAYER_LATE_KEYS:
                     if ly.get(k) is None:
                         ly.pop(k, None)
+            for b in [d["radio"].get("beams")] + [ly.get("beams") for ly in d["radio"].get("layers") or ()]:
+                for k, v in BEAM_LATE_KEYS.items():       # beam keys of 2.3.0 and later, while default
+                    if b and b.get(k) == v:
+                        del b[k]
         return d
 
     @classmethod
@@ -676,6 +717,8 @@ class Scenario:
                    "TS 38.133 Table 9.1.2-3 allows the ids %s for the frequency ranges %s"
                    % ("12-25" if 12 in (ids or ()) else "0-11, 24, 25", ", ".join(sorted(frs))))
         self._validate_extended()
+        if P.dc is not None:
+            self._validate_dc()
         _check(M.users >= 1, "mobility.users", "must be >= 1")
         if M.groups is None:
             from .mobility import PROFILES
@@ -734,6 +777,30 @@ class Scenario:
                 ly.sites = read_sites(ly.sites_file)
 
 
+    def _validate_dc(self) -> None:
+        """Checks of the dual connectivity option (since 2.3.0)."""
+        R, D = self.radio, self.protocol.dc
+        layers = list(R.layers or ())
+        _check(bool(layers), "protocol.dc", "needs a second carrier in radio.layers for the SCG")
+        names = [ly.name for ly in layers]
+        name = names[0] if D.scg_layer is None else D.scg_layer
+        _check(name in names, "protocol.dc.scg_layer", "must name an entry of radio.layers (%s)" % ", ".join(names))
+        f_scg = layers[names.index(name)].carrier_ghz
+        f_scg = R.carrier_ghz if f_scg is None else f_scg
+        others = [R.carrier_ghz] + [R.carrier_ghz if ly.carrier_ghz is None else ly.carrier_ghz
+                                    for ly in layers if ly.name != name]
+        _check(all(abs(f - f_scg) > 1e-9 for f in others), "protocol.dc.scg_layer",
+               "the SCG layer needs a carrier of its own (no MCG cell on %.6g GHz)" % f_scg)
+        _check(D.add_ttt_s >= 0 and D.change_ttt_s >= 0 and D.release_ttt_s >= 0, "protocol.dc.add_ttt_s",
+               "times-to-trigger must be >= 0")
+        _check(D.change_off_db >= 0, "protocol.dc.change_off_db", "must be >= 0")
+        _check(D.release_thresh_dbm <= D.add_thresh_dbm, "protocol.dc.release_thresh_dbm",
+               "must not exceed add_thresh_dbm")
+        _check((D.prep_s is None or D.prep_s >= 0) and (D.exec_s is None or D.exec_s >= 0), "protocol.dc.prep_s",
+               "delays must be >= 0 or null")
+        _check(D.on_mcg_ho in ("keep", "release"), "protocol.dc.on_mcg_ho", "must be 'keep' or 'release'")
+
+
 #: keys added after 1.0.0rc2, by section; see :meth:`Scenario.to_dict`
 LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "road_length_m", "sites_file",
                                                     "area_m", "min_site_distance_m", "wrap", "highway_sites"),
@@ -743,7 +810,8 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                    "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
-                                                      "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db")}
+                                                      "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db",
+                                                      "dc")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")
@@ -819,6 +887,7 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
            "preambleTransMax: one of %s" % (PREAMBLE_TRANS_MAX,))
     _check(b.ra_attempt_s > 0, key + ".ra_attempt_s", "must be positive")
     _check(b.rlm_rs in ("tci", "beams"), key + ".rlm_rs", "must be 'tci' or 'beams'")
+    _check(b.am_db > 0.0, key + ".am_db", "must be positive (TR 38.901 Table 7.3-1: A_m = 30 dB)")
 
 
 # ---------------------------------------------------------------------------

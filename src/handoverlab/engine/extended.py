@@ -53,6 +53,7 @@ def uses_extended(world) -> bool:
 
 class ExtEngine(Engine):
     """Engine for beams, several carriers and the TS 38.133 measurement and evaluation periods."""
+    dc = None                                                 # secondary cell group (DcEngine, since 2.3.0)
 
     def __init__(self, world, rule, log_events=False, debug=None):
         super().__init__(world, rule, log_events, debug)
@@ -459,6 +460,8 @@ class ExtEngine(Engine):
             # --- measurement instant
             if i % self.mp == 0:
                 self._measure(ch, i // self.mp, k, t, ln, totc)
+            if self.dc is not None:                            # dual connectivity (since 2.3.0)
+                self.dc.step(i, k, t)
         self.wall += time.perf_counter() - w0
 
     def _rlm_quality(self, i, ch, serv, s_tci, ilm, con):

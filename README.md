@@ -133,8 +133,8 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 |---|---|---|---|
 | Layouts | `street_grid` (TR 37.885 urban grid), `open_area`, `highway` (TR 37.885 / TR 36.885, wrap-around), `indoor` (TR 38.901 office), `ntn` (one LEO satellite, TR 38.821); explicit site lists | sites on the pavement with small cells (urban cards) | the 500 m macro grid of the TR 37.885 urban scenario, several satellites |
 | Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, InH), LOS from buildings, spatially consistent LOS and shadowing, penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step with a slow time-varying component; optional TDL fast fading with effective SINRs (clause 7.7.2, since 2.2.0) | CDL and the full fast-fading model of clause 7.5, MIMO |
-| Beams and carriers | SSB beams per sector, cell quality from beams, beam failure detection and recovery, several carriers with gaps and Event A5 | the TR 38.901 antenna element and DFT beams; isotropic UE | UE-side beamforming, dual connectivity and PSCell change |
-| Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
+| Beams and carriers | SSB beams per sector, cell quality from beams, beam failure detection and recovery, several carriers with gaps and Event A5; dual connectivity (NR-DC: SN addition, PSCell change, SN release, SCG failure; option since 2.3.0) | the TR 38.901 antenna element and DFT beams; isotropic UE; the SCG as one PSCell with a full-buffer share | UE-side beamforming, conditional PSCell change, fast MCG recovery |
+| Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, a train at 350 km/h (TR 38.854), random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference | rate from SINR (Shannon-type mapping), no scheduler | slot scheduler, HARQ, RLC/PDCP, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
 | Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
@@ -143,7 +143,7 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 
 Built-in cards: `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`, `urban-grid-28ghz-beams`, `dense-urban-2layer`,
 `open-area-10ghz`, `ns3-urban-3.5ghz`, `highway-tr37885-4ghz`, `highway-tr37885-30ghz`, `indoor-office-4ghz`,
-`rural-700mhz`, `ntn-leo600-2ghz`; each names the source of every value and its own limitations.
+`rural-700mhz`, `ntn-leo600-2ghz`, `hst-fr2-28ghz`; each names the source of every value and its own limitations.
 
 ## Scope: 5G-Advanced and beyond 5G
 
