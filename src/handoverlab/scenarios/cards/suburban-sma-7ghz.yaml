@@ -1,0 +1,63 @@
+# Scenario card (machine-readable).  docs/scenarios/suburban-sma-7ghz.md is generated from this file.
+name: suburban-sma-7ghz
+title: Suburban macro cells (SMa) at 7 GHz with indoor users
+since: 2.3.0
+purpose: >
+  The suburban macro scenario (SMa) that Release 19 added to TR 38.901 for 7-24 GHz: 11 macro sites
+  35 m high on a hexagonal grid with an inter-site distance of 1299 m, the SMa path loss and LOS
+  probability at 7 GHz, the link budget of the 7 GHz calibration (Table 7.8-1A), and the users of
+  Table 7.2-5: 80 % inside buildings at 3 km/h with the O2I building penetration loss of the low-loss A
+  model, 20 % in cars at 40 km/h with the car penetration loss.  Use it for upper mid-band (FR3)
+  macro coverage where most users are indoors and the walls, not the distance, set the cell edge.
+layout_note: >
+  A 4500 m x 2625 m area, 11 sites on a hexagonal grid of 1299 m (rows of 4, 3 and 4 sites).  No
+  roads or buildings are drawn: the SMa LOS probability stands for the houses and the vegetation, the
+  O2I loss for the building around an indoor user.
+scenario:
+  name: suburban-sma-7ghz
+  layout: {kind: open_area, area_m: [4500.0, 2625.0], site_spacing_m: 1299.0, min_site_distance_m: 35.0}
+  radio: {carrier_ghz: 7.0, bandwidth_mhz: 20.0, tx_power_dbm: 49.0, bs_gain_db: 18.0, noise_figure_db: 9.0,
+          bs_height_m: 35.0, ue_height_m: 1.5, pathloss: sma, shadow_los_db: 4.0, shadow_los_far_db: 6.0,
+          shadow_nlos_db: 8.0, shadow_decorr_m: 50.0, los_corr_m: 50.0, vegetation: 0.0, o2i_model: low_a,
+          penetration_db: 9.0, penetration_sd_db: 5.0, map_res_m: 10.0}
+  mobility:
+    users: 50
+    groups:
+      - {share: 0.8, v_min: 0.8333333333333334, v_max: 0.8333333333333334, lateral_m: [0.0, 0.0], indoor: true}
+      - {share: 0.2, v_min: 11.11111111111111, v_max: 11.11111111111111, lateral_m: [0.0, 0.0]}
+  run: {duration_s: 300.0, warmup_s: 30.0}
+sources:
+  layout.kind: "TR 38.901 Table 7.2-5 (SMa: hexagonal grid, 19 macro sites, 3 sectors per site)"
+  layout.area_m: "assumption (room for 11 sites, as on rural-700mhz)"
+  layout.site_spacing_m: "TR 38.901 Table 7.2-5 (ISD 1299 m and 1732 m; note 2: 1200-1800 m)"
+  layout.min_site_distance_m: "TR 38.901 Table 7.2-5 (minimum BS-UT 2D distance 35 m; applied to the start and waypoints)"
+  radio.carrier_ghz: "TR 38.901 Table 7.8-1A (large-scale calibration of SMa at 7 GHz)"
+  radio.bandwidth_mhz: "TR 38.901 Table 7.8-1A (20 MHz)"
+  radio.tx_power_dbm: "TR 38.901 Table 7.8-1A (49 dBm for SMa)"
+  radio.bs_gain_db: "assumption: the (M, N, P) = (10, 1, 1) column of TR 38.901 Table 7.8-1A with the 8 dBi element of Table 7.3-1: 8 + 10 log10(10) dB"
+  radio.noise_figure_db: "TR 38.901 Table 7.8-1 (UT noise figure 9 dB; Table 7.8-1A keeps it)"
+  radio.bs_height_m: "TR 38.901 Table 7.2-5 (SMa: 35 m)"
+  radio.ue_height_m: "TR 38.901 Table 7.2-5 (1.5 m outdoor and on the ground floor)"
+  radio.pathloss: "TR 38.901 V19.5.0 Table 7.4.1-1 (SMa, h = 10 m, W = 10 m, 0.5-37 GHz); LOS probability, Table 7.4.2-1"
+  radio.shadow_los_db: "TR 38.901 Table 7.4.1-1 (SMa LOS below the breakpoint: 4 dB)"
+  radio.shadow_los_far_db: "TR 38.901 Table 7.4.1-1 (SMa LOS from the breakpoint on: 6 dB)"
+  radio.shadow_nlos_db: "TR 38.901 Table 7.4.1-1 (SMa NLOS: 8 dB)"
+  radio.shadow_decorr_m: "TR 38.901 Table 7.5-6 Part-4 (SMa SF correlation distance: 40 m LOS, 50 m NLOS and O2I; 50 m is used for all)"
+  radio.los_corr_m: "TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, SMa: 50 m)"
+  radio.vegetation: "TR 38.901 Table 7.8-1A (LOS probability: for SMa, 0 % vegetation)"
+  radio.o2i_model: "TR 38.901 Table 7.8-1A (O2I penetration loss: for SMa, low-loss A model) and Table 7.4.3-2"
+  radio.o2i_d_in_max_m: "unset: TR 38.901 clause 7.4.3.1 (d2D-in up to 10 m in residential, 25 m in commercial buildings) with the 90 % / 10 % building distribution of Table 7.2-5"
+  radio.penetration_db: "TR 38.901 clause 7.4.3.2 and Table 7.8-1A (non-metallic car window: 9 dB), users in cars only"
+  radio.penetration_sd_db: "TR 38.901 clause 7.4.3.2 (5 dB)"
+  radio.map_res_m: "numerical setting (coarse map for the large area)"
+  mobility.users: "assumption"
+  mobility.groups: "TR 38.901 Table 7.2-5 (indoor UT ratio 80 %; indoor UTs 3 km/h, outdoor UTs in cars 40 km/h)"
+limitations:
+  - "No sectors and no wrap-around: 11 sites with the antenna abstraction (one gain per link) instead of the 19 three-sector sites of Table 7.2-5; users near the edge of the area see fewer neighbours."
+  - "An indoor user keeps the LOS state, the breakpoint distance and the shadowing (standard deviation and field) of its own position: TR 38.901 takes the LOS probability at d2D-out, the path loss at d3D-out + d3D-in and an O2I shadowing of 8 dB (Table 7.5-6 Part-4). The size of this abstraction is measured by handoverlab verify (group scenarios, S4)."
+  - "One UT height (1.5 m) for every user: Table 7.2-5 puts indoor users on 1-2 floors (residential) or 1-5 floors (commercial)."
+  - "Indoor users walk between random waypoints at 3 km/h across the area; buildings are not drawn."
+  - "Received-power level only: no fast fading."
+  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+references:
+  - "Values checked against the text of TR 38.901 V19.5.0 (Tables 7.2-5, 7.4.1-1, 7.4.2-1, 7.4.3-1, 7.4.3-2, 7.5-6 Part-4, 7.6.3.1-2, 7.8-1A); formulas, O2I loss and coupling gain are checked by handoverlab verify (group scenarios). The 7 GHz calibration results of TR 38.901 clause 7.8.1 (R1-2506406) are not part of this release."

@@ -96,6 +96,11 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.exec_can_fail": "TR 36.839: the execution fails when the target is below Qout",
     "radio.penetration_db": "off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car",
     "radio.penetration_sd_db": "off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car",
+    "radio.o2i_model": "low: TR 38.901 Table 7.4.3-2 (applies to the users of an indoor speed group only)",
+    "radio.o2i_d_in_max_m": "unset: TR 38.901 clause 7.4.3.1 (25 m UMa/UMi, 10 m RMa, SMa 10 m / 25 m)",
+    "radio.building_los": "true: buildings block the links of street-level sites",
+    "radio.env_height_m": "unset: TR 38.901 Table 7.4.1-1 note 1",
+    "radio.vegetation": "SMa only: TR 38.901 Table 7.4.2-1 (0 % vegetation)",
     "traffic.model": "fixed: constant service rates (the model of 1.0)",
     "traffic.period_s": "periodic model: 20 ms, as VoIP",
     "traffic.packet_bytes": "periodic model: assumption",
@@ -242,7 +247,8 @@ _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "r
              "radio.shadow_los_far_db", "protocol.cmd_during_t310", "protocol.t304_s",
              "radio.scs_khz", "radio.beams", "radio.layers", "protocol.meas_periods", "protocol.ssb_period_s",
              "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval", "radio.map_file",
-             "radio.map_sha256", "radio.channel_detail")
+             "radio.map_sha256", "radio.channel_detail", "radio.o2i_model", "radio.o2i_d_in_max_m",
+             "radio.building_los", "radio.env_height_m", "radio.vegetation")
 
 _GRID_GEOMETRY = ("layout.blocks", "layout.pitch_m", "layout.street_width_m")
 _HIGHWAY_KEYS = ("layout.lanes", "layout.lane_width_m", "layout.road_length_m", "layout.wrap", "layout.highway_sites")

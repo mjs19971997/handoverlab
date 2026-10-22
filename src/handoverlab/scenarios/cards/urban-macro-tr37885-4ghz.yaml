@@ -1,0 +1,70 @@
+# Scenario card (machine-readable).  docs/scenarios/urban-macro-tr37885-4ghz.md is generated from this file.
+name: urban-macro-tr37885-4ghz
+title: The TR 37.885 urban grid with macro sites (500 m hexagonal layout, 4 GHz)
+since: 2.3.0
+purpose: >
+  The urban case of the 3GPP NR V2X evaluation (TR 37.885) as specified below 6 GHz, for the
+  base-station-to-vehicle link: the urban grid of 433 m x 250 m blocks with 2 + 2 lanes of 3.5 m,
+  macro sites 25 m high on a hexagonal layout with an inter-site distance of 500 m (TR 36.885
+  Figure A.1.3-1, which TR 37.885 uses), the UMa path loss at 4 GHz with the LOS state drawn from the
+  LOS probability (the sites stand above the rooftops, so the buildings of the grid do not decide it)
+  and the effective environment height of 0.25 m, and every vehicle at 60 km/h.  Use it next to the
+  small-cell grid cards when results should follow the 3GPP urban V2X assumptions.
+layout_note: >
+  The minimum area of TR 37.885 Table A-1, 3 x 3 blocks (1319 m x 770 m with the streets), and the 35
+  sites of the 500 m hexagonal lattice that lie within 1000 m of it.  The lattice is placed relative
+  to the blocks as drawn in TR 36.885 Figure A.1.3-1 (columns 433 m apart along the 433 m side of the
+  blocks, sites 500 m apart along the 250 m side, alternate columns shifted by 250 m; a site about
+  282 m and 160 m from the corner of its block).  The figure has no numbers: the position of the
+  lattice is read from the drawing and is approximate.
+scenario:
+  name: urban-macro-tr37885-4ghz
+  layout:
+    kind: street_grid
+    sites: [[-1233.5, -715.0], [-1233.5, -215.0], [-1233.5, 285.0], [-1233.5, 785.0], [-800.5, -965.0],
+            [-800.5, -465.0], [-800.5, 35.0], [-800.5, 535.0], [-800.5, 1035.0], [-367.5, -1215.0],
+            [-367.5, -715.0], [-367.5, -215.0], [-367.5, 285.0], [-367.5, 785.0], [-367.5, 1285.0],
+            [65.5, -965.0], [65.5, -465.0], [65.5, 35.0], [65.5, 535.0], [65.5, 1035.0], [498.5, -1215.0],
+            [498.5, -715.0], [498.5, -215.0], [498.5, 285.0], [498.5, 785.0], [498.5, 1285.0], [931.5, -965.0],
+            [931.5, -465.0], [931.5, 35.0], [931.5, 535.0], [931.5, 1035.0], [1364.5, -715.0], [1364.5, -215.0],
+            [1364.5, 285.0], [1364.5, 785.0]]
+  radio: {carrier_ghz: 4.0, bandwidth_mhz: 20.0, tx_power_dbm: 49.0, bs_gain_db: 26.1, ue_gain_db: 6.0,
+          noise_figure_db: 9.0, bs_height_m: 25.0, ue_height_m: 1.6, pathloss: uma, building_los: false,
+          env_height_m: 0.25, shadow_los_db: 4.0, shadow_nlos_db: 6.0, shadow_decorr_m: 50.0, los_corr_m: 50.0,
+          time_var_db: 0.0, map_res_m: 2.0}
+  mobility: {users: 100, profile: v60}
+  run: {duration_s: 120.0, warmup_s: 20.0}
+sources:
+  layout.kind: "TR 37.885 Annex A, Table A-1 (urban: 2 lanes of 3.5 m in each direction, road grid 433 m x 250 m)"
+  layout.blocks: "TR 37.885 Table A-1 (minimum simulation area 1299 m x 750 m: 3 x 3 blocks)"
+  layout.sites: "TR 37.885 Table 6.1.3-1 (urban, below 6 GHz: macro only, BS placement as Figure A.1.3-1 of TR 36.885, inter macro 500 m) and TR 36.885 clause A.1.3 (urban: ISD 500 m with the wrap-around model of Figure A.1.3-1); the lattice sites within 1000 m of the grid replace the wrap-around (see the limitations)"
+  radio.carrier_ghz: "TR 37.885 Table 6.1.1-1 (urban grid, macro to/from vehicle: 4 GHz)"
+  radio.bandwidth_mhz: "TR 37.885 Table 6.1.1-1 (simulation bandwidth 20 or 40 MHz, DL+UL)"
+  radio.tx_power_dbm: "TR 37.885 Table 6.1.1-1 (macro BS: 49 dBm; the system bandwidth is taken equal to the simulation bandwidth, so the PA power is not scaled down)"
+  radio.bs_gain_db: "assumption, as on highway-tr37885-4ghz: one polarisation of the 8 x 8 array of TR 37.885 Table 6.1.4-3 (4 GHz) with 8 dBi elements (Table 6.1.4-2): 8 + 10 log10(64) dB"
+  radio.ue_gain_db: "assumption, as on highway-tr37885-4ghz: vehicle type 2, option 1, rooftop baseline (1, 2, 2, 1, 1) of TR 37.885 Table 6.1.4-9 with 3 dBi elements (Table 6.1.4-8): 3 + 10 log10(2) dB"
+  radio.noise_figure_db: "TR 37.885 Table 6.1.1-1 (UE receiver noise figure 9 dB)"
+  radio.bs_height_m: "TR 37.885 Table 6.1.4-1 (urban grid, macro BS: 25 m)"
+  radio.ue_height_m: "TR 37.885 clause 6.1.2 (vehicle type 2: antenna height 1.6 m)"
+  radio.pathloss: "TR 37.885 Table 6.2.1-2 (urban, below 6 GHz, V2B/B2V: TR 38.901 UMa LOS and NLOS)"
+  radio.building_los: "TR 37.885 clause 6.2.1 (urban V2B links: LOS/NLOS propagation type derived from the probability formula, spatially consistent per TR 38.901 clause 7.6.3.3); the macro sites stand above the rooftops (TR 38.901 clause 6.2, item (2): UMa BSs mounted above the rooftop levels of the surrounding buildings)"
+  radio.env_height_m: "TR 37.885 clause 6.2.1 (the effective environment height hE to 0.25 m)"
+  radio.shadow_los_db: "TR 37.885 clause 6.2.2 (shadowing of the TR 38.901 model) and TR 38.901 Table 7.4.1-1 (UMa LOS: 4 dB)"
+  radio.shadow_nlos_db: "TR 38.901 Table 7.4.1-1 (UMa NLOS: 6 dB)"
+  radio.shadow_decorr_m: "TR 38.901 Table 7.5-6 Part-1 (UMa SF correlation distance: 37 m LOS, 50 m NLOS; the NLOS value is used for both, see the limitations)"
+  radio.los_corr_m: "TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMa: 50 m)"
+  radio.time_var_db: "set to 0: TR 37.885 clause 6.2.1 adds a vehicle blockage loss (NLOSv) to V2V links only"
+  radio.map_res_m: "numerical setting (2 m map for 35 sites)"
+  mobility.users: "assumption: a sample of the vehicles (TR 37.885 clause 6.1.2 gives about 38 m per vehicle and lane at 60 km/h, some 870 vehicles on this grid); handover metrics are per user and the cell load comes from the traffic model"
+  mobility.profile: "TR 37.885 clause 6.1.2, urban option A (all vehicles type 2, 60 km/h in all lanes; straight 0.5, left 0.25, right 0.25 at an intersection) and Table A-1 (lane centres 1.75 m and 5.25 m)"
+limitations:
+  - "No wrap-around: TR 36.885 Figure A.1.3-1 wraps tiles of 7 sites and 14 blocks around the area; here the vehicles stay on 3 x 3 blocks and every site of the 500 m lattice within 1000 m of them is simulated, so each vehicle has at least two rings of sites around it."
+  - "The position of the hexagonal lattice relative to the blocks is read from TR 36.885 Figure A.1.3-1, which has no numbers (about +-10 m)."
+  - "One antenna gain per link (the antenna abstraction), no sectors and no beam pattern: TR 37.885 leaves the TXRU mapping to the proponents."
+  - "One shadowing correlation distance (50 m, UMa NLOS) for LOS and NLOS links (TR 38.901 Table 7.5-6: 37 m for LOS)."
+  - "Vehicles are placed independently, not by the gap model of TR 37.885 clause 6.1.2, and their number is a sample (100) of the about 870 vehicles of the grid."
+  - "The coupling gain to the strongest site lies 0.3-1.2 dB below an independent computation around the median (handoverlab verify, group scenarios, U4: failed as registered in 2.3.0; the LOS share close to the sites is a little below the probability, cause open)."
+  - "Received-power level only: no fast fading, no Doppler, no sidelink."
+  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+references:
+  - "Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V19.5.0; geometry, the LOS state and the coupling gain are checked by handoverlab verify (group scenarios)."

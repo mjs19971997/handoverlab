@@ -37,6 +37,7 @@ class World:
     offered: Optional[np.ndarray] = None   # (n_meas, U) arriving bits per measurement interval (traffic.model)
     ext: Optional[ExtendedRadio] = None    # beams and further layers (since 1.10.0), else None
     ntn: Optional[object] = None           # satellite geometry of layout.kind ntn (since 2.0.0), else None
+    indoor: Optional[np.ndarray] = None    # (U,) True for the users inside buildings (since 2.3.0), else None
 
     @property
     def n_steps(self) -> int:
@@ -87,8 +88,9 @@ def build_world(scenario: Scenario, seed: int) -> World:
         rmap = RadioMap.from_file(layout, R, R.map_file)
     else:
         rmap = RadioMap(layout, R, seed)
-    x, y, v, th = trajectories(layout, scenario.mobility, scenario.run.duration_s, scenario.protocol.step_s,
-                               rng_traj, scenario.layout.min_site_distance_m)
+    x, y, v, th, indoor = trajectories(layout, scenario.mobility, scenario.run.duration_s,
+                                       scenario.protocol.step_s, rng_traj, scenario.layout.min_site_distance_m,
+                                       with_indoor=True)
     tr = scenario.traffic
     svc = ServiceTable(tr.services, assign_services(tr.services, scenario.mobility.users, rng_svc), tr.rate_scale)
     ext = None if geom is not None else build_extended(scenario, layout, rmap, seed)
@@ -98,4 +100,5 @@ def build_world(scenario: Scenario, seed: int) -> World:
         P = scenario.protocol
         mp = max(1, int(round(P.l1_period_s / P.step_s)))
         offered = offered_bits(tr, -(-x.shape[0] // mp), mp * P.step_s, x.shape[1], streams(seed, "traffic", 1)[0])
-    return World(scenario, int(seed), layout, rmap, x, y, v, th, svc, bg, offered, ext, geom)
+    return World(scenario, int(seed), layout, rmap, x, y, v, th, svc, bg, offered, ext, geom,
+                 indoor if indoor.any() else None)

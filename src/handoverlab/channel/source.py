@@ -29,8 +29,8 @@ from scipy.signal import lfilter
 from scipy.special import ndtri
 
 from ..seeds import streams
-from .pathloss import (is_3gpp, los_shadow_sd, los_ut_height, mix_db, p_los, path_loss, radio_kwargs,
-                       soft_los_power_weight, uma_effective_height)
+from .pathloss import (is_3gpp, los_args, los_shadow_sd, mix_db, o2i_building_loss, p_los, path_loss,
+                       radio_kwargs, soft_los_power_weight, uma_effective_height)
 
 LN10_10 = np.log(10.0) / 10.0
 
@@ -90,7 +90,8 @@ class RadioSource:
         if self.open:
             self.r_l = np.exp(-self.V * dt / R.los_corr_m)
             self.zl = self.rng_l.standard_normal((self.U, self.M))
-        self.hut_los = los_ut_height(R)                 # UMa C'(h_UT) with channel_detail "3gpp" (since 2.1.0)
+        # UMa C'(h_UT) with channel_detail "3gpp" (since 2.1.0), SMa heights and vegetation (since 2.3.0)
+        self.los_kw = los_args(R)
         self.he_u = None
         if self.open and is_3gpp(R) and R.pathloss == "uma" and R.ue_height_m >= 13.0:
             # effective environment height of every user-site link (TR 38.901 Table 7.4.1-1 note 1): two uniform
@@ -109,9 +110,17 @@ class RadioSource:
             self.fading = TdlFading(streams(world.seed, "fading", 1, sub)[0], self.U, self.M, R.fast_fading,
                                     R.delay_spread_ns * 1e-9, np.concatenate([f_rlm, f_data]), dt, fd, R.fading_k_db)
         self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
+        indoor = getattr(world, "indoor", None)         # users inside buildings (since 2.3.0)
+        pen = None
         if R.penetration_db or R.penetration_sd_db:     # per-user loss on all links (own stream)
             rng = streams(world.seed, "penetration", 1)[0]
             pen = (R.penetration_db + R.penetration_sd_db * rng.standard_normal(self.U))[:, None]
+            if indoor is not None:                      # no car around an indoor user
+                pen = np.where(indoor[:, None], 0.0, pen)
+        if indoor is not None:                          # O2I building penetration loss (own stream, since 2.3.0)
+            o2i = o2i_building_loss(streams(world.seed, "o2i", 1)[0], indoor, R)[:, None]
+            pen = o2i if pen is None else pen + o2i
+        if pen is not None:
             self.p0 = self.p0 - pen
             self.pen = -pen
 
@@ -140,7 +149,7 @@ class RadioSource:
         d2 = rmap.layout.distances(x, y, sites)
         g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
         self.zl = g[-1].copy()
-        z = ndtri(np.clip(p_los(d2, R.pathloss, self.hut_los), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
+        z = ndtri(np.clip(p_los(d2, R.pathloss, **self.los_kw), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
         u = rmap.lookup_field(x, y).astype(np.float64) if rmap.has_field else np.zeros_like(d2)
         if self.own:
             o = self._ar1_users(self.rng_o, self.r_o, self.zo, n)
@@ -202,7 +211,8 @@ class RadioSource:
                 else:
                     g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
                     self.zl = g[-1].copy()
-                    los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss, self.hut_los), 1e-9, 1.0 - 1e-9))
+                    los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss, **self.los_kw), 1e-9,
+                                                              1.0 - 1e-9))
                 rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m,
                                 **radio_kwargs(R), h_e=self._he(d2, n)).reshape(shape)
                 sig = np.where(los, los_shadow_sd(d2, R), R.shadow_nlos_db).reshape(shape)

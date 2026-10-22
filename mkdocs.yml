@@ -33,6 +33,7 @@ nav:
       - A learning-based rule: guides/learning-rule.md
       - The upper mid-band: guides/upper-mid-band.md
       - A highway: guides/highway.md
+      - Urban macro, suburban macro and indoor users: guides/suburban-o2i.md
       - Indoor and rural scenarios: guides/indoor-rural.md
       - Mobility robustness optimisation: guides/mro.md
       - Beams and several carriers: guides/beams-layers.md
@@ -57,6 +58,8 @@ nav:
           - rural-700mhz: scenarios/rural-700mhz.md
           - urban-grid-28ghz-beams: scenarios/urban-grid-28ghz-beams.md
           - dense-urban-2layer: scenarios/dense-urban-2layer.md
+          - urban-macro-tr37885-4ghz: scenarios/urban-macro-tr37885-4ghz.md
+          - suburban-sma-7ghz: scenarios/suburban-sma-7ghz.md
   - Reference:
       - Command line: reference/cli.md
       - Metric names: reference/metrics.md

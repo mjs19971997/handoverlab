@@ -72,6 +72,14 @@ TR 38.821 V16.2.0 and ITU-R M.2412-0:
 
 `handoverlab.stability.LEGACY_CARDS` lists the old card values.
 
+## Scenario cards of 2.3.0
+
+| Card | Follows | Abstraction (stated on the card) |
+|---|---|---|
+| `urban-macro-tr37885-4ghz` | TR 37.885 Tables 6.1.1-1, 6.1.3-1, 6.1.4-1, 6.2.1-2, clause 6.2.1 (UMa LOS/NLOS from the probability, spatially consistent, h_E 0.25 m), Table A-1; TR 36.885 A.1.3 (ISD 500 m) | no wrap-around (the lattice sites within 1000 m of the 3 x 3 blocks instead); lattice position read from TR 36.885 Figure A.1.3-1 (no numbers); antenna abstraction; one SF correlation distance |
+| `suburban-sma-7ghz` | TR 38.901 V19.5.0 Tables 7.2-5, 7.4.1-1, 7.4.2-1, 7.4.3-2, 7.5-6 Part-4, 7.6.3.1-2, 7.8-1A | 11 sites without sectors or wrap-around; indoor users keep the LOS state and shadowing of their position and one UT height |
+| 7 GHz large-scale calibration (TR 38.901 7.8.1, Table 7.8-1A) | not done: the results are only in R1-2506406, which is not included | -- |
+
 ## Large-scale channel (TR 38.901 V19.5.0 clause 7; 2.1.0, `radio.channel_detail`)
 
 `radio.channel_detail: 3gpp` (the default since 2.1.0) gives the rows below; `simple` gives the model of 2.0.0
@@ -90,7 +98,10 @@ checks) and is part of `handoverlab.stability.LEGACY_1X`.
 | Spatially consistent LOS state: a realisation of a correlated random variable compared with the LOS probability; correlation distance of Table 7.6.3.1-2; site-specific (uncorrelated between sites) | 7.6.3.1, 7.6.3.3, Table 7.6.3.4-1 | street grid: a place-tied field with exp(-d / d_cor), applied to the links that the buildings leave clear, so the LOS share is P(clear) x Pr_LOS, below Table 7.4.2-1; open area and indoor: an AR(1) process along each user's path, not shared between users | follows (state); abstraction (combination with the buildings, open-area process) |
 | Soft LOS state, Eqs. (7.6-18), (7.6-19) | 7.6.3.3 | `radio.soft_los`: power weights LOS_soft^2 and 1 - LOS_soft^2 (no fast fading, so no cross term) | follows (power level) |
 | Multi-frequency: the same LOS state (Step 2) and LSPs (Step 4) on all frequencies of one link | 7.6.5 | layers with `cosited: true` reuse the random fields of the first layer; their `pathloss`, `los_corr_m` and `shadow_decorr_m` must equal those of the first layer (checked since 2.1.0); soft LOS may differ with the frequency, as 7.6.5 allows | follows |
-| O2I car penetration loss N(9, 5^2) per UT | 7.4.3.2 | `radio.penetration_db`, `penetration_sd_db` | follows (option) |
+| O2I car penetration loss N(9, 5^2) per UT | 7.4.3.2 | `radio.penetration_db`, `penetration_sd_db` (since 2.3.0 not for indoor users) | follows (option) |
+| SMa path loss (LOS PL1/PL2 with d_BP of note 5, NLOS without max(), h = 10 m, W = 10 m, fc <= 37 GHz) and LOS probability (commercial, residential, vegetation terms) | V19.5.0 Table 7.4.1-1 notes 2 and 5; Table 7.4.2-1 | `radio.pathloss: sma`, `radio.vegetation` (2.3.0); checked by `verify --only scenarios` | follows |
+| O2I building penetration: PL_tw (Eq. 7.4-3, materials of Table 7.4.3-1 with the Release 19 IRR glass), PL_in = 0.5 d2D-in, d2D-in = min of two uniform variables (25 m UMa/UMi/SMa commercial, 10 m RMa/SMa residential), sigma_P; low, high, low-loss A; UT-specific | 7.4.3.1, Eq. (7.4-2), Tables 7.4.3-1, 7.4.3-2 | users of an `indoor: true` speed group, `radio.o2i_model`, `o2i_d_in_max_m` (2.3.0); the loss on all links of the user | follows (loss) |
+| Indoor UT: LOS probability at d2D-out, PL_b at d3D-out + d3D-in, O2I shadowing (UMa/UMi 7 dB, SMa 8 dB), floors | Table 7.4.2-1; 7.4.3.1; Table 7.5-6 | the indoor user keeps the LOS state, breakpoint and shadowing of its position and the one UT height; the effect on the coupling gain is measured by `verify` (S4) | abstraction |
 | Fast fading: TDL-A .. TDL-E taps, Jakes Doppler per tap with f_D = \|v\| / lambda_0, LOS tap of TDL-D / -E at f_S = 0.7 f_D with K1 13.3 / 22 dB, delay scaling Eq. 7.7-1, K-factor change Eq. 7.7.6-1/-2 | 7.7.2 (Tables 7.7.2-1 to -5), 7.7.3, 7.7.6 | `radio.fast_fading` (2.2.0, off by default), `delay_spread_ns`, `fading_k_db`: one TDL per scenario, independent per user-cell link, 32 sinusoids per Rayleigh tap, channel at 4 points of the PDCCH band and 8 of the carrier ([guide](guides/fading.md)); MIMO extension 7.7.5 and CDL not used | follows (option; single-link TDL) |
 
 ## Map-based channel model (1.12.0, `radio.map_file`)

@@ -4,7 +4,8 @@
 For every map pixel in a street and every site the map stores
 
 * the line-of-sight state: blocked if the straight segment crosses a building
-  block, and (``clutter_los``) additionally the spatially consistent LOS state
+  block (unless ``building_los`` is false, since 2.3.0: sites above the
+  rooftops), and (``clutter_los``) additionally the spatially consistent LOS state
   of TR 38.901 clause 7.6.3.3 -- a Gaussian random field with ``los_corr_m``
   correlation compared with the LOS probability -- standing for obstacles in
   the street (vehicles, trees, street furniture).  The state is a property of
@@ -28,7 +29,7 @@ from scipy.special import ndtri
 
 from ..layout import Layout, los_matrix
 from ..seeds import streams
-from .pathloss import (MAX_DISTANCE_M, is_3gpp, los_shadow_sd, los_ut_height, mix_db, p_los, path_loss, radio_kwargs,
+from .pathloss import (MAX_DISTANCE_M, is_3gpp, los_args, los_shadow_sd, mix_db, p_los, path_loss, radio_kwargs,
                        site_corr, soft_los_power_weight, uma_effective_height)
 
 FLOOR_DB = -300.0
@@ -221,7 +222,7 @@ class RadioMap:
         rng_shadow, rng_los, rng_he = streams(seed, "map", 3, sub)
         detail = is_3gpp(radio)
         kernel = "exp" if detail else "gauss"
-        hut_los = los_ut_height(radio)
+        los_kw = los_args(radio)
         applicability_warning(layout, radio)
 
         self._nominal_plan(layout, pad)
@@ -250,7 +251,10 @@ class RadioMap:
         self.gain = np.empty((P + 1, M), dtype=np.float32)            # last row: off-street dummy
         gain = self.gain[:P]
         if self.is_grid:
-            los = los_matrix(px, py, layout.sites, layout.buildings)
+            if getattr(radio, "building_los", True):
+                los = los_matrix(px, py, layout.sites, layout.buildings)
+            else:                                         # sites above the rooftops (since 2.3.0): LOS state from
+                los = np.ones((P, M), dtype=bool)         # the LOS probability alone (TR 37.885 clause 6.2.1)
             d2 = np.hypot(px[:, None] - layout.sites[None, :, 0], py[:, None] - layout.sites[None, :, 1])
             he = None
             if detail and radio.pathloss == "uma" and radio.ue_height_m >= 13.0:
@@ -262,7 +266,7 @@ class RadioMap:
                 ip, im = np.nonzero(los)
                 lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0, kernel).at_pairs(px, py, ip, im)
                 dd = d2[ip, im]
-                thr = ndtri(np.clip(p_los(dd, radio.pathloss, hut_los), 1e-9, 1.0 - 1e-9))
+                thr = ndtri(np.clip(p_los(dd, radio.pathloss, **los_kw), 1e-9, 1.0 - 1e-9))
                 los[ip, im] = lat < thr
                 if radio.soft_los:                        # soft LOS on the links the buildings leave clear
                     w = soft_los_power_weight(thr - lat, radio.carrier_ghz, radio.soft_los_d_m)

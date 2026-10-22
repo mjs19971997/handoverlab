@@ -12,7 +12,7 @@ direction, so that it stays on the road without jumping.  Indoor (since
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import numpy as np
 
@@ -59,8 +59,9 @@ _DX = np.array([1.0, 0.0, -1.0, 0.0])      # heading index 0: east, 1: north, 2:
 _DY = np.array([0.0, 1.0, 0.0, -1.0])
 
 
-def draw_users(groups, n_users: int, rng) -> Tuple[np.ndarray, np.ndarray]:
-    """Speed (U,) and lateral displacement (U, 2) of every user."""
+def draw_users(groups, n_users: int, rng, with_groups: bool = False):
+    """Speed (U,) and lateral displacement (U, 2) of every user; with ``with_groups`` (since 2.3.0) also the
+    index (U,) of every user's speed group."""
     shares = np.array([g.share for g in groups])
     cls = rng.choice(len(groups), size=n_users, p=shares / shares.sum())
     v = np.empty(n_users)
@@ -73,7 +74,7 @@ def draw_users(groups, n_users: int, rng) -> Tuple[np.ndarray, np.ndarray]:
                 rng.choice([-1.0, 1.0], 2)
         else:
             off[u] = rng.uniform(g.lateral_m[0], g.lateral_m[1], 2) * rng.choice([-1.0, 1.0], 2)
-    return v, off
+    return (v, off, cls) if with_groups else (v, off)
 
 
 def grid_waypoints(layout, v: float, t_end: float, rng):
@@ -171,17 +172,19 @@ def highway_waypoints(layout, v: float, t_end: float, rng):
     return np.array(T), np.array(Xb), np.array(Yb), np.array(Hb)
 
 
-def trajectories(layout, mobility, duration_s: float, step_s: float, rng, min_dist: float = 0.0):
+def trajectories(layout, mobility, duration_s: float, step_s: float, rng, min_dist: float = 0.0,
+                 with_indoor: bool = False):
     """Trajectories of all users.
 
     Returns ``x, y`` (S, U) positions [m], ``speed`` (U,) [m/s] and
     ``heading`` (S, U) [rad], one row per simulation step.  ``min_dist``: minimum distance of a
-    start or waypoint from every site in the open area and indoors (since 1.7.0).
+    start or waypoint from every site in the open area and indoors (since 1.7.0).  With ``with_indoor``
+    (since 2.3.0) a fifth value: True (U,) for the users of a speed group with ``indoor: true``.
     """
     S = int(round(duration_s / step_s))
     U = mobility.users
     groups = mobility.groups if mobility.groups is not None else PROFILES[mobility.profile]
-    v, off = draw_users(groups, U, rng)
+    v, off, cls = draw_users(groups, U, rng, with_groups=True)
     if layout.kind == "highway":                              # lane keeping: lateral offset within the lane
         off[:, 0] = 0.0
         off[:, 1] = np.clip(off[:, 1], -layout.street_width / 2.0, layout.street_width / 2.0)
@@ -217,4 +220,6 @@ def trajectories(layout, mobility, duration_s: float, step_s: float, rng, min_di
             TH[:, u] = np.arctan2(_DY[Hb[leg]], _DX[Hb[leg]])
         else:
             TH[:, u] = np.arctan2(Yb[leg + 1] - Yb[leg], Xb[leg + 1] - Xb[leg])
+    if with_indoor:
+        return X, Y, v, TH, np.array([bool(getattr(groups[c], "indoor", False)) for c in cls], dtype=bool)
     return X, Y, v, TH

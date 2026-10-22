@@ -23,6 +23,9 @@ Optional:
 ``learning``      the learning rule a3_bandit against an exhaustive search over its arms (``--only learning``;
                   about 20 minutes; since 1.11.0)
 ``ntn``           NTN link budget, antenna and orbit against TR 38.821 / TR 38.811 (``--only ntn``; since 2.0.0)
+``scenarios``     the TR 37.885 urban macro card, the SMa model and card, the O2I building penetration loss
+                  (``--only scenarios``; about 30 minutes; since 2.3.0; three coupling-gain checks fail as
+                  registered, see the module text)
 ``ns3``           reference comparison with stored ns-3 / 5G-LENA results (``--ns3``; minutes)
 ``stored``        recompute (a sample of) a stored result file and compare fingerprints (``--results FILE``)
 
@@ -37,7 +40,7 @@ from .report import FAIL, NOTE, PASS, Check, Report, header
 
 GROUPS = ("pathloss", "radio", "calibration", "invariants", "equivalences", "fingerprints", "extended", "highway",
           "values", "fading")
-OPTIONAL_GROUPS = ("learning", "ntn")
+OPTIONAL_GROUPS = ("learning", "ntn", "scenarios")
 
 
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
@@ -86,6 +89,9 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if "fading" in groups:
         from .fading import fading_checks
         fading_checks(rep)
+    if "scenarios" in groups:
+        from .scenarios import scenarios_checks
+        scenarios_checks(rep)
     if "ntn" in groups:
         from .ntn import ntn_checks
         ntn_checks(rep)
