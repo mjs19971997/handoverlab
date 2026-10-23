@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.4.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.4.1** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -464,9 +464,11 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     time-step study, the ns-3 benchmark package and the table of model boundaries.
 24. 2.2.0: fast fading with link-to-system mapping; the slot scheduler with MCS, TBS and HARQ.
 25. 2.3.0: buffers at handover, urban macro, SMa and O2I, the high-speed train, dual connectivity.
-26. **2.4.0 (this release)**: UE receive beams, the TR 38.744 prediction rule, the compiled
+26. 2.4.0: UE receive beams, the TR 38.744 prediction rule, the compiled
     scheduler, the 7 GHz calibration and the comparison with other simulators.
-27. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
+27. **2.4.1 (this release)**: pictures, citation and tutorials brought up to date; the example study
+    completes again; no change of results.
+28. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain, hundreds of
     users per run, and one scenario definition that also runs in ns-3; condEventT1 and earth-fixed beams.
 

@@ -7,6 +7,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-10-22
+
+No change of results.
+
+### Fixed
+
+- `examples/study_smoke.yaml`: up to four grid extensions (`max_extensions: 4`); with two the example study
+  stopped at the `grid_edge` gate under the 3GPP defaults of 2.x.
+
+### Documentation
+
+- README: pictures of the 7 GHz calibration, the new scenario cards and predicted measurements; what is new
+  in 2.1.0-2.4.0, the roadmap, the lower-layer options; the citation with the DOI of 2.4.0 and a BibTeX entry.
+- `CITATION.cff` and `.zenodo.json`: description and keywords of the current features.
+- Tutorials 1, 3 and 4 and the report pictures rerun with 2.4.0; status lines name the current release.
+
 ## [2.4.0] - 2026-10-22
 
 ### Added
@@ -1064,7 +1080,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.4.1...HEAD
+[2.4.1]: https://github.com/mjs19971997/handoverlab/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/mjs19971997/handoverlab/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mjs19971997/handoverlab/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mjs19971997/handoverlab/compare/v2.1.0...v2.2.0

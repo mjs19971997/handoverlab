@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.4.0. It explains the ideas behind a run, the built-in
+This guide covers version 2.4.1. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
