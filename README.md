@@ -79,6 +79,19 @@ event D2 of Release 18:
 
 ![The 19 beams on the ground at the start and end of a run, and the received power of each beam at one user](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/ntn-beams.png)
 
+**New cards.** Since 2.3.0: the TR 37.885 urban grid with 35 macro sites 500 m apart (4 GHz), suburban
+macro (SMa) at 7 GHz with 11 sites 1299 m apart and 80 % of the users indoors, and a high-speed train in FR2
+(TR 38.854: 12 remote radio heads 700 m apart, 10 m from the track, 350 km/h):
+
+![Layouts of the cards urban-macro-tr37885-4ghz, suburban-sma-7ghz and hst-fr2-28ghz](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/new-scenarios.png)
+
+**Predicted measurements.** Since 2.4.0 the rule `a3_pred` hands over on predicted L3 results, as studied
+in TR 38.744. Trained on two seeds and tested on two others, the ridge predictor is about 0.5-0.6 dB more
+accurate than sample and hold 400 ms ahead (1.84 / 2.66 / 3.14 dB against 2.38 / 3.26 / 3.74 dB at 30 / 60 /
+90 km/h):
+
+![Prediction error against horizon for the ridge predictor and sample and hold at 30, 60 and 90 km/h](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/ai-mobility.png)
+
 ## What it models
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
@@ -97,7 +110,11 @@ event D2 of Release 18:
 - **Beams and carriers** (options, 1.10.0): sectors with SSB beams from the TR 38.901 antenna
   model, cell quality from the beams (TS 38.331 5.5.3.3), the serving beam from beam reports, beam
   failure detection and recovery (TS 38.321 5.17, TS 38.133 8.5), several carriers with the
-  measurement periods and gaps of TS 38.133, Event A5 between carriers.
+  measurement periods and gaps of TS 38.133, Event A5 between carriers; UE receive beams (since 2.4.0) and
+  dual connectivity with a secondary cell group (since 2.3.0, TS 37.340).
+- **Lower layers** (options, since 2.2.0): TDL fast fading of TR 38.901 with an effective SINR (MIESM) for
+  link monitoring and the rate; a slot scheduler with the MCS, TBS and HARQ of TS 38.214; user-plane buffers
+  at handover with data forwarding (since 2.3.0, TS 38.300, TS 38.322, TS 38.323).
 - **Mobility**: street-following users with turn probabilities, random waypoints in the open area,
   pedestrian and vehicular speed profiles (by default the urban vehicles of TR 37.885: 60 km/h in one of
   two lanes) or your own speed groups.
@@ -114,7 +131,8 @@ event D2 of Release 18:
   epsilon-greedy bandit (`a3_bandit`, checked against an exhaustive search) and a deep Q-network
   (`dqn`, optional PyTorch).
 - **Failure model**: Qout/Qin with windows, N310/N311/T310, T304, lost commands and configurations,
-  execution failures, re-establishment after a fixed outage (1 s, an assumption), the handover command
+  execution failures, re-establishment after a fixed outage (1 s, inside the bounds of TS 38.133
+  6.2.1.2.1), the handover command
   during T310 as TS 38.331 specifies and the restart of the link monitoring on a new cell as HandoverLab
   reads TS 38.133 8.1.2.2 (defaults since 2.0.0), with options for the link monitoring (own interferer load, ideal random access).
 - **Metrics**: outcome of every attempt (useful, unnecessary, too early, wrong cell, too late,
@@ -177,7 +195,11 @@ range of the 21 companies that reported their results in the 3GPP contribution R
 Ericsson, Nokia, Samsung, Qualcomm and others), for UMa, UMi and the indoor office at 6 and
 30 GHz. 325 of 342 compared percentiles are inside the range, none is more than about 1 dB from
 the industry mean, and `handoverlab verify` repeats the check
-([details](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration-3gpp.md)).
+([details](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration-3gpp.md)). Since 2.4.0 the
+same check runs at 7 GHz (Table 7.8-1A) against the companies of R1-2506406: all 342 percentiles lie inside
+their range, but 1.65-2.88 dB from their mean, which misses the 1.5 dB criterion set before the run.
+
+![CDFs of coupling loss and geometry for UMa, UMi and SMa at 7 GHz, with the HandoverLab curve inside the company range of R1-2506406](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/calibration_7ghz.png)
 
 ![HandoverLab against the 21 companies of 3GPP R1-165974](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/calibration_38901.png)
 
@@ -222,6 +244,20 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **2.4.0**: UE receive beams (panels of TR 38.802, best beam or a sweep); a measurement-prediction rule after
+  TR 38.744 (`a3_pred`: predicted Event A3 or measurement skipping, sample and hold or a trained ridge
+  predictor); the slot scheduler as a compiled kernel (`run.backend: numba`, bit-identical, 8-60 times
+  faster); the 7 GHz large-scale calibration against the companies of R1-2506406 (every percentile inside the
+  range, the distance to the mean criterion missed); a [comparison with other simulators](https://github.com/mjs19971997/handoverlab/blob/main/docs/comparison.md).
+- **2.3.0**: user-plane buffers at handover (PDCP / RLC, Xn data forwarding for baseline, conditional, DAPS and
+  L1/L2-triggered handover); the TR 37.885 urban macro grid, suburban macro (SMa) and O2I penetration of indoor
+  users; a high-speed train card from TR 38.854; dual connectivity (TS 37.340: SN addition, PSCell change, SN
+  release, SCG failure); a fresh held-out check of the failure model against new ns-3 runs, reported as it
+  came.
+- **2.2.0**: TDL fast fading of TR 38.901 with an effective SINR for link monitoring and rate; a slot scheduler
+  with the MCS, TBS and HARQ of TS 38.214; checked against ns-3 runs with fading.
+- **2.1.0**: a clause-by-clause audit against the full 3GPP texts (`protocol.rrc_detail`,
+  `radio.channel_detail`), value domains from the standards and a study gate that checks them.
 - **2.0.0**: satellites (non-terrestrial networks): one LEO satellite at 600 km with 19 earth-moving beams
   (TR 38.811 channel, TR 38.821 Set-1 S band), conditional handover with the location event D2 of TS 38.331
   Release 18 (`cho_d2`), checked against the link budgets of TR 38.821 (within 0.03 dB). The 3GPP values
@@ -422,19 +458,37 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 20. 1.11.0: the TR 37.885 highway, the card audit, the bandit against an exhaustive search, the
     `dqn` rule and the optional Numba kernel.
 21. 1.12.0: radio maps from ray tracing or measurements.
-22. **2.0.0 (this release)**: a LEO satellite with earth-moving beams and conditional handover with
+22. 2.0.0: a LEO satellite with earth-moving beams and conditional handover with
     event D2; the 3GPP values as defaults, with a switch back to 1.x.
-23. Later (planned, not done): the failure model checked on held-out measurements, the sensitivity of
-    the results to the time step (LTM and beams), a reproducible benchmark package against
-    ns-3 / 5G-LENA, a table of model boundaries, condEventT1 and earth-fixed beams.
+23. 2.1.0: the clause-by-clause standard audit; held-out validation of the failure model, the
+    time-step study, the ns-3 benchmark package and the table of model boundaries.
+24. 2.2.0: fast fading with link-to-system mapping; the slot scheduler with MCS, TBS and HARQ.
+25. 2.3.0: buffers at handover, urban macro, SMa and O2I, the high-speed train, dual connectivity.
+26. **2.4.0 (this release)**: UE receive beams, the TR 38.744 prediction rule, the compiled
+    scheduler, the 7 GHz calibration and the comparison with other simulators.
+27. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
+    sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain, hundreds of
+    users per run, and one scenario definition that also runs in ns-3; condEventT1 and earth-fixed beams.
 
 ## Citation
 
 If you use HandoverLab, please cite it as described in [CITATION.cff](https://github.com/mjs19971997/handoverlab/blob/main/CITATION.cff) (GitHub shows
-it under *Cite this repository*). The releases are archived on Zenodo:
+it under *Cite this repository*). Every release is archived on Zenodo:
 [doi:10.5281/zenodo.23409131](https://doi.org/10.5281/zenodo.23409131) cites all versions (it resolves to
-the latest); version 1.0.0 is [doi:10.5281/zenodo.23409132](https://doi.org/10.5281/zenodo.23409132)
-and version 1.0.1 [doi:10.5281/zenodo.23409402](https://doi.org/10.5281/zenodo.23409402).
+the latest). To cite the exact version you used, take its DOI from the version list on that page; version
+2.4.0 is [doi:10.5281/zenodo.23582521](https://doi.org/10.5281/zenodo.23582521).
+
+```bibtex
+@software{handoverlab,
+  author    = {Jalili Sanjarani, Mostafa and Elmi Sola, Yasser},
+  title     = {{HandoverLab}: system-level handover simulator for 5G-Advanced and beyond-5G research},
+  year      = {2026},
+  publisher = {Zenodo},
+  version   = {2.4.0},
+  doi       = {10.5281/zenodo.23582521},
+  url       = {https://github.com/mjs19971997/handoverlab}
+}
+```
 
 ## Licence
 
