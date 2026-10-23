@@ -28,7 +28,7 @@ tuning:
   group_by: [layout.site_spacing_m] # tune per site spacing
   min_reference_failures: 3
   extend_steps: 2                   # values added per extension
-  max_extensions: 2                 # at most two extension rounds, then the gate blocks
+  max_extensions: 4                 # at most four extension rounds, then the gate blocks
   gates:
     grid_edge: extend               # widen the grid and tune again ('block' stops the study instead)
     budget_binding: warn

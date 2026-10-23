@@ -9,9 +9,9 @@ scenario: they illustrate how to read a report, not how A3 and CHO compare.
 ## Provenance
 
 ```text
-HandoverLab 0.4.0a1 (model 1), Python 3.12.10, NumPy 2.4.6, SciPy 1.18.0, Windows-2022Server-10.0.20348-SP0.
-Study file hash `c4f0ef781591085e`.
-Jobs: tune1 8, tune2 8, test 12; 80 rule runs simulated, the rest reused; 127 s of job time; 1 session(s).
+HandoverLab 2.4.0 (model 3), Python 3.12.10, NumPy 2.4.6, SciPy 1.18.0, Windows-2022Server-10.0.20348-SP0.
+Study file hash `7b3cf5b44bde5a6d`.
+Jobs: tune1 8, tune2 8, test 12; 60 rule runs simulated, the rest reused; 213 s of job time; 1 session(s).
 ```
 
 The study-file hash identifies the resolved study (`study.lock.json`); the model version changes
@@ -25,25 +25,25 @@ The gate table lists every gate that did not pass, then counts the passed ones:
 
 | gate | status | group | method | budget | detail |
 |---|---|---|---|---|---|
-| budget_binding | warn | layout.site_spacing_m=150 | - | standard | the reference rule has only 1 failure on the tuning runs (minimum 3); ... |
-| budget_binding | warn | layout.site_spacing_m=150 | - | strict | ... |
+| budget_binding | warn | layout.site_spacing_m=100 | - | standard | more than 90 % of the settings of every method meet the budget: share of settings within the budget: A3 100 %, CHO 100 % |
 
 Read the gates before any result. A `BLOCK` means no test ran. A `warn` limits what a result can
-mean: here, at 150 m, the failure budget rests on one reference failure, so "within the failure
-budget" is a weak statement at that site spacing. The *Grid extensions* table lists every grid that
-the policy `extend` widened (here A3's offset from 6 to 8 dB).
+mean: here, at 100 m, every evaluated setting of both methods met the standard budget, so "within the
+failure budget" says little at that site spacing. The *Grid extensions* table lists every grid that
+the policy `extend` widened (here six extensions in four rounds: A3's offset to 8 dB, CHO's execution
+offset step by step to 13 dB and its time-to-trigger to 512 ms).
 
 ## Tuning: what was selected
 
 For every tuning group the report gives the reference rule, the budgets and the selected setting
-per method and budget, with how many of the 8 settings met the budget:
+per method and budget, with how many of the 8 settings met the budget (group 100 m):
 
 | method | budget | selected setting | unnecessary_pm | failures_pm | prepared cells | within budget | budget met |
 |---|---|---|---|---|---|---|---|
-| A3 | standard | off_db=6, ttt_s=0.08 | 1.484 | 0.234 | 0.000 | 6 / 8 | yes |
-| A3 | strict | off_db=6, ttt_s=0.04 | 1.563 | 0.078 | 0.000 | 4 / 8 | yes |
-| CHO | standard | o_exec_db=4, ttt_exec_s=0.04 | 1.875 | 0.000 | 0.096 | 5 / 8 | yes |
-| CHO | strict | o_exec_db=4, ttt_exec_s=0.04 | 1.875 | 0.000 | 0.096 | 5 / 8 | yes |
+| A3 | standard | off_db=6, ttt_s=0.16 | 1.016 | 0.313 | 0.000 | 8 / 8 | yes |
+| A3 | strict | off_db=6, ttt_s=0.04 | 1.328 | 0.078 | 0.000 | 7 / 8 | yes |
+| CHO | standard | o_exec_db=11, ttt_exec_s=0.48 | 0.156 | 0.078 | 0.442 | 8 / 8 | yes |
+| CHO | strict | o_exec_db=11, ttt_exec_s=0.48 | 0.156 | 0.078 | 0.442 | 5 / 8 | yes |
 
 ![Tuning figure](../images/report-tuning.png)
 
@@ -64,9 +64,9 @@ selection can be redone or checked.
 
 | rule | unnecessary_pm | failures_pm | handovers_pm | prepared_cells_mean |
 |---|---|---|---|---|
-| A3-ref | 1.823 [0.888, 2.757] | 0.339 [0.141, 0.536] | 17.214 [15.267, 19.160] | 0.000 [0.000, 0.000] |
-| A3@standard | 1.458 [0.676, 2.240] | 0.234 [0.085, 0.384] | 16.927 [14.899, 18.955] | 0.000 [0.000, 0.000] |
-| CHO@standard | 2.083 [0.950, 3.217] | 0.026 [-0.031, 0.083] | 17.760 [15.955, 19.566] | 0.095 [0.088, 0.101] |
+| A3-ref | 1.719 [0.805, 2.633] | 0.234 [0.085, 0.384] | 17.057 [15.334, 18.781] | 0.000 [0.000, 0.000] |
+| A3@standard | 1.172 [0.538, 1.806] | 0.052 [-0.025, 0.129] | 16.510 [14.504, 18.517] | 0.000 [0.000, 0.000] |
+| CHO@standard | 0.339 [0.052, 0.625] | 0.026 [-0.031, 0.083] | 15.703 [13.643, 17.763] | 0.406 [0.372, 0.441] |
 
 Means over the 12 test runs (2 conditions x 6 seeds) with 95 % t intervals, then the same per
 condition. These intervals describe the spread between worlds; they are wide because worlds differ
@@ -79,8 +79,8 @@ seed), which removes the differences between worlds:
 
 | rule | pairs | mean | baseline | difference | t interval | bootstrap interval | change % | p | p (Holm) |
 |---|---|---|---|---|---|---|---|---|---|
-| A3@standard | 12 | 1.458 | 1.823 | -0.3646 | [-0.7510, 0.0218] | [-0.7031, -0.0521] | -20.0 | 0.0430 | 0.1719 |
-| CHO@standard | 12 | 2.083 | 1.823 | 0.2604 | [-0.0971, 0.6179] | [-0.0260, 0.5990] | 14.3 | 0.2109 | 0.6328 |
+| A3@standard | 12 | 1.172 | 1.719 | -0.5469 | [-1.0267, -0.0670] | [-0.9375, -0.1302] | -31.8 | 0.0430 | 0.0430 |
+| CHO@standard | 12 | 0.339 | 1.719 | -1.3802 | [-2.2330, -0.5274] | [-2.0833, -0.7031] | -80.3 | 0.0049 | 0.0195 |
 
 (unnecessary handovers per UE-minute; some columns left out.)
 
@@ -94,11 +94,13 @@ seed), which removes the differences between worlds:
 - **non-zero**: how many of the pairs differ at all. With per-run rates built from a handful of
   events, many pairs are tied.
 
-Reading the rows above: tuned A3 had 0.36 fewer unnecessary handovers per UE-minute than the
-reference A3 on average, but the t interval includes zero and after the Holm adjustment p = 0.17:
-with 12 pairs this is not a demonstrated difference. CHO's difference has the opposite sign and is
-not significant either. For failures (not shown) CHO@standard had 0.31 fewer failures per UE-minute
-than the reference with p (Holm) = 0.03.
+Reading the rows above: tuned A3 had 0.55 fewer unnecessary handovers per UE-minute than the
+reference A3 on average; the t interval excludes zero and p (Holm) = 0.043. CHO@standard had 1.38 fewer
+(80 %, p (Holm) = 0.02), but with a 10-11 dB execution offset and 480 ms time-to-trigger, and it holds
+0.4 prepared cells per user. The per-condition rows (in the report) are weaker: with 6 pairs per site
+spacing no difference survives the Holm adjustment, so the pooled result should be read with the
+checklist below. For failures (not shown) both tuned rules had fewer failures than the reference, but
+after the Holm adjustment none is significant (p (Holm) = 0.13-0.16).
 
 ![Paired differences](../images/report-comparison.png)
 

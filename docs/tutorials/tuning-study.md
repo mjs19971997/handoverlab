@@ -6,7 +6,7 @@ rule is tuned on its own seeds with the same number of evaluated settings and a 
 is fixed in advance; automatic gates check that the tuning means something; then the selected
 settings are compared on fresh seeds, paired by seed. This tutorial runs the example study
 [`examples/study_smoke.yaml`](https://github.com/mjs19971997/handoverlab/blob/main/examples/study_smoke.yaml)
-(about seven minutes with two workers) and explains each step.
+(about 13 minutes with six workers on our machine) and explains each step.
 
 ## 1. The study file
 
@@ -30,7 +30,7 @@ tuning:
   group_by: [layout.site_spacing_m] # tune per site spacing
   min_reference_failures: 3
   extend_steps: 2
-  max_extensions: 2
+  max_extensions: 4
   gates: {grid_edge: extend, budget_binding: warn, budget_met: warn, equal_budget: block,
           seed_overlap: block, flat_optimum: warn}
 methods:
@@ -79,6 +79,7 @@ tuning: 2 group(s) (layout.site_spacing_m=100, layout.site_spacing_m=150), 8 set
 stage tune1: 8 jobs, 88 rule runs
 stage tune2: 8 jobs, up to 48 rule runs
 gate seed_overlap: pass (tuning and test seeds are disjoint (4 and 6 seeds))
+gate standard_values: pass (every grid and fixed value is a value of TS 38.331 V18.11.0)
 stage test: 12 jobs x 5 rules (A3-ref, A3@standard, A3@strict, CHO@standard, CHO@strict)
 baseline of the paired comparisons: A3-ref
 ```
@@ -89,48 +90,65 @@ samples.
 ## 3. Run it
 
 ```bash
-handoverlab study examples/study_smoke.yaml --workers 2 --report
+handoverlab study examples/study_smoke.yaml --workers 6 --report
 ```
 
 ```text
-study study-smoke -> results/study-smoke (2 workers)
+study study-smoke -> results/study-smoke (6 workers)
 stage tune1: 8 jobs (88 rule runs), 0 done earlier
 stage tune2: 8 jobs (48 rule runs), 0 done earlier
-  extend A3.off_db at the upper end by 7.0, 8.0 (extension 1 of at most 2); tuning again
+  extend A3.off_db at the upper end by 7.0, 8.0 (extension 1 of at most 4); tuning again
+  extend CHO.o_exec_db at the upper end by 6.0, 7.0 (extension 1 of at most 4); tuning again
+  extend CHO.ttt_exec_s at the upper end by 0.48, 0.512 (extension 1 of at most 4); tuning again
 stage tune1: 8 jobs (88 rule runs), 0 done earlier
 stage tune2: 8 jobs (48 rule runs), 0 done earlier
-  gate warn budget_binding (layout.site_spacing_m=150, budget standard): the reference rule has only 1 failure on the tuning runs (minimum 3); share of settings within the budget: A3 62 %, CHO 62 %
-  gate warn budget_binding (layout.site_spacing_m=150, budget strict): the reference rule has only 1 failure on the tuning runs (minimum 3); share of settings within the budget: A3 25 %, CHO 62 %
+  extend CHO.o_exec_db at the upper end by 8.0, 9.0 (extension 2 of at most 4); tuning again
+stage tune1: 8 jobs (88 rule runs), 0 done earlier
+stage tune2: 8 jobs (48 rule runs), 8 done earlier
+  extend CHO.o_exec_db at the upper end by 10.0, 11.0 (extension 3 of at most 4); tuning again
+stage tune1: 8 jobs (88 rule runs), 0 done earlier
+stage tune2: 8 jobs (48 rule runs), 0 done earlier
+  extend CHO.o_exec_db at the upper end by 12.0, 13.0 (extension 4 of at most 4); tuning again
+stage tune1: 8 jobs (88 rule runs), 0 done earlier
+stage tune2: 8 jobs (48 rule runs), 0 done earlier
+  gate warn budget_binding (layout.site_spacing_m=100, budget standard): more than 90 % of the settings of every method meet the budget: share of settings within the budget: A3 100 %, CHO 100 %
 stage test: 12 jobs (60 rule runs), 0 done earlier
 study study-smoke: complete
 ```
 
 (Lines for each finished job are left out.) Two things happened between tuning and test.
 
-**The grid was widened.** In the first tuning round A3 selected `off_db = 6`, the largest value of
-its grid, in three of the four group-budget pairs. A setting on the edge means the search may have
-stopped too early, and a baseline tuned that way can make another rule look better than it is. With
-`grid_edge: extend` the study added 7 and 8 dB (the spacing of the last two values) and tuned *every*
-method again with the same budget of 8 settings. Rule runs that had already been simulated were
-reused. After the extension A3 still selects 6 dB, now an interior value, and the gate passes. The
-extension is recorded with its date in `results/study-smoke/AMENDMENTS.md`:
+**The grid was widened, four times.** In the first tuning round A3 selected `off_db = 6`, the largest
+value of its grid, in all four group-budget pairs, and CHO selected the largest execution offset and
+time-to-trigger in three of them. A setting on the edge means the search may have stopped too early, and a
+baseline tuned that way can make another rule look better than it is. With `grid_edge: extend` the study
+added two values beyond each edge (the spacing of the last two values) and tuned *every* method again with
+the same budget of 8 settings; rule runs already simulated were reused. A3 then selected 6 dB as an interior
+value, but CHO kept choosing the largest execution offset, so the study extended `CHO.o_exec_db` three more
+times, up to 13 dB. After the fourth extension CHO selects 10 or 11 dB with a time-to-trigger of 480 ms,
+interior values, and the gate passes. Every extension is recorded with its date in
+`results/study-smoke/AMENDMENTS.md`:
 
 ```text
-## Extension 1 (2026-10-16T00:03:16+00:00)
+## Extension 1 (2026-10-23T02:53:19+00:00)
 
 - `A3.off_db`: added 7.0, 8.0 at the upper end (grid before: 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
   selected at the edge in layout.site_spacing_m=100, budget standard; layout.site_spacing_m=100,
-  budget strict; layout.site_spacing_m=150, budget standard.
+  budget strict; layout.site_spacing_m=150, budget standard; layout.site_spacing_m=150, budget strict.
+- `CHO.o_exec_db`: added 6.0, 7.0 at the upper end (grid before: 0.0, 1.0, 2.0, 3.0, 4.0, 5.0); ...
+- `CHO.ttt_exec_s`: added 0.48, 0.512 at the upper end (grid before: 0.0, 0.04, 0.08, 0.16, 0.32); ...
 ```
 
 With `grid_edge: block` (the default) the study would have stopped here and asked you to widen the
 grid; with `warn` it would have gone on and only flagged the edge. `max_extensions` caps the number
-of extension rounds; if the edge remains after the last one, the gate blocks.
+of extension rounds; if the edge remains after the last one, the gate blocks. (With the cap of 2 that
+this example had before 2.4.0 the study blocked under the 3GPP defaults of 2.x: CHO wanted larger
+offsets than the grid then held.)
 
-**Two warnings remain.** At 150 m the reference rule failed only once on the four tuning runs, so a
-budget of "the reference failure rate" rests on a single event. The study goes on (`budget_binding`
+**One warning remains.** At 100 m and the standard budget more than 90 % of the settings of both methods
+meet the budget, so the budget hardly constrains the choice there. The study goes on (`budget_binding`
 is a warning by default), but the report shows it next to every result. In a real study this is
-the cue to add tuning seeds or lengthen the runs.
+the cue to tighten the budget or make the condition harder.
 
 ## 4. Stop, resume, check progress
 
@@ -144,17 +162,17 @@ handoverlab status results/study-smoke
 
 ```text
 study study-smoke in results/study-smoke
-  last session (1) 2026-10-15T23:59:30+00:00: stopped after tuning
+  last session (1) 2026-10-23T03:03:51+00:00: stopped after tuning
   stage    jobs   done  failed  to run  rule runs
   tune1       8      8       0       0          0
   tune2       8      8       0       0          0
-  test       12      0       0      12         48
-  gates: pass (0 blocking, 5 warnings)
-  time left: about 34 s with 2 workers (69 s CPU; measured on 16 jobs: world 2.5 s, 3.36 s per rule run of 1000 user-seconds)
+  test       12      0       0      12         54
+  gates: pass (0 blocking, 8 warnings)
+  time left: about 35 s with 2 workers (69 s CPU; measured on 16 jobs: world 2.1 s, 3.45 s per rule run of 1000 user-seconds)
 ```
 
 (This output is from a run of the same study with `grid_edge: warn`, stopped after tuning with
-`--tuning-only`; hence five warnings.) The time left is
+`--tuning-only`; hence eight warnings.) The time left is
 estimated from the jobs this study has already finished.
 
 ## 5. What makes it fair
