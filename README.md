@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.4.1** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.4.2** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -92,6 +92,47 @@ accurate than sample and hold 400 ms ahead (1.84 / 2.66 / 3.14 dB against 2.38 /
 
 ![Prediction error against horizon for the ridge predictor and sample and hold at 30, 60 and 90 km/h](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/ai-mobility.png)
 
+**Handover procedures side by side.** On one card failures fall from 0.6 (A3) to 0.2 (LTM and CLTM) per
+UE-minute; DAPS has no execution interruption; LTM pays with 192 RRC messages per UE-minute against 45 for A3:
+
+![Failures and ping-pong, interruption and RRC messages for A3, CHO, DAPS, LTM and CLTM](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/procedures.png)
+
+**Mobility robustness optimisation.** `a3_mro` moves the offset of every cell pair from its own failures;
+here 17 pairs move and failures fall from 0.22 to 0.14 per UE-minute when starting from 3 dB:
+
+![Cell-pair offsets over time under a3_mro, and failures against fixed A3](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/mro.png)
+
+**Fast fading.** With TDL-A or TDL-C the 5th percentile of the link-monitoring SINR on the ns-3 card falls
+from 8.3 dB to 3.8 and 3.4 dB:
+
+![Received power of one vehicle with no fading, TDL-A and TDL-C, and the distribution of the link-monitoring SINR](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/fading.png)
+
+**Slot scheduler.** Round robin and proportional fair with the MCS, TBS and HARQ of TS 38.214; with
+`run.backend: numba` the same runs take 2.2 s and 1.0 s instead of 92.7 s and 93.3 s with NumPy, with identical
+fingerprints (the default rate model takes about 1.0 s for the same run):
+
+![Delivered rate of each vehicle against its SINR for round robin and proportional fair, and the wall time with NumPy and Numba](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/scheduler.png)
+
+**Buffers at handover.** Without data forwarding A3 loses 2.17 % of the data and DAPS 0.34 %; with
+forwarding nothing is lost, and the forwarded data wait 85-349 ms:
+
+![Lost data with and without forwarding, and the PDCP delay, for A3, CHO, DAPS and LTM](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/buffers.png)
+
+**Dual connectivity.** A 4 GHz master cell and a 30 GHz secondary cell: the secondary cell group carries data
+96 % of the time and 183 Mbit/s per user, against 10.1 Mbit/s on the master cell group:
+
+![One user's 4 GHz master cell and 30 GHz secondary cell over time with the dual-connectivity events, and the procedure rates](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/dual-connectivity.png)
+
+**UE receive beams.** Two panels with DFT beams (peak gain 13.7 dBi) raise the mean SINR from 10.9 to 19.2 dB
+and cut failures from 3.60 to 1.44 per UE-minute; a beam sweep keeps them at 3.36:
+
+![Receive beam patterns of a two-panel UE, and SINR and failures for four UE receive-beam setups](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/ue-beams.png)
+
+**Traffic models.** The same handovers (11.3 per UE-minute) under fixed rates, full buffer, periodic packets and FTP model 3,
+with very different rate, cell load and energy per bit:
+
+![Rate, cell load and energy per bit for the four traffic models](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/traffic.png)
+
 ## What it models
 
 - **Scenarios**: the TR 37.885 urban street grid (configurable number of blocks; 433 m x 250 m
@@ -155,7 +196,7 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 | Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, SMa, InH), LOS from buildings, spatially consistent LOS and shadowing, car and O2I building penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step with a slow time-varying component; indoor users keep the LOS state and shadowing of their position; optional TDL fast fading with effective SINRs (clause 7.7.2, since 2.2.0) | CDL and the full fast-fading model of clause 7.5, MIMO |
 | Beams and carriers | SSB beams per sector, cell quality from beams, beam failure detection and recovery, several carriers with gaps and Event A5; dual connectivity (NR-DC: SN addition, PSCell change, SN release, SCG failure; option since 2.3.0) | the TR 38.901 antenna element and DFT beams; isotropic UE unless UE receive panels are set (option since 2.4.0); the SCG as one PSCell with a full-buffer share | UE transmit beams and polarisation, conditional PSCell change, fast MCG recovery |
 | Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, a train at 350 km/h (TR 38.854), random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
-| Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference | rate from SINR (Shannon-type mapping), no scheduler | slot scheduler, HARQ, RLC/PDCP, TCP and applications |
+| Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference; options: a slot scheduler (`protocol.scheduler`: round robin or proportional fair) with the MCS, TBS and HARQ of TS 38.214 (since 2.2.0), and user-plane buffers at handover (`protocol.buffers`: simplified PDCP / RLC in AM or UM with Xn data forwarding, since 2.3.0) | by default the rate from the SINR (Shannon-type mapping) without a scheduler; with the scheduler the channel is held for the 10 ms step and the MCS is chosen from the SINR of one measurement interval earlier (no CSI reports); buffers: downlink only, one bearer per user, the interruption quantised to the measurement interval; both options need the base engine (no beams, layers, NTN or TS 38.133 periods) | uplink data, CSI-based link adaptation, PDCP reordering and status reports at the UE, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
 | Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `a3_pred`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
 | Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; absolute failure rates are not calibrated: compare rules with each other |
@@ -196,8 +237,10 @@ Ericsson, Nokia, Samsung, Qualcomm and others), for UMa, UMi and the indoor offi
 30 GHz. 325 of 342 compared percentiles are inside the range, none is more than about 1 dB from
 the industry mean, and `handoverlab verify` repeats the check
 ([details](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration-3gpp.md)). Since 2.4.0 the
-same check runs at 7 GHz (Table 7.8-1A) against the companies of R1-2506406: all 342 percentiles lie inside
-their range, but 1.65-2.88 dB from their mean, which misses the 1.5 dB criterion set before the run.
+same check runs for Table 7.8-1A against the companies of R1-2506406. At 7 GHz (UMa, UMi and SMa with ISD
+1299 m and 1732 m) all 228 percentiles lie inside their range, but the largest distance from their mean is
+1.69-2.43 dB, which misses the 1.5 dB criterion set before the run; the two 6 GHz reruns of UMa and UMi with
+the updated model add 114 percentiles, also all inside, at 1.65 and 2.88 dB.
 
 ![CDFs of coupling loss and geometry for UMa, UMi and SMa at 7 GHz, with the HandoverLab curve inside the company range of R1-2506406](https://raw.githubusercontent.com/mjs19971997/handoverlab/main/docs/images/calibration_7ghz.png)
 
@@ -246,8 +289,8 @@ L1/L2-triggered mobility.
 
 - **2.4.0**: UE receive beams (panels of TR 38.802, best beam or a sweep); a measurement-prediction rule after
   TR 38.744 (`a3_pred`: predicted Event A3 or measurement skipping, sample and hold or a trained ridge
-  predictor); the slot scheduler as a compiled kernel (`run.backend: numba`, bit-identical, 8-60 times
-  faster); the 7 GHz large-scale calibration against the companies of R1-2506406 (every percentile inside the
+  predictor); the slot scheduler as a compiled kernel (`run.backend: numba`, bit-identical; on the ns-3 card
+  42 times (`rr`) and 93 times (`pf`) faster than the NumPy loop); the 7 GHz large-scale calibration against the companies of R1-2506406 (every percentile inside the
   range, the distance to the mean criterion missed); a [comparison with other simulators](https://github.com/mjs19971997/handoverlab/blob/main/docs/comparison.md).
 - **2.3.0**: user-plane buffers at handover (PDCP / RLC, Xn data forwarding for baseline, conditional, DAPS and
   L1/L2-triggered handover); the TR 37.885 urban macro grid, suburban macro (SMa) and O2I penetration of indoor
@@ -378,13 +421,13 @@ traffic models (one seed, 30 users, 60 s on the urban grid at 10 GHz):
 
 ```text
 model        cell load  rate [Mbit/s]  delivered  SINR [dB]  failures/UE-min
-fixed             0.28          14.25       0.98       24.3             0.12
-full_buffer       0.52         725.93       0.49       21.9             0.08
-periodic          0.28           0.04       0.80       24.4             0.12
-ftp3              0.28           3.93       0.85       24.4             0.12
+fixed             0.28          14.10       0.97       23.6             0.08
+full_buffer       0.52         717.77       0.48       21.2             0.08
+periodic          0.28           0.04       0.86       23.7             0.08
+ftp3              0.28           3.93       0.87       23.7             0.08
 ```
 
-Busier cells interfere more: under full buffer the SINR drops by about 2.5 dB. With one seed each
+Busier cells interfere more: under full buffer the SINR drops by about 2.4 dB. With one seed each
 failure rate counts only a few failures; compare them over several seeds.
 
 The full script is [examples/compare_a3_cho.py](https://github.com/mjs19971997/handoverlab/blob/main/examples/compare_a3_cho.py). Writing your own
@@ -466,9 +509,11 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 25. 2.3.0: buffers at handover, urban macro, SMa and O2I, the high-speed train, dual connectivity.
 26. 2.4.0: UE receive beams, the TR 38.744 prediction rule, the compiled
     scheduler, the 7 GHz calibration and the comparison with other simulators.
-27. **2.4.1 (this release)**: pictures, citation and tutorials brought up to date; the example study
+27. 2.4.1: pictures, citation and tutorials brought up to date; the example study
     completes again; no change of results.
-28. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
+28. **2.4.2 (this release)**: every option has a picture; the dashboard pictures show the current version;
+    guide and tutorial examples rerun; facts made consistent; no change of results.
+29. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain, hundreds of
     users per run, and one scenario definition that also runs in ns-3; condEventT1 and earth-fixed beams.
 
@@ -477,8 +522,11 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 If you use HandoverLab, please cite it as described in [CITATION.cff](https://github.com/mjs19971997/handoverlab/blob/main/CITATION.cff) (GitHub shows
 it under *Cite this repository*). Every release is archived on Zenodo:
 [doi:10.5281/zenodo.23409131](https://doi.org/10.5281/zenodo.23409131) cites all versions (it resolves to
-the latest). To cite the exact version you used, take its DOI from the version list on that page; version
-2.4.0 is [doi:10.5281/zenodo.23582521](https://doi.org/10.5281/zenodo.23582521).
+the latest). To cite the exact version you used, take its DOI from the version list on that page, where
+the DOI of the latest version is listed; for example, version 2.4.1 is
+[doi:10.5281/zenodo.23585308](https://doi.org/10.5281/zenodo.23585308) and version 2.4.0
+[doi:10.5281/zenodo.23582521](https://doi.org/10.5281/zenodo.23582521). The BibTeX entry below cites 2.4.1;
+replace version and DOI with those of the version you used.
 
 ```bibtex
 @software{handoverlab,
@@ -486,8 +534,8 @@ the latest). To cite the exact version you used, take its DOI from the version l
   title     = {{HandoverLab}: system-level handover simulator for 5G-Advanced and beyond-5G research},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {2.4.0},
-  doi       = {10.5281/zenodo.23582521},
+  version   = {2.4.1},
+  doi       = {10.5281/zenodo.23585308},
   url       = {https://github.com/mjs19971997/handoverlab}
 }
 ```

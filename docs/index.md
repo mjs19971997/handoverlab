@@ -35,9 +35,13 @@ handoverlab gui                              # the dashboard in your browser
 
 ## What is in the box
 
-- **Scenarios**: the TR 37.885 urban grid with buildings, an open area with hexagonal sites and the
-  TR 37.885 highway with roadside sites;
-  six built-in [scenario cards](scenarios/smoke.md) with the source of every parameter.
+- **Scenarios**: five layouts: the TR 37.885 urban grid with buildings (small cells on the pavement or
+  macro sites), an open area with hexagonal sites, the TR 37.885 highway (roadside or hexagonal sites,
+  wrap-around), the TR 38.901 indoor office and a LEO satellite with earth-moving beams (TR 38.821); plus
+  site lists from files. Fifteen built-in [scenario cards](scenarios/smoke.md), each with the source of
+  every parameter, cover urban grids from 3.5 to 28 GHz (one with SSB beams), an open area at 10 GHz, a two-layer dense urban
+  network, urban and suburban macro cells, rural cells, the indoor office, highways below and above 6 GHz,
+  a high-speed train in FR2 and the satellite.
 - **Rules**: Event A3, conditional handover, DAPS handover, L1/L2-triggered mobility and a
   learning-based example, and a small interface for your own rules with a contract test kit.
 - **Studies**: equal-budget tuning with automatic gates (including widening a grid whose winner
@@ -48,5 +52,5 @@ handoverlab gui                              # the dashboard in your browser
   regression against the prototype the package was ported from, and a comparison with ns-3 /
   5G-LENA.
 
-This is release 2.4.1. The public surface follows the
+This is release 2.4.2. The public surface follows the
 [stability policy](stability.md). HandoverLab is MIT licensed; the source is on [GitHub](https://github.com/mjs19971997/handoverlab).

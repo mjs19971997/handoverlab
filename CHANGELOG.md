@@ -7,6 +7,46 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-10-23
+
+No change of results.
+
+### Added
+
+- A picture for every option, each drawn from a real run by its own script in `tools/`: the handover
+  procedures side by side (`procedures.png`), mobility robustness optimisation (`mro.png`), fast fading
+  (`fading.png`), the slot scheduler with the Numba timings (`scheduler.png`), buffers at handover
+  (`buffers.png`), dual connectivity (`dual-connectivity.png`), UE receive beams (`ue-beams.png`) and the
+  traffic models (`traffic.png`); shown in the README and in each guide.
+- `tools/make_dashboard_screenshots.py`: the dashboard screenshots taken with Edge through the DevTools
+  protocol; all four dashboard pictures redone with this version.
+
+### Fixed
+
+- The speed-ups stated for 2.4.0 ("8 to 60" times, "50-80" times the rate model) were not all supported by the
+  measurements: `docs/performance.md` gives 23 to 59 times for the Numba scheduler and, measured again for 2.4.2
+  on the configuration of the scheduler picture, 42 (round robin) and 93 times (proportional fair), with the
+  NumPy scheduler about 91 times the rate model. The README, `docs/comparison.md`, the scheduler and fading guides
+  and `docs/performance.md` now give these measured numbers.
+
+### Documentation
+
+- 7 GHz calibration: README, `docs/comparison.md`, `docs/calibration-3gpp.md` and
+  `docs/standard-compliance.md` say which cases they count (at 7 GHz 228 percentiles, largest distance
+  1.69-2.43 dB; with the two 6 GHz reruns 342 percentiles, 1.65-2.88 dB).
+- README model boundaries: the slot scheduler (2.2.0) and the user-plane buffers (2.3.0) listed as options,
+  with what is still not modelled.
+- Scenario cards `suburban-sma-7ghz`, `rural-700mhz` and `indoor-office-4ghz`: the 7 GHz calibration of 2.4.0
+  and the hard-LOS results of `docs/guides/indoor-rural.md`; scenario pages regenerated.
+- Examples rerun with this version and their numbers, and where needed their conclusions, updated: the guides
+  on buffers, MRO (the faster MRO setting is no better), beams and layers, indoor and rural scenarios, the
+  learning rule and fast fading; tutorial 2; the README traffic table; the `status` example in the user guide.
+- User guide: all 15 cards, the `a3_pred` rule, `ttt_d2_s`, the layout kinds `indoor` and `ntn`, `run.backend`
+  under `run`, `ntn.hpbw_deg` (tabled widths at 2 GHz only), `ntn.los_model` and `radio.vegetation`; the study
+  example with a main guard. `docs/index.md`: the current layouts and cards. `docs/stability.md`: the missing
+  import. Tutorial 3: the cap of four extensions dates from 2.4.1.
+- Citation with the DOI of 2.4.1.
+
 ## [2.4.1] - 2026-10-22
 
 No change of results.
@@ -1080,7 +1120,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.4.2...HEAD
+[2.4.2]: https://github.com/mjs19971997/handoverlab/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/mjs19971997/handoverlab/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/mjs19971997/handoverlab/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mjs19971997/handoverlab/compare/v2.2.0...v2.3.0

@@ -8,6 +8,10 @@ delayed by the interruption. It works with every procedure (baseline handover su
 DAPS, LTM and conditional LTM). It is off by default; with it off every result of 2.2.0 is
 unchanged bit for bit (the new metrics are 0).
 
+![Lost data with and without forwarding, and the PDCP delay, for A3, CHO, DAPS and LTM](../images/buffers.png)
+
+*Without forwarding A3 loses 2.17 % of the data, CHO 1.16 %, DAPS 0.34 % and LTM 0.41 %; with forwarding nothing is lost, and the forwarded data wait 85-349 ms.*
+
 ```yaml
 scenario:
   base: smoke
@@ -97,15 +101,17 @@ forwarding and links below Qout (no data in the rate model) add.
 
 | Rule | forwarded kbyte/UE-min | lost share without forwarding | mean PDCP delay | delay of forwarded data |
 |---|---|---|---|---|
-| A3 | 6.2 | 2.1 % | 2.9 ms | 123 ms |
-| CHO (late / early forwarding) | 4.2 | 1.4 % | 1.3 ms | 80 / 70 ms |
-| DAPS | 6.2 (copies) | 0 | 2.6 ms | 157 ms |
-| LTM | 1.6 | 0.5 % | 0.6 ms | 92 ms |
+| A3 | 7.4 | 2.2 % | 8.3 ms | 313 ms |
+| CHO (late / early forwarding) | 3.5 | 1.2 % | 1.1 / 0.9 ms | 85 / 75 ms |
+| DAPS | 6.7 (copies) | 0.3 % (all at failures) | 6.4 ms | 349 ms |
+| LTM | 1.2 | 0.4 % | 0.4 ms | 94 ms |
 
-With forwarding nothing is lost. Late forwarding adds the 2 x 5 ms wait for CHO; for LTM the wait
-ends before the next measurement instant and does not show. DAPS gains little here: most of its
-executions start with the source SINR already below Qout, where the rate model sends nothing, so the
-data left for the target are the oldest ones.
+With forwarding nothing is lost. Without it DAPS loses no data at its executions; its 0.3 % are
+lost at failures and re-establishments. Late forwarding adds the 2 x 5 ms wait for CHO; for LTM the
+wait ends before the next measurement instant and does not show (94 ms either way). DAPS gains
+little here: most of its executions start with the source SINR already below Qout, where the rate
+model sends nothing, so the data left for the target are the oldest ones, and its forwarded data
+wait longest (349 ms).
 
 ## 7. Checks
 

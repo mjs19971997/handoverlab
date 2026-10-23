@@ -94,7 +94,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 ## Known limitations
 
 - Mixed sources: the UE height is the 1 m of TR 38.901 Table 7.2-2, the link budget that of ITU-R M.2412-0 Table 5a, which has 1.5 m.
-- No walls, doors or floors: the soft LOS state follows the InH LOS probability as a process along each user's path, and the place-tied shadowing field stands for the rest. One floor only. With the hard LOS state (radio.soft_los: false) A3 failed about 8 times as often in a check run with the model of 2.0.0 (0.16 against 0.02 per user-minute, 3 seeds).
+- No walls, doors or floors: the soft LOS state follows the InH LOS probability as a process along each user's path, and the place-tied shadowing field stands for the rest. One floor only. With the hard LOS state (radio.soft_los: false) A3 (3 dB, 160 ms) has no failures either, as with the soft state, and slightly more handovers (3.95 against 3.81 per user-minute, means over 3 seeds, docs/guides/indoor-rural.md).
 - One shadowing decorrelation distance: TR 38.901 gives 10 m for LOS and 6 m for NLOS links; here 10 m.
 - Random waypoints across the whole hall; real users walk along corridors and stop at desks. Random waypoints are denser in the middle of the hall than near the walls, while ITU-R M.2412-0 Table 5a drops the users uniformly with a uniformly distributed direction.
 - 20 users for 12 TRxPs instead of the 10 UEs per TRxP of ITU-R M.2412-0 Table 5a; the number is set for run time (the interference load of HandoverLab does not depend on it).

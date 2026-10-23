@@ -142,7 +142,7 @@ interior values, and the gate passes. Every extension is recorded with its date 
 With `grid_edge: block` (the default) the study would have stopped here and asked you to widen the
 grid; with `warn` it would have gone on and only flagged the edge. `max_extensions` caps the number
 of extension rounds; if the edge remains after the last one, the gate blocks. (With the cap of 2 that
-this example had before 2.4.0 the study blocked under the 3GPP defaults of 2.x: CHO wanted larger
+this example had before 2.4.1 the study blocked under the 3GPP defaults of 2.x: CHO wanted larger
 offsets than the grid then held.)
 
 **One warning remains.** At 100 m and the standard budget more than 90 % of the settings of both methods

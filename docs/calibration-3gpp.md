@@ -91,8 +91,9 @@ InterDigital and ZTE, "Calibration Results for 7 - 24 GHz SI";
 `Calibration_LS_v35`, based on TR 38.901 V19.0.0). The criteria were fixed before the first run: every
 percentile 5-95 % inside the company range widened by 0.5 dB (C1, the rule of the cases above), and the
 largest distance from the company mean at most 1.5 dB per case (C2). Result, 30 000 users per case, seed 1:
-**C1 passes for all 18 case-metric pairs (342 of 342 percentiles strictly inside the range); C2 fails for all
-six cases (largest distance 1.65-2.88 dB).** `handoverlab verify` runs C1 as checks and C2 as notes in the
+**C1 passes for all 18 case-metric pairs of the six cases (342 of 342 percentiles strictly inside the range;
+228 of 228 for the four 7 GHz cases); C2 fails for all six cases (largest distance 1.65-2.88 dB; 1.69-2.43 dB
+for the four 7 GHz cases, 1.65 and 2.88 dB for the two 6 GHz reruns).** `handoverlab verify` runs C1 as checks and C2 as notes in the
 group `calibration`.
 
 **The reference.** `src/handoverlab/verify/data/r1_2506406.csv` keeps, in the format of `r1_165974.csv`, the

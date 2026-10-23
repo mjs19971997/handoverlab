@@ -4,6 +4,10 @@ Since 2.3.0 a user can hold a secondary cell group (SCG) next to its master cell
 NR-DC case of TS 37.340 V19.3.0 clause 4.1.3.3, one gNB as master node (MN) and another as secondary
 node (SN). The option `protocol.dc` is off by default; with it off every result stays as it was.
 
+![One user's 4 GHz master cell and 30 GHz secondary cell over time with the dual-connectivity events, and the procedure rates](../images/dual-connectivity.png)
+
+*The SCG carries data 96 % of the time; per UE-minute there are 21.1 PSCell changes and 16.3 MCG handovers, and per user the SCG carries 183 Mbit/s against 10.1 Mbit/s on the MCG.*
+
 The model is the simplest consistent subset that a system-level simulator needs: when an SCG is
 added, changed or lost, what that costs in signalling and interruption, and how much time the
 user spends with a second link. The MCG behaves exactly as without dual connectivity: its handover

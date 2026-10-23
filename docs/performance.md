@@ -165,11 +165,25 @@ process on the same modest virtual machine, which other jobs shared at the time)
 | `pf`, 30 users | 69.3 s | 1.69 s | 41 |
 | `rr`, 30 users | 77.1 s | 3.30 s | 23 |
 
-With Numba a scheduler run costs about 2.7-3.2 times the rate model with 10 users and 2.8-5.5
-times with 30 users, instead of 50-80 times. An earlier measurement on a less loaded machine, before
-the MCS look-up was vectorised (`SlotScheduler.select_all`, same values as `select`), gave ratios of
-10.9-23 with 10 users; the load of the machine changes the NumPy times by up to a factor of two, so
-read the ratios as approximate. The remaining time is mostly the MCS look-ups and block error
+In this table a scheduler run with Numba costs about 2.7-3.1 times the rate model with Numba with
+10 users and 2.8-5.5 times with 30 users; with NumPy it costs 58-83 times the rate model with NumPy.
+An earlier measurement on a less loaded machine, before the MCS look-up was vectorised
+(`SlotScheduler.select_all`, same values as `select`), gave ratios of 10.9-23 with 10 users; the load
+of the machine changes the NumPy times by up to a factor of two, so read the ratios as approximate.
+
+Measured again for 2.4.2 on the configuration of the [scheduler picture](guides/scheduler.md)
+(`tools/make_scheduler_figure.py`: the ns-3 card, 10 users, `full_buffer`, 20 s without warm-up,
+seed 1, rule a3; the world build is not timed, one run per case after the kernel is compiled; Numba 0.68,
+NumPy 2.4, SciPy 1.18, the same machine):
+
+| Case | NumPy | Numba | Ratio |
+|---|---|---|---|
+| Rate model (no scheduler), median of three | 1.02 s | 0.58 s | 1.8 |
+| `rr` | 92.7 s | 2.2 s | 42 |
+| `pf` | 93.3 s | 1.0 s | 93 |
+
+With NumPy a scheduler run costs about 91 times the rate model; with Numba 1.0-2.2 times the rate
+model with NumPy (1.7-3.8 times the rate model with Numba). The remaining time is mostly the MCS look-ups and block error
 probabilities in NumPy (per interval) and, for `rr`, the stops of the loop at new PRB shares.
 
 Fast fading and the user-plane buffers were profiled too and left as they are: the fading step is

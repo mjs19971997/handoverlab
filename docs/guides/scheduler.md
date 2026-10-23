@@ -6,6 +6,10 @@ a cell's resources among its users in proportion to their demand. Since 2.2.0 th
 user, an MCS of TS 38.214, transport blocks that fail with a block error probability, and HARQ
 retransmissions. It is off by default; with it off every result of 2.1.0 is unchanged bit for bit.
 
+![Delivered rate of each vehicle against its SINR for round robin and proportional fair, and the wall time with NumPy and Numba](../images/scheduler.png)
+
+*Totals: RR 97.7 and PF 90.3 Mbit/s, with 21 and 34 retransmissions per 100 new transport blocks; with `run.backend: numba` the runs take 2.2 s and 1.0 s instead of 92.7 s and 93.3 s, with identical fingerprints.*
+
 ```yaml
 scenario:
   base: ns3-urban-3.5ghz
@@ -46,15 +50,17 @@ table of another simulator is used.
 
 ## 3. Cost and limits
 
-- Every slot is played: with the NumPy loop about 45 times the time of the default rate model
-  (10 users on the ns-3 card: about 90 s instead of 2 s for 20 s simulated). Since 2.4.0
+- Every slot is played: with the NumPy loop about 91 times the time of the default rate model
+  (10 users on the ns-3 card, full buffer, 20 s simulated, without building the world: 92.7 s (`rr`)
+  and 93.3 s (`pf`) instead of about 1.0 s). Since 2.4.0
   `run.backend: numba` (`pip install handoverlab[fast]`) plays the slots in a compiled loop with
-  bit-identical results (see [performance](../performance.md)); the NumPy loop stays the reference
-  and is used in debug mode.
+  bit-identical results: the same runs take 2.2 s and 1.0 s, 42 and 93 times faster (see
+  [performance](../performance.md)); the NumPy loop stays the reference and is used in debug mode.
 - The channel is held for the 10 ms step; mobility decisions stay on the 10 ms grid.
 - This version needs the base engine (no beams, layers, NTN or TS 38.133 periods).
-- Data of a user stop during a handover interruption and wait in its buffer; forwarding between
-  cells, RLC and PDCP are the next item of the roadmap.
+- Data of a user stop during a handover interruption and wait in its buffer. Forwarding between
+  cells with a simplified PDCP / RLC is the separate option `protocol.buffers` (since 2.3.0, see
+  [buffers at handover](buffers.md)).
 - The decoding draws come from the world's stream `harq`, one number per user and slot whatever the
   decisions, so every rule compared on one seed sees the same draws.
 

@@ -6,6 +6,10 @@ slow time-varying component, with radio-link monitoring on the wideband SINR. Si
 the SINR at several frequencies to one effective SINR. It is off by default; with it off every
 result of 2.1.0 is unchanged bit for bit.
 
+![Received power of one vehicle with no fading, TDL-A and TDL-C, and the distribution of the link-monitoring SINR](../images/fading.png)
+
+*On the ns-3 card (10 vehicles, 20 s) the 5th percentile of the link-monitoring SINR falls from 8.3 dB without fading to 3.8 dB (TDL-A) and 3.4 dB (TDL-C); the MIESM value of QPSK saturates at 18.5 dB.*
+
 ```yaml
 scenario:
   base: ns3-urban-3.5ghz
@@ -45,9 +49,13 @@ another simulator is used; a BLER per MCS (TS 38.214 tables) follows with the sl
 
 ## 3. Cost and limits
 
-- A single run is about twice as long (32 sinusoids per tap, every step; 10 users on the ns-3 card:
-  about 6 s instead of 3 s for 20 s simulated); many rules on one world take longer (24 rules: about
-  6 to 8 times), as the batched and compiled loops are not used with fading.
+- The engine takes about 10 times as long (32 sinusoids per tap, every step; 10 users on the
+  ns-3 card, 20 s simulated, without building the world, median of seven runs: 7.7 s with `tdl-a`
+  and 7.8 s with `tdl-c` instead of 0.74 s, with the default traffic of the card; the 1.02 s of the
+  [scheduler measurement](../performance.md) is another session with full-buffer traffic, and machine load
+  changes such times by up to a factor of two); many
+  rules on one world the same (24 rules: 53 s instead of 5.4 s), as the batched and compiled loops
+  are not used with fading.
 - This version needs the base engine: no beams, layers, NTN or TS 38.133 periods
   (`meas_periods: sample`, `rlm_eval: fixed`); such a configuration is refused.
 - The step stays 10 ms. At 30 m/s and 3.5 GHz the coherence time is about 1 ms, so successive

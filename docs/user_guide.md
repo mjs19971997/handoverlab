@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.4.1. It explains the ideas behind a run, the built-in
+This guide covers version 2.4.2. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -141,7 +141,7 @@ resolved scenario, of result files and of study job IDs. It works with every lay
 
 ### Built-in scenarios
 
-Six named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
+Fifteen named scenarios are ready to use. Each has a *scenario card*: purpose, layout drawing, every
 parameter with its source, known limitations and the reference results it was checked against
 ([scenario cards](scenarios/smoke.md)).
 
@@ -159,6 +159,9 @@ parameter with its source, known limitations and the reference results it was ch
 | [`urban-grid-28ghz-beams`](scenarios/urban-grid-28ghz-beams.md) | the urban grid at 28 GHz (FR2) with three sectors per site, 8 SSB beams per sector, beam management and beam failure recovery (since 1.10.0) |
 | [`ntn-leo600-2ghz`](scenarios/ntn-leo600-2ghz.md) | a LEO satellite at 600 km with 19 earth-moving beams in the S band, handheld users, the channel of TR 38.811 and the parameters of TR 38.821 (since 2.0.0) |
 | [`dense-urban-2layer`](scenarios/dense-urban-2layer.md) | ITU-R M.2412 dense urban, two layers: 4 GHz macro (ISD 200 m, 3 sectors) and 30 GHz micro sites, SSB beams, inter-frequency measurements in gaps, in-car users at 30 km/h (since 1.10.0) |
+| [`urban-macro-tr37885-4ghz`](scenarios/urban-macro-tr37885-4ghz.md) | the TR 37.885 urban grid with macro sites: 433 m x 250 m blocks, sites 25 m high on a 500 m hexagonal layout, UMa path loss at 4 GHz, vehicles at 60 km/h (since 2.3.0) |
+| [`suburban-sma-7ghz`](scenarios/suburban-sma-7ghz.md) | suburban macro cells (SMa) at 7 GHz: 11 sites 35 m high, 1299 m apart, 80 % of the users indoors with the O2I loss of the low-loss A model, 20 % in cars at 40 km/h (since 2.3.0) |
+| [`hst-fr2-28ghz`](scenarios/hst-fr2-28ghz.md) | the FR2 high-speed train of TR 38.854: one roof-mounted CPE at 350 km/h, remote radio heads every 700 m beside the track, RMa LOS at 28 GHz, no inter-cell interference (since 2.3.0) |
 
 Use one by name (`scenario: smoke`) or as the base of your own values
 (`scenario: {base: smoke, mobility: {users: 40}}`); in Python `hl.builtin_scenario("smoke")`.
@@ -190,7 +193,7 @@ output: results/metrics.csv
 
 | Section | Key | Default | Meaning |
 |---|---|---|---|
-| `layout` | `kind` | `street_grid` | `street_grid`, `open_area` or `highway` |
+| `layout` | `kind` | `street_grid` | `street_grid`, `open_area`, `highway`, `indoor` (TR 38.901 indoor office, since 1.7.0) or `ntn` (one LEO satellite, since 2.0.0) |
 | | `blocks` | `[3, 3]` | number of blocks in x and y |
 | | `pitch_m` | `[433, 250]` | distance between street centre lines [m] |
 | | `street_width_m` | `20` | street width [m] |
@@ -223,6 +226,7 @@ output: results/metrics.csv
 | | `breakpoint_c_mps` | `3.0e8` | speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1 notes 1 and 5; since 2.0.0, 1.x: 299792458) |
 | | `pl_min_distance_m` | `10` | smallest 2D distance the RMa, UMa and UMi formulas are evaluated at (their applicability range; since 2.0.0, 1.x: 0) |
 | | `env_height_m` | none | UMa and UMi: one effective environment height h_E for every link in the breakpoint distance (since 2.3.0; TR 37.885 clause 6.2.1: `0.25` for base-station-to-vehicle links); unset: TR 38.901 Table 7.4.1-1 note 1 |
+| | `vegetation` | `0` | SMa: vegetation density r_veg of the LOS probability of TR 38.901 Table 7.4.2-1: `0` (none), `0.1` (sparse) or `0.2` (dense) (since 2.3.0) |
 | | `channel_detail` | `3gpp` | since 2.1.0: `3gpp` -- place-tied shadowing and LOS fields with the exponential autocorrelation exp(-d / d_cor) of TR 38.901 Eq. (7.4-5), shadowing uncorrelated between sites, UMa with C'(h_UT) and the random effective environment height (h_UT >= 13 m), height and co-sited-layer checks, the tabled NTN beamwidth; `simple` -- the model of 2.0.0 and 1.x (part of `LEGACY_1X`) |
 | | `map_file` | none | radio map from a file: path gain of every site and pixel from a ray tracer or measurements (TR 38.901 clause 8; since 1.12.0; see [your own radio map](guides/radio-maps.md)); `map_sha256` is filled on loading |
 | | `los_model` | `probability` | `los`: every link LOS (TR 37.885 Table 6.2.1-2, highway); not on the street grid (since 1.11.0) |
@@ -274,8 +278,14 @@ output: results/metrics.csv
 | | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120` (about 3 and 120 km/h, +-10 %); `p3`, `v30`, `v120` (since 2.1.0: exactly 3, 30, 120 km/h, the fixed speeds of ITU-R M.2412-0 Tables 5a-5c); highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h with up to 0.5 m lateral offset, since 1.11.0), `v140c`, `v70c` (since 2.1.0: the same on the lane centre) |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]`; `lanes_m` (2.0.0) lane centres; `indoor: true` (2.3.0) users inside buildings, with the O2I building penetration loss of `radio.o2i_model` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
-| `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
 | | `backend` | `numpy` | `numba`: compiled kernels of the step loop (since 1.11.0) and of the slot scheduler (since 2.4.0), bit-identical results, needs `pip install handoverlab[fast]` (see [performance](performance.md)); not part of the job IDs |
+| `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
+| | `hpbw_deg` | none | 3 dB beamwidth of the satellite beams [deg], which sets the beam spacing sqrt(3) sin(HPBW / 2) and scales the Bessel pattern (TR 38.821 Table 6.1.1.1-4); unset: the tabled width of TR 38.821 Tables 6.1.1.1-1 and -2 (4.4127 deg for 2 m, 8.8320 deg for 1 m) with `radio.channel_detail: 3gpp` and a 2 GHz carrier (the tables are for the S band), otherwise the width of the aperture's Bessel pattern (since 2.1.0) |
+| | `los_model` | `probability` | `probability`: LOS state from the LOS probability of TR 38.811 Table 6.6.1-1 (NLOS links with clutter loss and NLOS shadowing); `los`: every link LOS, the baseline condition of TR 38.821 Table 6.1.1.1-5 (since 2.1.0) |
+
+![Rate, cell load and energy per bit for the four traffic models](images/traffic.png)
+
+*The four traffic models on one card: the handovers are the same (11.3 per UE-minute), while rate, load and energy per bit differ (0.28 uJ per bit with full buffer, 3706 uJ with periodic packets).*
 
 In Python, `Scenario.with_overrides({"layout.site_spacing_m": 50})` returns a changed copy.
 `Scenario.to_dict()` leaves out the keys added after 1.0.0rc2 while they have their default value,
@@ -288,7 +298,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 |---|---|---|
 | `a3` | baseline | `off_db` (3.0), `ttt_s` (0.16), `name` |
 | `cho` | conditional | `o_prep_db` (-2.0), `o_exec_db` (3.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `immediate` (false), `name` |
-| `cho_d2` | conditional | `d_thresh1_m` (25000), `d_thresh2_m` (25000), `hys_m` (1000), `o_prep_db` (-2.0), `o_exec_db` (0.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `name` (since 2.0.0): CHO with condEventD2 of TS 38.331 together with A3; on fixed cells Event D1 |
+| `cho_d2` | conditional | `d_thresh1_m` (25000), `d_thresh2_m` (25000), `hys_m` (1000), `o_prep_db` (-2.0), `o_exec_db` (0.0), `ttt_exec_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `ttt_d2_s` (0.0; timeToTrigger of condEventD2, since 2.1.0), `name` (since 2.0.0): CHO with condEventD2 of TS 38.331 together with A3; on fixed cells Event D1 |
 | `daps` | daps | `off_db` (3.0), `ttt_s` (0.16), `interruption_s` (0.0), `fallback` (true), `source_data` (true), `name` |
 | `ltm` | ltm | `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4, at most 8), `rel_hys_db` (3.0), `cmd_delay_s` (0.01), `exec_s` (0.02), `recovery` (true), `name` |
 | `cltm` | cltm | as `ltm` without `cmd_delay_s`: `o_prep_db` (-3.0), `o_switch_db` (2.0), `ttt_switch_s` (0.08), `ttt_prep_s` (0.0), `n_max` (4), `rel_hys_db` (3.0), `exec_s` (0.02), `recovery` (true), `name` |
@@ -296,6 +306,7 @@ so that results and study job IDs of scenarios that do not use them are unchange
 | `a3a5` | baseline | `off_db` (3.0), `ttt_s` (0.16), `a5_thresh1_dbm` (-110), `a5_thresh2_dbm` (-105), `a5_hys_db` (1.0), `a5_ttt_s` (0.32), `a3_inter` (false), `a5_down_thresh1_dbm`, `a5_down_thresh2_dbm` (none: as above), `name` (since 1.10.0): Event A3 within a carrier, Event A5 towards other carriers |
 | `dqn` | baseline | `offsets_db` ([0, 1, 2, 3, 4, 5]), `ttt_s` (0.16), `mode` ("train" or "test"), `weights` (none), `hidden` (32), `lr` (0.001), `gamma` (0.9), `epsilon` (0.1), `batch` (32), `buffer` (5000), `train_every` (4), `target_every` (100), `w_unnecessary` (1.0), `w_failure` (2.0), `name` (since 1.11.0; needs `pip install handoverlab[torch]`; see the [learning-rule guide](guides/learning-rule.md)) |
 | `a3_mro` | baseline | `off_db` (3.0), `ttt_s` (0.16), `step_db` (1.0; 0.5 before 2.1.0), `window_s` (10.0), `min_db` (-4.0), `max_db` (4.0), `min_events` (1), `count_pingpong` (true), `pingpong_s` (none: `protocol.pingpong_s`), `count_unnecessary` (false), `name` (since 1.7.0) |
+| `a3_pred` | baseline | `off_db` (2.0), `ttt_s` (0.32), `case` ("A": prediction window ahead, or "B": measurement skipping), `predictor` ("hold": sample and hold, "ridge" with `weights`, or an object with `predict()`), `weights` (none), `pw_s` (0.32, case A), `skip` (1, case B), `filter_option` (1, 2 or 3, case B), `act` (true), `top_k` (4), `etd_s` (0.08), `event_pw_s` (none: `pw_s`), `record` (none), `name` (since 2.4.0; TR 38.744 measurement prediction; needs only NumPy (no Numba kernel); see the [AI/ML mobility guide](guides/ai-mobility.md)) |
 
 `daps`, `ltm` and `a3_bandit` were added in 1.0.0rc2; they leave the results of `a3` and `cho`
 unchanged.
@@ -763,13 +774,14 @@ users and simulated seconds), spread over the workers of the last session or `--
 
 ```text
 study study-smoke in results/study-smoke
-  last session (1) 2026-10-15T23:59:30+00:00: stopped after tuning
+  last session (1) 2026-10-23T04:53:13+00:00: stopped after tuning
+  grids extended 4 time(s) by the grid_edge policy 'extend' (see AMENDMENTS.md)
   stage    jobs   done  failed  to run  rule runs
   tune1       8      8       0       0          0
   tune2       8      8       0       0          0
   test       12      0       0      12         48
-  gates: pass (0 blocking, 5 warnings)
-  time left: about 34 s with 2 workers (69 s CPU; measured on 16 jobs: world 2.5 s, 3.36 s per rule run of 1000 user-seconds)
+  gates: pass (0 blocking, 1 warnings)
+  time left: about 44 s with 2 workers (88 s CPU; measured on 68 jobs: world 2.5 s, 5.07 s per rule run of 1000 user-seconds)
 ```
 
 The estimate is a guide: other conditions or rules can be slower or faster, and a busy machine is
@@ -794,12 +806,13 @@ when the study is complete.
 ```python
 from handoverlab.studies import GateError, load_study, run_study, write_report
 
-study = load_study("examples/study_smoke.yaml")
-try:
-    res = run_study(study, workers=2, progress=print)
-    write_report(res.root)
-except GateError as e:
-    print(e.lines)                       # every blocking gate
+if __name__ == "__main__":               # needed for worker processes on Windows and macOS
+    study = load_study("examples/study_smoke.yaml")
+    try:
+        res = run_study(study, workers=2, progress=print)
+        write_report(res.root)
+    except GateError as e:
+        print(e.lines)                   # every blocking gate
 ```
 
 ## 11. Paired statistics

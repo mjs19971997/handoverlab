@@ -69,27 +69,29 @@ Means over three seeds per user-minute, with the cards as they are and with the 
 
 | Scenario | Rule | LOS state | Handovers | Failures | Unnecessary | Ping-pong | Interruption [s] |
 |---|---|---|---|---|---|---|---|
-| indoor | A3 3 dB 160 ms | soft | 6.74 | 0.02 | 2.82 | 0.41 | 0.29 |
-| indoor | A3 3 dB 160 ms | hard | 7.12 | 0.16 | 3.04 | 0.46 | 0.45 |
-| indoor | A3 5 dB 320 ms | soft | 4.74 | 0.10 | 1.28 | 0.06 | 0.29 |
-| indoor | `a3_mro` | soft | 6.69 | 0.02 | 2.80 | 0.40 | 0.29 |
-| rural | A3 3 dB 160 ms | soft | 11.93 | 0.33 | 6.86 | 1.71 | 0.82 |
-| rural | A3 3 dB 160 ms | hard | 13.16 | 1.41 | 7.58 | 1.95 | 1.97 |
-| rural | A3 5 dB 320 ms | soft | 7.80 | 0.42 | 3.49 | 0.39 | 0.74 |
-| rural | `a3_mro` | soft | 10.36 | 0.23 | 5.55 | 1.15 | 0.65 |
+| indoor | A3 3 dB 160 ms | soft | 3.81 | 0.00 | 0.86 | 0.02 | 0.15 |
+| indoor | A3 3 dB 160 ms | hard | 3.95 | 0.00 | 0.96 | 0.05 | 0.16 |
+| indoor | A3 5 dB 320 ms | soft | 2.91 | 0.02 | 0.23 | 0.00 | 0.14 |
+| indoor | `a3_mro` | soft | 3.77 | 0.00 | 0.84 | 0.02 | 0.15 |
+| rural | A3 3 dB 160 ms | soft | 13.07 | 0.07 | 7.58 | 1.82 | 0.67 |
+| rural | A3 3 dB 160 ms | hard | 15.62 | 0.18 | 9.24 | 2.57 | 1.06 |
+| rural | A3 5 dB 320 ms | soft | 8.86 | 0.21 | 4.09 | 0.45 | 0.63 |
+| rural | `a3_mro` | soft | 10.56 | 0.08 | 5.51 | 0.97 | 0.56 |
 
-- **Indoors**, many handovers are unnecessary or ping-pong even at walking speed, because every
-  neighbour is close. This is the point of the scenario: a rule has to avoid switching between
-  nearly equal cells. A larger offset and time-to-trigger halve the unnecessary handovers at the
-  price of more late ones.
+- **Indoors**, about a quarter of the handovers are unnecessary even at walking speed (0.86 of 3.81
+  per user-minute), because every neighbour is close; ping-pong is rare. This is the point of the
+  scenario: a rule has to avoid switching between nearly equal cells. A larger offset and
+  time-to-trigger cut the unnecessary handovers by about three quarters at the price of a few late
+  ones (0.02 failures per user-minute, all too late, against none).
 - **In rural cells**, the handover rate is far above what the cell size alone would give, and most
   handovers are unnecessary: the 8 dB shadowing with 120 m decorrelation, uncorrelated between
   sites (TR 38.901 clause 7.5 step 4; half correlated until 2.0.0), moves the best cell often at
   120 km/h. Compare rules with each other here, and do
   not read the absolute handover rate as that of a real rural network.
 - **Hard against soft LOS**: with the hard switch, a link jumps by about 20 dB (RMa at 1-2 km) or
-  about 15 dB (InH at 20 m) when its state changes, and these jumps cause most failures. The soft state
-  removes most of them without changing the handover rate much.
+  about 15 dB (InH at 20 m) when its state changes. In rural cells these jumps raise the failures from
+  0.07 to 0.18 per user-minute and the handovers by about a fifth (13.07 to 15.62); indoors there are
+  no failures with either state, and the hard switch adds only a few handovers (3.81 to 3.95).
 - The failure model is not calibrated in absolute terms in any scenario; read failure rates
   relative to each other.
 

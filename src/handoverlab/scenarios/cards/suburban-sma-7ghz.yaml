@@ -60,4 +60,4 @@ limitations:
   - "Received-power level only: no fast fading."
   - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
 references:
-  - "Values checked against the text of TR 38.901 V19.5.0 (Tables 7.2-5, 7.4.1-1, 7.4.2-1, 7.4.3-1, 7.4.3-2, 7.5-6 Part-4, 7.6.3.1-2, 7.8-1A); formulas, O2I loss and coupling gain are checked by handoverlab verify (group scenarios). The 7 GHz calibration results of TR 38.901 clause 7.8.1 (R1-2506406) are not part of this release."
+  - "Values checked against the text of TR 38.901 V19.5.0 (Tables 7.2-5, 7.4.1-1, 7.4.2-1, 7.4.3-1, 7.4.3-2, 7.5-6 Part-4, 7.6.3.1-2, 7.8-1A); formulas, O2I loss and coupling gain are checked by handoverlab verify (group scenarios). Since 2.4.0 the 7 GHz large-scale calibration of TR 38.901 clause 7.8.1 (Table 7.8-1A) checks the SMa drop (19 three-sector sites, ISD 1299 m and 1732 m) against the companies of R1-2506406 (handoverlab verify, group calibration; docs/calibration-3gpp.md); this card is a smaller handover scenario and is not that calibration drop."

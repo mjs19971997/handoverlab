@@ -59,6 +59,7 @@ the built-in cards that 2.1.0 changed (apply them after `LEGACY_1X` to a scenari
 every golden run of 1.12.0 (section `fingerprints-1x`).
 
 ```python
+import handoverlab as hl
 from handoverlab.stability import LEGACY_1X
 sc = hl.builtin_scenario("ns3-urban-3.5ghz").with_overrides(LEGACY_1X)
 ```

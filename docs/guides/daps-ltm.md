@@ -2,6 +2,10 @@
 
 Since 1.0.0rc2 HandoverLab has two procedures next to baseline and conditional handover:
 
+![Failures and ping-pong, interruption and RRC messages for A3, CHO, DAPS, LTM and CLTM](../images/procedures.png)
+
+*On one card failures fall from 0.6 (A3) to 0.2 (LTM and CLTM) per UE-minute; DAPS has no execution interruption; LTM sends 192 RRC messages per UE-minute against 45 for A3.*
+
 | Rule | Procedure | Specification | What changes compared with `a3` |
 |---|---|---|---|
 | `daps` | DAPS handover (Rel-16) | TS 38.300 clause 9.2.3.2, TS 38.331 clause 5.3.5.8.3 | the source keeps serving during the execution; a failed execution falls back to the source |

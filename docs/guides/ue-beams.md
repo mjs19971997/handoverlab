@@ -6,6 +6,10 @@ give the UE directional panels with receive beams. The option is off by default 
 it every result is unchanged. The clause-by-clause status is in
 [standard compliance](../standard-compliance.md#ue-receive-beams-240-radiobeamsue_panels).
 
+![Receive beam patterns of a two-panel UE, and SINR and failures for four UE receive-beam setups](../images/ue-beams.png)
+
+*Peak gain 13.7 dBi; the mean SINR rises from 10.9 dB (isotropic UE) to 19.2 dB (best beam) and failures fall from 3.60 to 1.44 per UE-minute; with a beam sweep they stay at 3.36.*
+
 ## 1. Switch it on
 
 ```yaml

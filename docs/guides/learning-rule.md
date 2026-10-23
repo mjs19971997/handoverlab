@@ -118,9 +118,10 @@ CPU only, deterministic algorithms, one thread per pass and seeds from `ctx.rng`
 machine and PyTorch version give identical event logs. Other hardware or versions may give other
 numbers, so there is no golden fingerprint for this rule; the test suite checks the contract and the
 repeatability instead. The rule is an example of how to plug a neural network into the rule
-interface, not a tuned method: in a check run (two training seeds of 120 s, two test seeds) it had
-fewer unnecessary handovers than A3 with 3 dB and 160 ms (1.70 and 1.17 against 2.37 and 1.57 per
-user-minute) and on one seed more failures (0.05 against 0).
+interface, not a tuned method: in a run of the code above (three training seeds of 120 s, test seeds
+1-3) it had fewer unnecessary handovers than A3 with 3 dB and 160 ms on every test seed (3.55, 3.16
+and 2.61 against 5.09, 4.04 and 3.94 per user-minute); its failures were the same on seed 1, lower
+on seed 2 (0.13 against 0.16) and higher on seed 3 (0.03 against 0).
 
 ## 4. Write your own learning rule
 

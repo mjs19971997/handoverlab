@@ -6,6 +6,10 @@ clause 7.1.2; the SON concepts of TS 32.500), tunes them from the observed outco
 should therefore be compared not only with fixed A3, but also with A3 under MRO. Since 1.7.0 the
 rule `a3_mro` provides that baseline.
 
+![Cell-pair offsets over time under a3_mro, and failures against fixed A3](../images/mro.png)
+
+*17 cell pairs move their offset; failures fall from 0.24 to 0.20 (start at 6 dB) and from 0.22 to 0.14 (start at 3 dB) per UE-minute.*
+
 ## 1. What `a3_mro` does
 
 - **Trigger.** Event A3 (TS 38.331 clause 5.5.4.4) with `off_db` and a fixed `ttt_s`, plus a cell
@@ -64,16 +68,18 @@ Means over the three seeds, per user-minute:
 
 | Rule | Failures | Too late | Too early | Ping-pong | Unnecessary | Interruption [s] |
 |---|---|---|---|---|---|---|
-| A3-6dB | 0.431 | 0.289 | 0.028 | 0.025 | 0.642 | 1.167 |
-| MRO-6dB | 0.308 | 0.203 | 0.031 | 0.017 | 0.625 | 1.048 |
-| MRO-6dB-fast | 0.264 | 0.183 | 0.033 | 0.014 | 0.592 | 1.003 |
-| A3-3dB | 0.303 | 0.111 | 0.033 | 0.114 | 1.075 | 1.061 |
-| MRO-3dB | 0.233 | 0.094 | 0.028 | 0.075 | 0.956 | 0.986 |
+| A3-6dB | 0.244 | 0.031 | 0.008 | 0.081 | 0.969 | 1.114 |
+| MRO-6dB | 0.203 | 0.036 | 0.006 | 0.039 | 0.819 | 1.039 |
+| MRO-6dB-fast | 0.203 | 0.036 | 0.006 | 0.039 | 0.819 | 1.039 |
+| A3-3dB | 0.222 | 0.008 | 0.028 | 0.386 | 1.611 | 1.137 |
+| MRO-3dB | 0.139 | 0.006 | 0.014 | 0.122 | 1.222 | 1.003 |
 
-Starting from an offset that is too large (6 dB), MRO cuts the failures by about 30 % (40 % with
-the faster setting) through fewer too-late handovers. Starting from 3 dB, it cuts failures by
-about 20 % and ping-pong by about a third. Three seeds are few: read a comparison like this with
-the paired statistics of a study (`handoverlab study`), not from the means alone.
+Starting from a large offset (6 dB), MRO cuts the failures by about a sixth, with half the ping-pong
+and fewer unnecessary handovers; the too-late handovers, already rare, do not fall. The faster setting
+gives the same means here: its event logs differ from those of MRO-6dB in single attempts only.
+Starting from 3 dB, MRO cuts failures by about 37 % and ping-pong by about two thirds. Three
+seeds are few: read a comparison like this with the paired statistics of a study
+(`handoverlab study`), not from the means alone.
 
 ## 3. Use it as a baseline
 

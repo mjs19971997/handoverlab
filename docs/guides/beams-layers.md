@@ -50,15 +50,16 @@ UE-minute):
 
 | Rule | Handovers | Failures | Beam switches | Beam failures | recovered | ended in RLF | Interruption [s] | SINR [dB] |
 |---|---|---|---|---|---|---|---|---|
-| A3 | 25.0 | 1.50 | 46.6 | 2.58 | 1.27 | 0.80 | 2.53 | 14.0 |
-| CHO | 25.9 | 1.23 | 49.5 | 1.98 | 1.32 | 0.45 | 1.77 | 15.5 |
-| LTM | 31.3 | 0.80 | 51.1 | 1.55 | 0.93 | 0.28 | 1.12 | 16.0 |
-| CLTM | 31.4 | 0.75 | 50.1 | 1.38 | 0.88 | 0.25 | 1.09 | 16.4 |
+| A3 | 20.4 | 5.50 | 42.9 | 11.43 | 4.83 | 5.42 | 6.36 | 9.8 |
+| CHO | 22.0 | 3.88 | 46.6 | 8.73 | 4.12 | 3.83 | 3.67 | 11.6 |
+| LTM | 30.6 | 2.80 | 50.0 | 7.33 | 3.30 | 2.75 | 2.60 | 13.1 |
+| CLTM | 30.6 | 2.72 | 49.6 | 7.40 | 3.60 | 2.67 | 2.55 | 13.5 |
 
-Half to two thirds of the detected beam failures are recovered on another beam of the same cell; most
-of the rest end in a radio-link failure because no beam of the serving cell is good enough any more
-(the user needed a handover), a few are ended by a handover. Faster cell changes (LTM, conditional LTM) leave fewer
-beam failures to recover.
+A little less than half (42-49 %) of the detected beam failures are recovered on another beam of the
+same cell; 36-47 % end in a radio-link failure because no beam of the serving cell is good enough any
+more (the user needed a handover), and these make up 98-99 % of the failures; the rest (9-17 %) are
+ended by a handover. Faster cell changes (LTM, conditional LTM) leave fewer beam failures to recover
+(7.3-7.4 per UE-minute against 11.4 with A3).
 
 ## 2. Two carriers: a macro layer and a small-cell layer
 
