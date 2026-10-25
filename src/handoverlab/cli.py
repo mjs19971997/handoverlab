@@ -8,7 +8,7 @@ Commands
         the configuration, else ``results/<config name>.csv``).  ``--events``
         writes the event logs as a table (.parquet with pyarrow, else .csv);
         with ``--event-level full`` also the procedure trace (FILE-trace).
-    verify [--only GROUP ...] [--full] [--ns3 [--ns3-reference FILE] [--ns3-comparison]]
+    verify [--only GROUP ...] [--full] [--ns3 [--ns3-reference FILE] [--ns3-comparison | --ns3-like]]
            [--results FILE --sample N] [--json OUT]
         Run the verification checks and print a pass/fail report.
     scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
@@ -23,7 +23,7 @@ Commands
         Start the browser dashboard (needs ``pip install handoverlab[gui]``).
     ns3 export STUDY --out DIR [--program FILE] [--force]
     ns3 import RESULTS.zip|DIR --out REF.json
-    ns3 compare STUDY REF.json [--comparison] [--workers N] [-o OUT] [limits]
+    ns3 compare STUDY REF.json [--comparison | --ns3-like] [--workers N] [-o OUT] [limits]
         The bridge to ns-3 / 5G-LENA: export a study as a ready-to-run ns-3
         package, import its results, compare HandoverLab with them (F1-F4).
     rules
@@ -120,7 +120,7 @@ def _cmd_verify(args) -> int:
     try:
         rep = run_verify(groups, full=args.full, ns3=args.ns3, ns3_seeds=args.ns3_seeds, results=args.results,
                          sample=args.sample, printer=printer, ns3_reference=args.ns3_reference,
-                         ns3_comparison=args.ns3_comparison)
+                         ns3_comparison=args.ns3_comparison, ns3_like=args.ns3_like)
     except (ValueError, OSError) as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
@@ -254,7 +254,11 @@ def _cmd_ns3(args) -> int:
         limits = dict(level=tuple(args.level), rank_min=args.rank_min, ho_ratio=tuple(args.ho_ratio),
                       ttt_share=args.ttt_share, min_failures=args.min_failures)
         say = None if args.quiet else (lambda msg: print(msg, file=sys.stderr, flush=True))
-        res = nb.compare(args.study, args.reference, comparison=args.comparison, limits=limits,
+        if args.comparison and args.ns3_like:
+            print("error: --comparison and --ns3-like are two different settings; choose one", file=sys.stderr)
+            return 2
+        res = nb.compare(args.study, args.reference, comparison=args.comparison,
+                         setting="ns3-like" if args.ns3_like else None, limits=limits,
                          workers=args.workers, progress=say, out=args.output)
     except (ConfigError, OSError, ValueError, KeyError) as e:
         print("error: %s" % e, file=sys.stderr)
@@ -279,9 +283,11 @@ def _cmd_ns3(args) -> int:
             ("F4 TTT sign agrees in >= %g of the pairs" % L["ttt_share"],
              "n/a (one TTT)" if c["F4_ttt_sign"] is None else "%d of %d" % (c["F4_ttt_sign"], c["F4_pairs"]),
              c["pass"]["F4"])]
-    print("study %s, %s, HandoverLab run length: %s" % (res["study"], "comparison setting" if res["comparison"]
-                                                        else "default link monitoring, ideal execution",
-                                                        res["run_length"]))
+    row = res.get("setting") or ("comparison" if res["comparison"] else "reference")
+    print("study %s, %s, HandoverLab run length: %s" % (
+        res["study"], {"comparison": "comparison setting",
+                       "ns3-like": "ns-3-like setting (imitates ns-3, not 3GPP; validation pending)"}.get(
+            row, "default link monitoring, ideal execution"), res["run_length"]))
     for text, val, ok in rows:
         print("  %-48s %-16s %s" % (text, val, "n/a" if ok is None else ("pass" if ok else "FAIL")))
     if args.output:
@@ -352,6 +358,11 @@ def build_parser() -> argparse.ArgumentParser:
                         "0.15 at link monitoring, ideal execution, the in-car loss of ns-3): a setting that "
                         "brings the failure level closer (0.5-1.3 of ns-3's, depending on the set), not "
                         "validated; not a default")
+    v.add_argument("--ns3-like", action="store_true",
+                   help="with --ns3: run HandoverLab with the ns-3-like setting (imitates the link monitoring of "
+                        "ns-3 / 5G-LENA: out-of-sync after 200 control receptions, a command lost while T310 "
+                        "runs; with the in-car loss of ns-3): imitates ns-3, not 3GPP; validation pending; not a "
+                        "default")
     v.add_argument("--results", metavar="FILE", help="recompute a JSON result file of 'run' and compare fingerprints")
     v.add_argument("--sample", type=int, help="with --results: recompute only this many runs, chosen at random")
     v.add_argument("--json", metavar="OUT", help="also write the report as JSON")
@@ -408,6 +419,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="run HandoverLab with the ns-3 comparison setting of 2.5.0 (interferer load 0.15 at link "
                          "monitoring): brings the failure level closer (0.5-1.3 of ns-3's), not validated; "
                          "not a default")
+    nc.add_argument("--ns3-like", action="store_true",
+                    help="run HandoverLab with the ns-3-like setting (imitates the link monitoring of ns-3 / "
+                         "5G-LENA, not 3GPP): validation pending; not a default")
     nc.add_argument("--workers", type=int, default=1, help="processes for the HandoverLab runs (default 1)")
     nc.add_argument("-o", "--output", metavar="OUT", help="also write the cells and checks as JSON")
     nc.add_argument("--level", type=float, nargs=2, default=[0.67, 1.5], metavar=("LO", "HI"),

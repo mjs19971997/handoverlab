@@ -48,13 +48,16 @@ OPTIONAL_GROUPS = ("learning", "ntn", "scenarios")
 def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: bool = False,
                ns3_seeds: int = 1, results: Optional[str] = None, sample: Optional[int] = None,
                printer: Optional[Callable[[str], None]] = print, ns3_reference: Optional[str] = None,
-               ns3_comparison: bool = False) -> Report:
+               ns3_comparison: bool = False, ns3_like: bool = False) -> Report:
     """Run the check groups ``groups`` (default: all of :data:`GROUPS`) and return the report.
 
     ``full`` uses three seeds for the radio statistics and 60 s runs for the
     engine checks instead of one seed and 30 s.  ``ns3_comparison`` (2.5.0) runs the ns-3 comparison with
-    the comparison setting (:data:`handoverlab.verify.ns3.COMPARISON_SETTING` and the in-car loss of ns-3).
+    the comparison setting (:data:`handoverlab.verify.ns3.COMPARISON_SETTING` and the in-car loss of ns-3),
+    ``ns3_like`` with the ns-3-like setting (:data:`handoverlab.verify.ns3.NS3_LIKE_SETTING`, imitates ns-3).
     """
+    if ns3_comparison and ns3_like:
+        raise ValueError("--ns3-comparison and --ns3-like are two different settings; choose one")
     groups = list(GROUPS if groups is None else groups)
     unknown = [g for g in groups if g not in GROUPS + OPTIONAL_GROUPS]
     if unknown:
@@ -105,7 +108,7 @@ def run_verify(groups: Optional[Sequence[str]] = None, full: bool = False, ns3: 
     if ns3:
         from .ns3 import ns3_checks
         ns3_checks(rep, seeds=tuple(500 + i for i in range(ns3_seeds)), progress=printer, reference=ns3_reference,
-                   comparison=ns3_comparison)
+                   comparison=ns3_comparison, ns3_like=ns3_like)
     if results:
         from .stored import stored_checks
         stored_checks(rep, results, sample)

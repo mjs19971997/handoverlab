@@ -10,6 +10,7 @@ Quick start::
     # ... build and run the package with ns-3, bring back v1pkg/V1_results.zip ...
     ref = ns3bridge.import_results("v1pkg/V1_results.zip", "v1_ref.json")
     res = ns3bridge.compare(study, ref, comparison=True, workers=4)   # same run length as ns-3 (180 s, 60 s)
+    # setting="ns3-like": the ns-3-like setting (imitates ns-3 / 5G-LENA, not 3GPP; validation pending)
     print(res["checks"])
 
 or ``handoverlab ns3 export|import|compare`` on the command line.  Only what the program
@@ -18,11 +19,11 @@ site distance 200 / 300 / 400 m, speeds, users, run length, traffic, fading, see
 refused, naming the option, before any file is written.  See :mod:`.study` for the study file, :mod:`.export`,
 :mod:`.results` and :mod:`.compare` for the three steps.
 """
-from .compare import IDEAL_EXECUTION, LIMITS, checks, compare, handoverlab_scenario
+from .compare import IDEAL_EXECUTION, LIMITS, SETTINGS, checks, compare, handoverlab_scenario
 from .export import command_args, export, manifest, program_source, runs
 from .results import import_results, read_runs, reference_from_runs
 from .study import CARD, Cell, Ns3BridgeError, Ns3Study, load_ns3_study, study_from_dict
 
-__all__ = ["CARD", "Cell", "IDEAL_EXECUTION", "LIMITS", "Ns3BridgeError", "Ns3Study", "checks", "command_args",
-           "compare", "export", "handoverlab_scenario", "import_results", "load_ns3_study", "manifest",
-           "program_source", "read_runs", "reference_from_runs", "runs", "study_from_dict"]
+__all__ = ["CARD", "Cell", "IDEAL_EXECUTION", "LIMITS", "Ns3BridgeError", "Ns3Study", "SETTINGS", "checks",
+           "command_args", "compare", "export", "handoverlab_scenario", "import_results", "load_ns3_study",
+           "manifest", "program_source", "read_runs", "reference_from_runs", "runs", "study_from_dict"]

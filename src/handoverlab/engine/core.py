@@ -83,6 +83,49 @@ def rlm_indications(P, qo, qi, qout, qin, run, n_o, n_i, mon, t, rlm_t0):
     return start
 
 
+def ctrl_rate(P, serv, con, M):
+    """Control receptions per second of every user for the ns-3-like link monitoring (``protocol.ns3_oos_rx``):
+    ``ns3_ctrl_hz + ns3_ctrl_per_ue_hz * n``, with ``n`` the connected users served by the user's cell."""
+    n = np.bincount(serv[con], minlength=M)
+    return P.ns3_ctrl_hz + P.ns3_ctrl_per_ue_hz * n[serv]
+
+
+def rlm_count(P, sl, qout, qin, run, c_o, c_i, n_o, n_i, mon, live, rx):
+    """One step of the ns-3-like link monitoring (``protocol.ns3_oos_rx``; imitates ns-3 / 5G-LENA v5.1, NOT 3GPP).
+
+    As ``NrUePhy::RlfDetection`` and ``NrUeRrc`` of 5G-LENA v5.1 implement it: while T310 is stopped, ``c_o``
+    counts the control receptions (``rx`` in this step, from :func:`ctrl_rate`) with the link-monitoring SINR
+    ``sl`` below Qout; a reception at or above Qout restarts the count and resets the indication counter
+    ``n_o``; ``ns3_oos_rx`` receptions give an out-of-sync indication, ``n310`` consecutive indications start
+    T310.  While T310 runs, ``c_i`` counts receptions above Qin in the same way (``ns3_ins_rx``, ``n311``), and
+    in-sync stops T310.  The counts restart on a new cell (``Engine._attach``) and, with
+    ``protocol.rlm_holdoff_s``, count only from ``rlm_t0`` on (``live``).  Works on 1-D and 2-D arrays, in
+    place; returns the users whose T310 starts.
+    """
+    cnt = mon & ~run
+    bad = cnt & live & (sl < qout)
+    c_o[...] = np.where(bad, c_o + rx, np.where(cnt, 0.0, c_o))
+    n_o[...] = np.where(cnt & ~bad, 0, n_o)
+    ind = bad & (c_o >= P.ns3_oos_rx - EPS)
+    n_o[...] = n_o + ind
+    c_o[ind] = 0.0
+    start = ind & (n_o >= P.n310)
+    n_o[start] = 0
+    c_i[start] = 0.0
+    n_i[start] = 0
+    rmon = run & mon
+    good = rmon & (sl > qin)
+    c_i[...] = np.where(good, c_i + rx, np.where(rmon, 0.0, c_i))
+    n_i[...] = np.where(rmon & ~good, 0, n_i)
+    ind_i = good & (c_i >= P.ns3_ins_rx - EPS)
+    n_i[...] = n_i + ind_i
+    c_i[ind_i] = 0.0
+    stop = ind_i & (n_i >= P.n311)
+    n_i[stop] = 0
+    run[...] = (run & ~stop) | start
+    return start
+
+
 def rlm_kernel(engine):
     """The compiled step kernel if ``run.backend`` is ``"numba"`` and it covers the engine's monitoring, else None.
 
@@ -91,7 +134,8 @@ def rlm_kernel(engine):
     """
     sc = engine.world.scenario
     P = sc.protocol
-    if getattr(sc.run, "backend", "numpy") != "numba" or engine.lm or P.n310 != 1 or P.n311 != 1:
+    if (getattr(sc.run, "backend", "numpy") != "numba" or engine.lm or P.n310 != 1 or P.n311 != 1
+            or engine.cnt):
         return None
     if engine.std and engine.daps_mon:
         return None                     # the source link of DAPS during T304: the NumPy path
@@ -198,6 +242,9 @@ class Engine:
         self.n_o = np.zeros(U, dtype=int); self.n_i = np.zeros(U, dtype=int)
         self.run = np.zeros(U, dtype=bool); self.t310 = np.zeros(U); self.k310 = np.zeros(U, dtype=int)
         self.rlm_t0 = np.full(U, -INF)                  # no out-of-sync before (protocol.rlm_holdoff_s)
+        # ns-3-like link monitoring (protocol.ns3_oos_rx): receptions counted below Qout / above Qin
+        self.cnt = P.ns3_oos_rx is not None
+        self.c_o = np.zeros(U); self.c_i = np.zeros(U)
         # attempt in flight (reported / prepared / executing)
         self.f_on = np.zeros(U, dtype=bool); self.f_t = np.zeros(U); self.f_tx = np.full(U, np.nan)
         self.f_src = np.zeros(U, dtype=int); self.f_tgt = np.zeros(U, dtype=int); self.f_key = np.full(U, -1)
@@ -350,6 +397,7 @@ class Engine:
             s = self._sinr_lm(u, cell, self.lm_ln)
         self.qo[u] = self.qi[u] = s
         self.n_o[u] = self.n_i[u] = 0
+        self.c_o[u] = self.c_i[u] = 0.0
         if self.P.rlm_holdoff_s > 0 and t is not None:
             self.rlm_t0[u] = t + self.P.rlm_holdoff_s
         self.run[u] = False
@@ -656,7 +704,16 @@ class Engine:
                 sl = sinr
             qo += ao * (sl - qo)
             qi += ai * (sl - qi)
-            if self.std:
+            if self.cnt:                                   # ns-3-like link monitoring (not 3GPP)
+                rx = ctrl_rate(P, serv, con, self.M) * dt
+                start = rlm_count(P, sl, qout, qin, run, self.c_o, self.c_i, self.n_o, self.n_i, con,
+                                  t >= self.rlm_t0 - EPS, rx)
+                self.t310[start] = t
+                self.k310[start] = k
+                if cnz(run):
+                    for u in np.nonzero(run & con & (t - self.t310 >= P.t310_s - EPS))[0]:
+                        self.fail(u, t, "rlf")
+            elif self.std:
                 mon = con | ((state == EXECUTING) & self.daps_u & ~self.src_rlf) if self.daps_mon else con
                 if k % self.ind_steps == 0:
                     start = rlm_indications(P, qo, qi, qout, qin, run, self.n_o, self.n_i, mon, t, self.rlm_t0)

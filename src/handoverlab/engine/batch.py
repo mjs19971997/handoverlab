@@ -31,7 +31,7 @@ from typing import List, Sequence
 import numpy as np
 
 from ..measurement import EPS
-from .core import Engine, rlm_indications, rlm_kernel
+from .core import Engine, ctrl_rate, rlm_count, rlm_indications, rlm_kernel
 from .procedures import CONNECTED, EXECUTING
 
 
@@ -40,7 +40,7 @@ class EngineBatch:
 
     _STACKED = (("state", np.int8), ("t_done", float), ("re_cell", int), ("serv", np.intp), ("qo", float),
                 ("qi", float), ("n_o", int), ("n_i", int), ("run", bool), ("t310", float), ("k310", int),
-                ("rlm_t0", float), ("rc", float), ("rho", float), ("rc_lm", float))
+                ("rlm_t0", float), ("rc", float), ("rho", float), ("rc_lm", float), ("c_o", float), ("c_i", float))
 
     def __init__(self, engines: Sequence[Engine]):
         self.engines: List[Engine] = list(engines)
@@ -164,7 +164,19 @@ class EngineBatch:
                 sl = sinr
             qo += ao * (sl - qo)
             qi += ai * (sl - qi)
-            if e0.std:                                         # TS 38.331 7.2 / TS 38.133 8.1.6 (since 2.1.0)
+            if e0.cnt:                                         # ns-3-like link monitoring (not 3GPP)
+                rx = np.empty_like(sl)
+                for j in range(self.K):
+                    rx[j] = ctrl_rate(P, serv[j], con[j], self.M) * dt
+                start = rlm_count(P, sl, qout, qin, run, self.c_o, self.c_i, self.n_o, self.n_i, con,
+                                  t >= rlm_t0 - EPS, rx)
+                t310[start] = t
+                k310[start] = k
+                if cnz(run):
+                    exp = np.nonzero(run & con & (t - t310 >= t310_s - EPS))
+                    for j, u in zip(*exp):
+                        E[j].fail(u, t, "rlf")
+            elif e0.std:                                         # TS 38.331 7.2 / TS 38.133 8.1.6 (since 2.1.0)
                 if k % e0.ind_steps == 0:
                     start = rlm_indications(P, qo, qi, qout, qin, run, self.n_o, self.n_i, con, t, self.rlm_t0)
                     t310[start] = t

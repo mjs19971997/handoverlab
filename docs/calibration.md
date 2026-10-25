@@ -522,10 +522,56 @@ time-to-trigger effect pass in every set and row. The absolute failure level of 
 handover and unnecessary-handover rates (part A of the stored reference, `handoverlab verify --ns3`) and
 N2, which use rates per UE-minute.
 
-**Next.** An "ns-3-like" option that imitates ns-3's slower out-of-sync detection (not a default) is
-planned. It will be built from the ns-3 data already seen and judged on a fresh set (V4: site distance 200
-and 400 m, 14 and 22 m/s, time-to-trigger 128 and 1280 ms, seeds 701-705), collected and kept unopened until
-the option and its settings are frozen.
+**Next.** An "ns-3-like" option that imitates ns-3's slower out-of-sync detection (not a default) was
+built from the ns-3 data already seen; see the next section. It is judged on a fresh set (V4: site distance
+200 and 400 m, 14 and 22 m/s, time-to-trigger 128 and 1280 ms, seeds 701-705), collected before the option
+existed and kept unopened until the option and its settings were frozen.
+
+### The ns-3-like setting (validation on V4 pending)
+
+`handoverlab.verify.ns3.NS3_LIKE_SETTING` imitates how ns-3 / 5G-LENA v5.1 declares a radio-link failure.
+It imitates ns-3, **not 3GPP**, and it is **not a default**; every default and golden fingerprint is unchanged.
+Use it with the in-car loss of ns-3: `scenario_for(isd, v, car=True, ns3_like=True)`,
+`handoverlab verify --ns3 --ns3-like`, or row N of the [ns-3 bridge](guides/ns3-bridge.md)
+(`handoverlab ns3 compare --ns3-like`, `ns3bridge.compare(..., setting="ns3-like")`).
+
+**The mechanism.** Read in the code of 5G-LENA v5.1 and measured in the control-channel diagnosis of ns-3
+runs already used (N2 and the 1.4.0 diagnosis):
+
+| ns-3 / 5G-LENA v5.1 | Setting | 3GPP, as HandoverLab's default |
+|---|---|---|
+| out-of-sync after 200 consecutive control-channel receptions below Qout (blocks of 10; a good block restarts the count; `NrUePhy::RlfDetection`) | `protocol.ns3_oos_rx: 200` | quality over the evaluation period, at least 200 ms (TS 38.133 Table 8.1.2.2-1) |
+| in-sync after 100 receptions above Qin while T310 runs | `protocol.ns3_ins_rx: 100` | at least 100 ms (same table) |
+| a user receives the control channels of its cell: 206 + 16.5 n per second with n users on the cell (measured, light traffic), so 200 receptions take 0.65-0.9 s | `protocol.ns3_ctrl_hz: 206`, `protocol.ns3_ctrl_per_ue_hz: 16.5` | |
+| the count restarts on every new cell | `protocol.rlm_holdoff_s: 0` (the count restarts by itself) | |
+| a handover command that arrives while T310 runs fails (TR 36.839 clause 5.2.1.3, `Tr36839HandoverFailure`) | `protocol.cmd_during_t310: lost` | the command stops T310 (TS 38.331 clause 5.3.5.5.2) |
+| ideal random access | `protocol.exec_can_fail: false` | |
+| neighbours interfere on the control symbols only in slots in which they send control | `protocol.lm_load: 0.38` | |
+
+In the ns-3 runs 97 % of the out-of-sync indications ended in a failure, and 96 % of the failures were a
+handover command that arrived while T310 ran. The interferer load 0.38 is the one at which HandoverLab's
+link-monitoring SINR has the share of time below Qout and the quantiles of the ns-3 control-channel SINR in
+N2; at that load HandoverLab has fewer long periods below Qout than ns-3 (a load of 1.0 matches those).
+
+**In sample, not a validation.** The values were chosen with the ns-3 sets already seen; with equal run
+lengths (180 s, 60 s discarded) the setting (row N) gives:
+
+| Set | Time-to-trigger | F1 level (0.67-1.5) | F2 order (at least 0.8) | F3 handover rate (0.8-1.25) | F4 TTT direction |
+|---|---|---|---|---|---|
+| N2 | 300 ms | 0.16, fails | 0.89 | 0.90 | n/a |
+| N3 | 100 / 640 ms | 0.87 | 0.93 | 0.87 | 4 of 4 |
+| V1 | 80 / 320 ms | 0.05, fails | 0.55, fails | 0.94 | 3 of 4 |
+| V3 | 512 / 1024 ms | 0.97 | 0.90 | 0.81 | 4 of 4 |
+
+It matches ns-3's failure level at long time-to-trigger (512-1024 ms) but gives far too few failures at
+80-320 ms; with an interferer load of 1.0 the pattern turns over (the level matches at 300-320 ms and is twice
+ns-3's at 512-1024 ms). So the slower detection explains the long-TTT gap, but the short-TTT failures of ns-3,
+which need long periods below Qout before any neighbour is 3 dB stronger, are not reproduced.
+
+**Validation pending.** The setting and the procedure were frozen before V4 was opened (amendment N1
+of the validation plan): rows R, C and N on V4's 8 cells and seeds 701-705 with equal run lengths, criteria F1-F4 as
+V1 (TTT direction 1280 - 128 ms) and the rate-based level; the level of the 128 ms and the 1280 ms cells is
+reported separately. Until then the failure level stays **not calibrated**.
 
 ### V2: do the adaptive and learning rules generalise?
 

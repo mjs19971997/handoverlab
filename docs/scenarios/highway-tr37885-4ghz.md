@@ -92,6 +92,10 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.discard_timer_s` | none | TS 38.331 PDCP-Config discardTimer (unset: infinity; with buffers) |
 | `protocol.sdu_bytes` | none | assumption (SDU size for the SDU counts; unset: packet_bytes or 1500 bytes) |
 | `protocol.rrc_detail` | 3gpp |  |
+| `protocol.ns3_oos_rx` | none | off by default (3GPP model); imitates ns-3 / 5G-LENA v5.1 (NrUePhy NumQoutEvalSf: 200 control receptions), not 3GPP |
+| `protocol.ns3_ins_rx` | 100 | ns-3 / 5G-LENA v5.1 (NrUePhy NumQinEvalSf: 100 control receptions); with ns3_oos_rx only |
+| `protocol.ns3_ctrl_hz` | 206 | measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second of a user, base); with ns3_oos_rx only |
+| `protocol.ns3_ctrl_per_ue_hz` | 16.5 | measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second per user served by the cell); with ns3_oos_rx only |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |

@@ -471,6 +471,18 @@ class ProtocolConfig:
     rrc_detail: str = "3gpp"
     # dual connectivity (since 2.3.0; None: off), see DcConfig
     dc: Optional[DcConfig] = None
+    # link monitoring as ns-3 / 5G-LENA v5.1 implements it (NOT 3GPP, off by default; used by the
+    # ns-3-like setting handoverlab.verify.ns3.NS3_LIKE_SETTING to compare with ns-3 results).  NrUePhy counts
+    # control-channel receptions: an out-of-sync indication after ns3_oos_rx consecutive receptions below Qout
+    # (in blocks of 10; a block at or above Qout restarts the count), an in-sync indication while T310 runs after
+    # ns3_ins_rx consecutive receptions above Qin, and the count restarts on every new cell.  A user receives
+    # ns3_ctrl_hz + ns3_ctrl_per_ue_hz * (users served by its cell) control channels per second (measured in
+    # ns-3 runs at light traffic), so 200 receptions take 0.65-0.9 s instead of the 200 ms of TS 38.133.
+    # None: the 3GPP model above (qout_window_s, qin_window_s, rrc_detail)
+    ns3_oos_rx: Optional[float] = None
+    ns3_ins_rx: float = 100.0
+    ns3_ctrl_hz: float = 206.0
+    ns3_ctrl_per_ue_hz: float = 16.5
 
 
 @dataclass
@@ -775,6 +787,15 @@ class Scenario:
         _check(P.meas_periods in ("sample", "ts38133"), "protocol.meas_periods", "must be 'sample' or 'ts38133'")
         _check(P.rlm_eval in ("fixed", "ts38133"), "protocol.rlm_eval", "must be 'fixed' or 'ts38133'")
         _check(P.rrc_detail in ("3gpp", "simple"), "protocol.rrc_detail", "must be '3gpp' or 'simple'")
+        if P.ns3_oos_rx is not None:
+            _check(P.ns3_oos_rx > 0, "protocol.ns3_oos_rx", "must be positive or null")
+            _check(P.ns3_ins_rx > 0, "protocol.ns3_ins_rx", "must be positive")
+            _check(P.ns3_ctrl_hz > 0 and P.ns3_ctrl_per_ue_hz >= 0, "protocol.ns3_ctrl_hz",
+                   "ns3_ctrl_hz must be positive and ns3_ctrl_per_ue_hz >= 0")
+            _check(self.radio.beams is None and not self.radio.layers and self.layout.kind != "ntn"
+                   and P.meas_periods == "sample" and P.rlm_eval == "fixed" and P.dc is None,
+                   "protocol.ns3_oos_rx", "needs the base engine: no beams, layers, NTN, dual connectivity or "
+                   "TS 38.133 periods (meas_periods: sample, rlm_eval: fixed)")
         _check(P.scheduler in (None, "rr", "pf"), "protocol.scheduler", "must be null, 'rr' or 'pf'")
         if P.scheduler is not None:
             _check(isinstance(P.harq_max_tx, int) and P.harq_max_tx >= 1, "protocol.harq_max_tx",
@@ -938,7 +959,8 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                       "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
                                                       "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db",
                                                       "buffers", "forwarding", "early_forwarding", "xn_delay_s",
-                                                      "discard_timer_s", "sdu_bytes", "dc")}
+                                                      "discard_timer_s", "sdu_bytes", "dc", "ns3_oos_rx",
+                                                      "ns3_ins_rx", "ns3_ctrl_hz", "ns3_ctrl_per_ue_hz")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")

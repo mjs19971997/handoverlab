@@ -94,6 +94,13 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.rlm_holdoff_s": "0.2 s since 2.0.0: an interpretation of TS 38.133 8.1.2.2 (evaluation over the last "
                               "T_Evaluate_out, 200 ms in FR1) on a newly joined cell",
     "protocol.exec_can_fail": "TR 36.839: the execution fails when the target is below Qout",
+    "protocol.ns3_oos_rx": "off by default (3GPP model); imitates ns-3 / 5G-LENA v5.1 (NrUePhy NumQoutEvalSf: 200 "
+                           "control receptions), not 3GPP",
+    "protocol.ns3_ins_rx": "ns-3 / 5G-LENA v5.1 (NrUePhy NumQinEvalSf: 100 control receptions); with ns3_oos_rx only",
+    "protocol.ns3_ctrl_hz": "measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second of a "
+                            "user, base); with ns3_oos_rx only",
+    "protocol.ns3_ctrl_per_ue_hz": "measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second "
+                                   "per user served by the cell); with ns3_oos_rx only",
     "radio.penetration_db": "off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car",
     "radio.penetration_sd_db": "off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car",
     "radio.o2i_model": "low: TR 38.901 Table 7.4.3-2 (applies to the users of an indoor speed group only)",

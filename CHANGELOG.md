@@ -7,6 +7,33 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+No change of defaults or results: every golden fingerprint is unchanged. The new option is off by default and
+imitates ns-3 / 5G-LENA, not 3GPP.
+
+### Added
+
+- An ns-3-like setting, `handoverlab.verify.ns3.NS3_LIKE_SETTING` (not a default), that imitates how ns-3 /
+  5G-LENA v5.1 detects a radio-link failure, as read in its code (`NrUePhy::RlfDetection`, `NrUeRrc`) and
+  measured in the control-channel diagnosis of ns-3 runs already used (N2 and an earlier diagnosis):
+  - out-of-sync after 200 consecutive control-channel receptions below Qout (blocks of 10; a block at or above
+    Qout restarts the count), in-sync after 100 receptions above Qin while T310 runs, both counted afresh on
+    every new cell (new protocol keys `protocol.ns3_oos_rx`, `ns3_ins_rx`; off by default);
+  - a user receives `ns3_ctrl_hz` + `ns3_ctrl_per_ue_hz` x (users of its cell) control channels per second,
+    206 + 16.5 n measured at light traffic (new keys `protocol.ns3_ctrl_hz`, `ns3_ctrl_per_ue_hz`), so the
+    detection takes 0.65-0.9 s, against the evaluation period of about 200 ms of TS 38.133 (Table 8.1.2.2-1);
+  - a handover command that reaches the UE while T310 runs fails (the TR 36.839 criterion that ns-3 uses,
+    `protocol.cmd_during_t310: lost`; TS 38.331 5.3.5.5.2 lets the command stop T310), ideal execution, no
+    extra hold-off on a new cell, and an interferer load of 0.38 at link monitoring (`protocol.lm_load`; the
+    load at which the HandoverLab link-monitoring SINR has the share below Qout and the quantiles of the ns-3
+    control-channel SINR in N2).
+  It is used with the in-car loss of ns-3: `scenario_for(isd, v, car=True, ns3_like=True)`,
+  `verify.ns3.compare(..., ns3_like=True)`, `handoverlab verify --ns3 --ns3-like`, and in the bridge as row N:
+  `ns3bridge.compare(..., setting="ns3-like")` (`ns3bridge.SETTINGS`), `handoverlab ns3 compare --ns3-like`.
+- The values were chosen on seen ns-3 data only (N2, N3, V1, V3). In sample it passes F1-F4 on N3 and V3 (long
+  time-to-trigger) and fails the level on N2 and V1 (TTT 80-320 ms, far too few failures); an interferer load
+  of 1.0 gives the opposite pattern. Validation on the fresh, still unopened ns-3 set V4 is pending
+  ([calibration](docs/calibration.md#the-ns-3-like-setting-validation-on-v4-pending)).
+
 ## [2.6.0] - 2026-10-25
 
 No change of defaults or results: every golden fingerprint is unchanged. This release corrects a wrong

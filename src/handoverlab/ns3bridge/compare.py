@@ -4,8 +4,10 @@
 The HandoverLab side of a cell is :func:`handoverlab.verify.ns3.scenario_for` (the card ``ns3-urban-3.5ghz``
 with the sites of the site distance and the in-car loss of ns-3) with ideal execution (ns-3 has an ideal
 random access), the users, the run length (unless ``run_length: card``), the traffic and the fading of the
-study, and, with ``comparison``, :data:`handoverlab.verify.ns3.COMPARISON_SETTING`.  Each seed of the
-reference runs with the same seed in HandoverLab.
+study, and, with ``setting="comparison"`` (or ``comparison=True``),
+:data:`handoverlab.verify.ns3.COMPARISON_SETTING`, with ``setting="ns3-like"``
+:data:`handoverlab.verify.ns3.NS3_LIKE_SETTING` (imitates the link monitoring of ns-3 / 5G-LENA, not 3GPP;
+validation pending).  Each seed of the reference runs with the same seed in HandoverLab.
 
 The checks are those of the studies N3 and V1 (limits as parameters, defaults those of V1):
 
@@ -32,6 +34,7 @@ LIMITS = dict(level=(0.67, 1.5), rank_min=0.8, ho_ratio=(0.8, 1.25), ttt_share=0
 IDEAL_EXECUTION = {"protocol.exec_can_fail": False}
 TRAFFIC = {"light": {}, "full": {"traffic.model": "full_buffer"}}     # mixed: no checked counterpart
 FADING = {"radio.fast_fading": "tdl-c"}                                 # the criterion of the fading checks
+SETTINGS = ("reference", "comparison", "ns3-like")                      # rows R, C and N of the studies
 
 
 def cell_key(isd: int, speed: float, ttt: int, offset: float, traffic: str, fading: bool) -> str:
@@ -39,15 +42,28 @@ def cell_key(isd: int, speed: float, ttt: int, offset: float, traffic: str, fadi
     return "%s_h%g_d%d_v%g_t%d%s" % (traffic, offset, isd, speed, ttt, "_fading" if fading else "")
 
 
+def _setting(setting: Optional[str], comparison: bool) -> str:
+    if setting is None:
+        return "comparison" if comparison else "reference"
+    if setting not in SETTINGS:
+        raise Ns3BridgeError("unknown setting %r; known: %s" % (setting, ", ".join(SETTINGS)))
+    if comparison and setting != "comparison":
+        raise Ns3BridgeError("comparison=True and setting=%r are two different settings; choose one" % setting)
+    return setting
+
+
 def handoverlab_scenario(study: Ns3Study, isd: int, speed: float, traffic: str, fading: bool,
-                         comparison: bool = False, overrides: Optional[Dict] = None):
-    """The HandoverLab scenario of one cell (see the module text)."""
-    from ..verify.ns3 import COMPARISON_SETTING, scenario_for
+                         comparison: bool = False, overrides: Optional[Dict] = None, setting: Optional[str] = None):
+    """The HandoverLab scenario of one cell (see the module text).  ``setting`` is one of :data:`SETTINGS`
+    (default: ``"comparison"`` if ``comparison`` else ``"reference"``)."""
+    from ..verify.ns3 import COMPARISON_SETTING, NS3_LIKE_SETTING, scenario_for
+    setting = _setting(setting, comparison)
     if traffic not in TRAFFIC:
         raise Ns3BridgeError("unsupported option 'ns3.conditions.traffic: %s' for compare: HandoverLab has no "
                              "checked counterpart of this ns-3 traffic (export works; compare supports %s)"
                              % (traffic, ", ".join(TRAFFIC)))
-    ov = dict(COMPARISON_SETTING if comparison else IDEAL_EXECUTION)
+    ov = dict({"reference": IDEAL_EXECUTION, "comparison": COMPARISON_SETTING,
+               "ns3-like": NS3_LIKE_SETTING}[setting])
     ov["mobility.users"] = study.users
     if study.run_length == "study":
         ov.update({"run.duration_s": study.duration_s, "run.warmup_s": study.discard_s})
@@ -102,14 +118,17 @@ def checks(cells: List[Dict[str, Any]], limits: Optional[Dict[str, Any]] = None)
 def compare(study: Union[str, os.PathLike, Dict[str, Any], Ns3Study], reference: Union[str, Dict[str, Any]],
             comparison: bool = False, limits: Optional[Dict[str, Any]] = None, workers: int = 1,
             progress: Optional[Callable[[str], None]] = None, overrides: Optional[Dict] = None,
-            out: Optional[str] = None) -> Dict[str, Any]:
+            out: Optional[str] = None, setting: Optional[str] = None) -> Dict[str, Any]:
     """Run HandoverLab on the cells and seeds of ``reference`` (a file of :func:`import_results` or its
     dictionary) and return the cells and the checks F1-F4; with ``out`` also write the result as JSON.
 
-    ``comparison`` applies :data:`handoverlab.verify.ns3.COMPARISON_SETTING`; ``limits`` changes the limits
+    ``setting`` chooses the HandoverLab row: ``"reference"`` (ideal execution only; the default),
+    ``"comparison"`` (:data:`handoverlab.verify.ns3.COMPARISON_SETTING`; also ``comparison=True``) or
+    ``"ns3-like"`` (:data:`handoverlab.verify.ns3.NS3_LIKE_SETTING`, imitates ns-3); ``limits`` changes the limits
     of :data:`LIMITS`; ``overrides`` (dotted keys) change every HandoverLab scenario further, for
     calibration experiments; ``workers`` runs that many processes.
     """
+    setting = _setting(setting, comparison)
     st = load_ns3_study(study)
     for tr in st.traffic:
         if tr not in TRAFFIC:
@@ -133,7 +152,8 @@ def compare(study: Union[str, os.PathLike, Dict[str, Any], Ns3Study], reference:
         seeds = list(r["seeds"])
         if sorted(seeds) != sorted(st.seeds):
             notes.append("%s: ns-3 runs for seeds %s, the study has %s" % (st.tag(c), seeds, list(st.seeds)))
-        sc = handoverlab_scenario(st, c.isd_m, c.speed_mps, c.traffic, c.fading, comparison, overrides)
+        sc = handoverlab_scenario(st, c.isd_m, c.speed_mps, c.traffic, c.fading, overrides=overrides,
+                                  setting=setting)
         rule = {"rule": "a3", "off_db": c.offset_db, "ttt_s": c.ttt_ms / 1000.0}
         cells.append(dict(key=cell_key(c.isd_m, c.speed_mps, c.ttt_ms, c.offset_db, c.traffic, c.fading),
                           isd_m=c.isd_m, speed_mps=c.speed_mps, ttt_ms=c.ttt_ms, offset_db=c.offset_db,
@@ -143,7 +163,8 @@ def compare(study: Union[str, os.PathLike, Dict[str, Any], Ns3Study], reference:
         jobs += [(sc, rule, s) for s in seeds]
     if progress:
         progress("HandoverLab: %d runs (%d cells)%s" % (len(jobs), len(cells),
-                                                         ", comparison setting" if comparison else ""))
+                                                         {"reference": "", "comparison": ", comparison setting",
+                                                          "ns3-like": ", ns-3-like setting"}[setting]))
     if workers > 1:
         with ProcessPoolExecutor(workers) as pool:
             res = list(pool.map(_job, jobs))
@@ -160,7 +181,8 @@ def compare(study: Union[str, os.PathLike, Dict[str, Any], Ns3Study], reference:
         c["failures_hl"] = int(sum(f for f, _ in part))
         c["ho_pm_hl"] = float(np.mean([h for _, h in part]))
     out_d = dict(study=st.name, study_sha256=st.sha256(), reference_study_sha256=reference.get("study_sha256"),
-                 comparison=bool(comparison), run_length=st.run_length, overrides=dict(overrides or {}),
+                 comparison=setting == "comparison", setting=setting, run_length=st.run_length,
+                 overrides=dict(overrides or {}),
                  cells=cells, checks=checks(cells, limits), notes=notes)
     if reference.get("study_sha256") and reference["study_sha256"] != out_d["study_sha256"]:
         notes.append("the ns-3 results were exported from another version of this study (hash %s, now %s)"

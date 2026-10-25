@@ -29,6 +29,13 @@ validated: it passes the pre-registered checks on none of the three sets
 (on V1 the rank correlation is 0.62) (docs/calibration.md).  It is not a
 default: every default and every stored result is unchanged.
 
+The *ns-3-like setting* (:data:`NS3_LIKE_SETTING`; ``scenario_for(..., ns3_like=True)``,
+``compare(..., ns3_like=True)``, ``handoverlab verify --ns3 --ns3-like``) imitates the link
+monitoring of ns-3 / 5G-LENA v5.1 as found in its code and measured in its runs (out-of-sync after
+200 control receptions below Qout, 0.65-0.9 s, and a handover command that fails while T310 runs).
+It imitates ns-3, not 3GPP, and is not a default; its validation on a fresh ns-3 set (V4) is
+pending (docs/calibration.md).
+
 The comparison is not part of the quick checks: it simulates 4 x 24 runs of
 150 s (a few minutes per seed on one core).
 """
@@ -59,6 +66,18 @@ CAR_LOSS = {"radio.penetration_db": 9.0, "radio.penetration_sd_db": 5.0}
 # of the time-to-trigger effect agree.  Kept for compatibility within 2.x.  Not a default.
 COMPARISON_SETTING = {"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}
 
+# The ns-3-like setting: imitates ns-3 / 5G-LENA v5.1, NOT 3GPP; not a default.  It reproduces the link-failure
+# mechanism found in the code of 5G-LENA v5.1 and measured in ns-3 runs (docs/calibration.md): out-of-sync after
+# 200 consecutive control receptions below Qout (0.65-0.9 s at light traffic, against about 200 ms in TS 38.133),
+# in-sync after 100 receptions above Qin, both counted afresh on every new cell, a reception rate that grows with
+# the users of the cell, a handover command that fails when it arrives while T310 runs (the TR 36.839 model that
+# ns-3 uses; TS 38.331 lets the command stop T310), and ideal execution.  Used with the in-car loss
+# (``car=True``).  Validation on a fresh ns-3 set (V4) is pending.
+NS3_LIKE_SETTING = {"protocol.ns3_oos_rx": 200.0, "protocol.ns3_ins_rx": 100.0, "protocol.ns3_ctrl_hz": 206.0,
+                    "protocol.ns3_ctrl_per_ue_hz": 16.5, "protocol.rlm_holdoff_s": 0.0,
+                    "protocol.cmd_during_t310": "lost", "protocol.exec_can_fail": False, "protocol.lm_load": 0.38}
+SETTINGS = {"comparison": COMPARISON_SETTING, "ns3-like": NS3_LIKE_SETTING}
+
 
 def car_loss(speed_mps: float) -> Dict:
     """Overrides that reproduce the in-car loss ns-3 applies at ``speed_mps``."""
@@ -77,14 +96,17 @@ def load_reference(path: Optional[str] = None) -> dict:
 
 
 def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrides: Optional[Dict] = None,
-                 car: bool = False, comparison: bool = False):
+                 car: bool = False, comparison: bool = False, ns3_like: bool = False):
     """``ns3-urban-3.5ghz`` with the sites of ``isd_m`` and constant speed ``speed_mps`` (8, 16 or 30).
 
     ``overrides`` (dotted keys, such as ``{"protocol.qout_window_s": 0.12}``) change the scenario
     further, for calibration experiments.  ``car`` adds the in-car loss that ns-3 applies at this
     speed (:func:`car_loss`).  ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) before
-    ``overrides``; the setting is meant for ``car=True`` (not validated).
+    ``overrides``; the setting is meant for ``car=True`` (not validated).  ``ns3_like`` applies
+    :data:`NS3_LIKE_SETTING` instead (imitates ns-3, not 3GPP; meant for ``car=True``; validation pending).
     """
+    if comparison and ns3_like:
+        raise ValueError("comparison and ns3_like are two different settings; choose one")
     ref = ref or load_reference()
     mob = ({"mobility.profile": "c%d" % speed_mps} if speed_mps in (8, 16, 30) else
            {"mobility.groups": [{"share": 1.0, "v_min": speed_mps, "v_max": speed_mps, "lateral_m": [0.0, 0.0]}]})
@@ -95,6 +117,8 @@ def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrid
         sc = sc.with_overrides(car_loss(speed_mps))
     if comparison:
         sc = sc.with_overrides(dict(COMPARISON_SETTING))
+    if ns3_like:
+        sc = sc.with_overrides(dict(NS3_LIKE_SETTING))
     return sc.with_overrides(overrides) if overrides else sc
 
 
@@ -105,12 +129,13 @@ def spearman(a: Sequence[float], b: Sequence[float]) -> float:
 
 def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
             overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None,
-            comparison: bool = False) -> Dict:
+            comparison: bool = False, ns3_like: bool = False) -> Dict:
     """Run part A of the reference in HandoverLab and return the per-setting table and the summary.
 
     ``overrides`` change the scenario of every condition and ``car`` adds the in-car loss of ns-3
     (see :func:`scenario_for`); ``reference`` is another reference file (:func:`load_reference`);
-    ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) to every condition.
+    ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) to every condition, ``ns3_like``
+    :data:`NS3_LIKE_SETTING`.
     """
     ref = load_reference(reference)
     rows = [r for r in ref["rows"] if r["part"] == "A"]
@@ -120,7 +145,7 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
     keys = ("attempts_pm", "unnecessary_pm", "failures_pm", "sinr_db")
     sim = {}
     for isd, v in conds:
-        sc = scenario_for(isd, v, ref, overrides, car, comparison)
+        sc = scenario_for(isd, v, ref, overrides, car, comparison, ns3_like)
         for res in simulate(sc, rules, seeds=seeds):
             sim.setdefault((isd, v, res.rule), []).append([res.metrics[k] for k in keys])
         if progress:
@@ -143,7 +168,8 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
         ho_mean_ns3=float(R[:, 0].mean()), ho_mean=float(S[:, 0].mean()),
         ttt_trend_ns3=_trend(table, "ns3"), ttt_trend=_trend(table, "handoverlab"),
         uho_mean_ns3=float(R[:, 1].mean()), uho_mean=float(S[:, 1].mean()),
-        seeds=list(seeds), conditions=[list(c) for c in conds], car=bool(car), comparison=bool(comparison))
+        seeds=list(seeds), conditions=[list(c) for c in conds], car=bool(car), comparison=bool(comparison),
+        ns3_like=bool(ns3_like))
     return dict(table=table, summary=summ)
 
 
@@ -157,13 +183,13 @@ def _trend(table, who: str) -> float:
 
 def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
             overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None,
-            comparison: bool = False) -> Dict:
+            comparison: bool = False, ns3_like: bool = False) -> Dict:
     """Run the held-back parts B and C of the reference (see the module text) and compare them cell by cell.
 
     Part B: two A3 settings on six conditions; part C: one setting with one parameter changed per cell
     (users, preparation delay, T310, site distance, run length, speed).  ``overrides`` change every
     scenario and ``car`` adds the in-car loss of ns-3, as in :func:`compare`; tune only on part A.
-    ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0).
+    ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0), ``ns3_like`` :data:`NS3_LIKE_SETTING`.
     """
     ref = load_reference(reference)
     cells = [r for r in ref["rows"] if r["part"] in ("B", "C")]
@@ -175,7 +201,7 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
         jobs.setdefault(key, []).append(r)
     table = []
     for (isd, v, ovs), rows in jobs.items():
-        sc = scenario_for(isd, v, ref, overrides, car, comparison).with_overrides(json.loads(ovs))
+        sc = scenario_for(isd, v, ref, overrides, car, comparison, ns3_like).with_overrides(json.loads(ovs))
         rules = [{"rule": "a3", "name": "A3_%g_%d" % (r["a3_offset_db"], r["ttt_ms"]), "off_db": r["a3_offset_db"],
                   "ttt_s": r["ttt_ms"] / 1000.0} for r in rows]
         res = simulate(sc, rules, seeds=seeds)
@@ -199,13 +225,16 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
 
 
 def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Optional[str] = None,
-               comparison: bool = False) -> Dict:
+               comparison: bool = False, ns3_like: bool = False) -> Dict:
     """The check group ``ns3``.  ``comparison`` (2.5.0) runs HandoverLab with :data:`COMPARISON_SETTING`
-    and the in-car loss of ns-3 (``car=True``); a setting that brings the failure level closer, not validated."""
+    and the in-car loss of ns-3 (``car=True``); a setting that brings the failure level closer, not validated.
+    ``ns3_like`` runs it with :data:`NS3_LIKE_SETTING` and the in-car loss (imitates ns-3; validation pending)."""
     rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s%s%s)"
                 % (len(seeds), "s" if len(seeds) > 1 else "", "; reference %s" % reference if reference else "",
-                   "; comparison setting with the in-car loss" if comparison else ""))
-    out = compare(seeds, progress, reference=reference, car=comparison, comparison=comparison)
+                   "; comparison setting with the in-car loss" if comparison else
+                   "; ns-3-like setting with the in-car loss" if ns3_like else ""))
+    out = compare(seeds, progress, reference=reference, car=comparison or ns3_like, comparison=comparison,
+                  ns3_like=ns3_like)
     s, L = out["summary"], LIMITS
     for x in out["table"]:
         rep.note("A3 %g dB / %4d ms" % (x["a3_offset_db"], x["ttt_ms"]),
@@ -221,6 +250,7 @@ def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Opt
     rep.check("unnecessary-handover rate: rank correlation >= %.1f" % L["rank_min"],
               s["uho_rank"] >= L["rank_min"], "%.2f" % s["uho_rank"])
     rep.note("failure rate (no limit; comparison setting, not validated: 0.5-1.3 of ns-3)" if comparison else
+             "failure rate (no limit; ns-3-like setting, validation pending)" if ns3_like else
              "failure rate (no limit: interfering load defined differently)",
              "mean %.3f / %.3f per UE-min, rank correlation %.2f"
              % (s["fail_mean"], s["fail_mean_ns3"], s["fail_rank"]))
