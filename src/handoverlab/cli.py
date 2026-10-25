@@ -21,6 +21,11 @@ Commands
         Finished, failed and remaining jobs per stage and the time still needed.
     gui [--port N] [--address A] [--headless]
         Start the browser dashboard (needs ``pip install handoverlab[gui]``).
+    ns3 export STUDY --out DIR [--program FILE] [--force]
+    ns3 import RESULTS.zip|DIR --out REF.json
+    ns3 compare STUDY REF.json [--comparison] [--workers N] [-o OUT] [limits]
+        The bridge to ns-3 / 5G-LENA: export a study as a ready-to-run ns-3
+        package, import its results, compare HandoverLab with them (F1-F4).
     rules
         List the available handover rules.
     init [PATH]
@@ -228,6 +233,62 @@ def _cmd_scenarios(args) -> int:
         return 2
 
 
+def _cmd_ns3(args) -> int:
+    from . import ns3bridge as nb
+    try:
+        if args.ns3_command == "export":
+            man = nb.export(args.study, args.out, program=args.program, overwrite=args.force)
+            print("wrote %s: %d ns-3 runs of study %s (hash %s)" % (args.out, len(man["runs"]), man["name"],
+                                                                    man["study_sha256"][:12]))
+            print("next: build and run it (build.sh and run.py, or run.ps1 on Windows), then "
+                  "handoverlab ns3 import %s" % os.path.join(args.out, man["zip"]))
+            return 0
+        if args.ns3_command == "import":
+            ref = nb.import_results(args.results, args.out)
+            print("wrote %s: %d runs in %d conditions%s" % (args.out, ref["n_runs"], len(ref["rows"]),
+                                                             "; study %s" % ref["study"] if ref.get("study") else ""))
+            return 0
+        if args.workers < 1:
+            print("error: --workers must be at least 1", file=sys.stderr)
+            return 2
+        limits = dict(level=tuple(args.level), rank_min=args.rank_min, ho_ratio=tuple(args.ho_ratio),
+                      ttt_share=args.ttt_share, min_failures=args.min_failures)
+        say = None if args.quiet else (lambda msg: print(msg, file=sys.stderr, flush=True))
+        res = nb.compare(args.study, args.reference, comparison=args.comparison, limits=limits,
+                         workers=args.workers, progress=say, out=args.output)
+    except (ConfigError, OSError, ValueError, KeyError) as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    c = res["checks"]
+    if not args.quiet:
+        print("%-28s %4s %14s %14s %10s %10s" % ("cell", "runs", "failures HL", "failures ns-3", "HO/min HL",
+                                                  "HO/min ns-3"))
+        for x in res["cells"]:
+            print("%-28s %4d %14d %14d %10.3f %10.3f" % (x["key"], x["n"], x["failures_hl"], x["failures_ns3"],
+                                                          x["ho_pm_hl"], x["ho_pm_ns3"]))
+        for n in res["notes"]:
+            print("note: %s" % n)
+
+    def fmt(v, f="%.3f"):
+        return "not measurable" if v is None else f % v
+    L = c["limits"]
+    rows = [("F1 level (failures HL / ns-3) in [%g, %g]" % tuple(L["level"]), fmt(c["F1_level"]), c["pass"]["F1"]),
+            ("F2 rank correlation of failures >= %g" % L["rank_min"], fmt(c["F2_rank"]), c["pass"]["F2"]),
+            ("F3 median handover-rate ratio in [%g, %g]" % tuple(L["ho_ratio"]), fmt(c["F3_ho_ratio"]),
+             c["pass"]["F3"]),
+            ("F4 TTT sign agrees in >= %g of the pairs" % L["ttt_share"],
+             "n/a (one TTT)" if c["F4_ttt_sign"] is None else "%d of %d" % (c["F4_ttt_sign"], c["F4_pairs"]),
+             c["pass"]["F4"])]
+    print("study %s, %s, HandoverLab run length: %s" % (res["study"], "comparison setting" if res["comparison"]
+                                                        else "default link monitoring, ideal execution",
+                                                        res["run_length"]))
+    for text, val, ok in rows:
+        print("  %-48s %-16s %s" % (text, val, "n/a" if ok is None else ("pass" if ok else "FAIL")))
+    if args.output:
+        print("wrote %s" % args.output)
+    return 0 if all(v is not False for v in c["pass"].values()) else 1
+
+
 def _write_text(path: str, text: str) -> None:
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
@@ -288,9 +349,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "(written by benchmarks/ns3/run_benchmark.py)")
     v.add_argument("--ns3-comparison", action="store_true",
                    help="with --ns3: run HandoverLab with the ns-3 comparison setting of 2.5.0 (interferer load "
-                        "0.15 at link monitoring, ideal execution, the in-car loss of ns-3; passed on "
-                        "one fresh ns-3 set with TTT 80/320 ms, failed the level on one with TTT 640 ms; "
-                        "not a default)")
+                        "0.15 at link monitoring, ideal execution, the in-car loss of ns-3): a setting that "
+                        "brings the failure level closer (0.5-1.3 of ns-3's, depending on the set), not "
+                        "validated; not a default")
     v.add_argument("--results", metavar="FILE", help="recompute a JSON result file of 'run' and compare fingerprints")
     v.add_argument("--sample", type=int, help="with --results: recompute only this many runs, chosen at random")
     v.add_argument("--json", metavar="OUT", help="also write the report as JSON")
@@ -329,6 +390,37 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--address", default="localhost", help="address to listen on (default localhost)")
     g.add_argument("--headless", action="store_true", help="do not open a browser window")
     g.set_defaults(func=_cmd_gui)
+    n3 = sub.add_parser("ns3", help="export a study to ns-3 / 5G-LENA, import its results, compare (F1-F4)")
+    n3s = n3.add_subparsers(dest="ns3_command", required=True)
+    ne = n3s.add_parser("export", help="write a ready-to-run ns-3 package of an ns-3 study file")
+    ne.add_argument("study", help="ns-3 study file (.yaml, .yml, .toml or .json; docs/guides/ns3-bridge.md)")
+    ne.add_argument("--out", required=True, metavar="DIR", help="package folder (must not exist or be empty)")
+    ne.add_argument("--program", metavar="FILE",
+                    help="the ns-3 program handoverlab-ns3-a3.cc (default: benchmarks/ns3 of a source checkout)")
+    ne.add_argument("--force", action="store_true", help="write into a folder that is not empty")
+    ni = n3s.add_parser("import", help="read the ns-3 run JSONs (zip of run.py or a folder) into a reference file")
+    ni.add_argument("results", help="the results zip written by run.py, or a folder of run JSONs")
+    ni.add_argument("--out", required=True, metavar="REF", help="reference file to write (.json)")
+    nc = n3s.add_parser("compare", help="run HandoverLab on the cells and seeds of a reference and check F1-F4")
+    nc.add_argument("study", help="ns-3 study file")
+    nc.add_argument("reference", help="reference file written by 'ns3 import'")
+    nc.add_argument("--comparison", action="store_true",
+                    help="run HandoverLab with the ns-3 comparison setting of 2.5.0 (interferer load 0.15 at link "
+                         "monitoring): brings the failure level closer (0.5-1.3 of ns-3's), not validated; "
+                         "not a default")
+    nc.add_argument("--workers", type=int, default=1, help="processes for the HandoverLab runs (default 1)")
+    nc.add_argument("-o", "--output", metavar="OUT", help="also write the cells and checks as JSON")
+    nc.add_argument("--level", type=float, nargs=2, default=[0.67, 1.5], metavar=("LO", "HI"),
+                    help="F1: limits of the failure level HandoverLab / ns-3 (default 0.67 1.5)")
+    nc.add_argument("--rank-min", type=float, default=0.8, help="F2: least rank correlation (default 0.8)")
+    nc.add_argument("--ho-ratio", type=float, nargs=2, default=[0.8, 1.25], metavar=("LO", "HI"),
+                    help="F3: limits of the median handover-rate ratio (default 0.8 1.25)")
+    nc.add_argument("--ttt-share", type=float, default=0.75,
+                    help="F4: least share of TTT pairs with the sign of ns-3 (default 0.75)")
+    nc.add_argument("--min-failures", type=int, default=20,
+                    help="F1 and F2 need at least this many ns-3 failures in total (default 20)")
+    nc.add_argument("-q", "--quiet", action="store_true", help="print only the checks")
+    n3.set_defaults(func=_cmd_ns3)
     ru = sub.add_parser("rules", help="list the available handover rules")
     ru.set_defaults(func=_cmd_rules)
     i = sub.add_parser("init", help="write an example configuration")

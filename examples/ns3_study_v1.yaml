@@ -1,0 +1,24 @@
+# An ns-3 study (docs/guides/ns3-bridge.md): the fresh ns-3 set V1 of version 2.5.0.  With equal run lengths
+# (the default) the ns-3 comparison setting does not pass its pre-registered checks on it (rank 0.62; corrected in 2.6.0).
+#   handoverlab ns3 export examples/ns3_study_v1.yaml --out v1pkg     # then build and run v1pkg with ns-3
+#   handoverlab ns3 import v1pkg/V1_results.zip --out v1_ref.json
+#   handoverlab ns3 compare examples/ns3_study_v1.yaml v1_ref.json --comparison --workers 4
+schema: 1
+name: V1
+description: Failure rate against fresh ns-3 runs (urban, 20 UEs, A3 3 dB, TTT 80 and 320 ms, 40 runs).
+ns3:
+  scenario: ns3-urban-3.5ghz        # the only card the ns-3 program reproduces
+  rule: a3
+  users: 20
+  duration_s: 180                   # simulated time in ns-3, the first discard_s excluded
+  discard_s: 60
+  conditions:                       # full factorial: 8 cells
+    isd_m: [200, 300]
+    speed_mps: [10, 28]
+    ttt_ms: [80, 320]
+    offset_db: [3]
+    traffic: [light]
+    fading: [false]
+  seeds: {first: 401, last: 405}    # ns-3 --rngRun and the HandoverLab seeds
+  outputs: {events: true, ctrl_csv: true}
+  # HandoverLab runs the same 180 s with 60 s warm-up as ns-3 (handoverlab.run_length: study, the default)

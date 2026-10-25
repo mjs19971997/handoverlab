@@ -10,7 +10,7 @@ those settings. Run everything with
 handoverlab verify                 # about two minutes; prints PASS / FAIL / NOTE per check
 handoverlab verify --full          # three seeds for the radio statistics, 60 s engine runs
 handoverlab verify --ns3           # only the comparison with ns-3 / 5G-LENA (a few minutes)
-handoverlab verify --ns3 --ns3-comparison   # the same with the ns-3 comparison setting (2.5.0)
+handoverlab verify --ns3 --ns3-comparison   # the same with the ns-3 comparison setting (2.5.0; not validated)
 handoverlab verify --results results.json --sample 5     # repeat stored runs and compare
 ```
 
@@ -164,8 +164,9 @@ models, not a sampling effect, and it is not resolved in this version. What is k
   T310 = 1 s (the TR 36.839 abstraction). The failure detection of the ns-3 study works on the
   physical-layer quantities of ns-3 rather than on this abstraction, so the same SINR trace need not
   give the same failure times. With its defaults, HandoverLab's failure model is therefore *not
-  calibrated in absolute terms*; since 2.5.0 an ns-3 comparison setting is documented, which passed
-  the pre-registered checks on one fresh set of ns-3 runs and failed the level on another (below).
+  calibrated in absolute terms*. Since 2.5.0 an ns-3 comparison setting is documented that brings the
+  level closer (0.5-1.3 of ns-3's), but it is not validated: compared over equal run lengths it passes
+  the pre-registered checks on none of three fresh sets of ns-3 runs (below; corrected in 2.6.0).
 
 **What this means for results.** Compare failure rates between rules within HandoverLab (the
 tuning budgets of a study are shares of a reference rule's failure rate for this reason), and
@@ -182,15 +183,20 @@ preparation delay and to the number of users differs from ns-3. No calibrated pr
 offered and the default is unchanged. The evidence, and what a calibration would need, are on the
 [calibration page](calibration.md).
 
-**Independent validation (2.5.0).** The ns-3 comparison setting (`handoverlab.verify.ns3.COMPARISON_SETTING`, with the in-car loss of ns-3) passed the pre-registered checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms: level 0.97, rank 0.88) and failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3). In the pre-registered study V1 (40 fresh
-ns-3 runs, time-to-trigger 80 and 320 ms, seeds 401-405) the comparison setting gave 0.97 of ns-3's
-failures with a rank correlation of 0.88 over the 8 cells and passed every criterion; the defaults
-gave 0.33 (rank 0.84). On the earlier fresh set N3 the same setting gave 0.47, because of its TTT
-640 ms cells (about half of ns-3's failures there); its TTT 100 ms cells matched, which was not a
-registered criterion. The setting is documented, not a default:
-`handoverlab.verify.ns3.COMPARISON_SETTING`, `scenario_for(..., car=True, comparison=True)`,
-`compare(..., car=True, comparison=True)` or `handoverlab verify --ns3 --ns3-comparison`. The numbers
-are on the [calibration page](calibration.md#independent-validation-study-250).
+**Independent validation (2.5.0, corrected in 2.6.0).** Three fresh, pre-registered sets of ns-3 runs
+test the failure level: N3 (time-to-trigger 100 and 640 ms), V1 (80 and 320 ms) and V3 (512 and 1024 ms),
+40 runs each. Compared over equal run lengths (120 s measured on both sides), the ns-3 comparison setting
+(`handoverlab.verify.ns3.COMPARISON_SETTING`, with the in-car loss of ns-3) gives 0.52, 1.31 and 0.64 of
+ns-3's failure level; on V1 the order of failures across the 8 cells fails (rank 0.62), so it passes the
+checks on none of the three sets. The defaults give 0.18, 0.32 and 0.17 and fail level and order on all
+three. The handover-rate ratio (0.86-0.96) and the direction of the time-to-trigger effect agree in every
+set. The absolute failure level is therefore not calibrated. 2.5.0 reported that the setting passed on V1
+(level 0.97, rank 0.88) and gave 0.47 on N3; that analysis compared 90 s of HandoverLab with 120 s of
+ns-3, an error found by the ns-3 bridge of 2.6.0. The setting is kept as a setting that brings the level
+closer, not validated and not a default: `handoverlab.verify.ns3.COMPARISON_SETTING`,
+`scenario_for(..., car=True, comparison=True)`, `compare(..., car=True, comparison=True)` or
+`handoverlab verify --ns3 --ns3-comparison`. The numbers are on the
+[calibration page](calibration.md#correction-in-260-equal-run-lengths).
 
 Reproduce the comparison with `handoverlab verify --ns3`; the fully loaded variant is the same
 scenario with `traffic.normal_load: [1.0, 1.0]` and `traffic.hotspot_load: [1.0, 1.0]`.

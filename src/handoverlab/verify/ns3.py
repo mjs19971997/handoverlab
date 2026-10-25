@@ -16,16 +16,18 @@ Acceptance limits (version 0.2):
 * rank correlation (Spearman) over the settings at least 0.9 for both.
 
 Failure rates and the mean serving SINR are reported without a limit: the
-two simulators define the load of interfering cells differently.  With its
-default link-monitoring model HandoverLab gives a third to a sixth of the
-failure level of ns-3 (0.33 on the fresh set V1, 0.16 on N3).  The
+two simulators define the load of interfering cells differently.  The
+absolute failure level is not calibrated.  With equal run lengths on both
+sides (corrected in 2.6.0; the 2.5.0 analyses compared 90 s of HandoverLab
+with 120 s of ns-3), the default link-monitoring model gives 0.18, 0.32 and
+0.17 of the failure level of ns-3 on the fresh sets N3, V1 and V3.  The
 *comparison setting* (:data:`COMPARISON_SETTING`, since 2.5.0;
 ``scenario_for(..., comparison=True)``, ``compare(..., comparison=True)``,
-``handoverlab verify --ns3 --ns3-comparison``) passed the pre-registered
-checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms: level 0.97,
-rank 0.88) and failed the level on another (N3: 0.47, because of its TTT
-640 ms cells) (docs/calibration.md, "Independent validation study (2.5.0)").  It is
-not a default: every default and every stored result is unchanged.
+``handoverlab verify --ns3 --ns3-comparison``) brings the level closer
+(0.52, 1.31 and 0.64 on N3, V1 and V3) but is not
+validated: it passes the pre-registered checks on none of the three sets
+(on V1 the rank correlation is 0.62) (docs/calibration.md).  It is not a
+default: every default and every stored result is unchanged.
 
 The comparison is not part of the quick checks: it simulates 4 x 24 runs of
 150 s (a few minutes per seed on one core).
@@ -49,11 +51,12 @@ CAR_LOSS = {"radio.penetration_db": 9.0, "radio.penetration_sd_db": 5.0}
 
 
 # The ns-3 comparison setting (2.5.0): interferer load 0.15 at link monitoring and ideal execution (ns-3 has
-# an ideal random access).  The pre-registered candidate of study N3 (TTT 100 / 640 ms: failure level 0.47 of
-# ns-3, failed) passed the pre-registered checks, not re-tuned, in study V1 on 40 fresh ns-3 runs (TTT 80 / 320
-# ms: level 0.97, rank correlation 0.88, handover-rate ratio 0.965); checked together with the in-car loss
-# (``car=True``).  It passed on this one fresh set only; in the TTT 640 ms cells of N3 it gives about half of
-# ns-3's failures.  Not a default.
+# an ideal random access), used together with the in-car loss (``car=True``).  A setting that brings the
+# failure level closer to ns-3's, NOT validated.  With equal run lengths on both sides (corrected in 2.6.0; the
+# 2.5.0 analyses compared 90 s of HandoverLab with 120 s of ns-3) it gives 0.52 (N3, TTT 100 / 640 ms), 1.31
+# (V1, TTT 80 / 320 ms; rank correlation 0.62) and 0.64 (V3, TTT 512 / 1024 ms) of ns-3's failure level, so it
+# passes the pre-registered checks on none of the three fresh sets; the handover-rate ratio and the direction
+# of the time-to-trigger effect agree.  Kept for compatibility within 2.x.  Not a default.
 COMPARISON_SETTING = {"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}
 
 
@@ -80,7 +83,7 @@ def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrid
     ``overrides`` (dotted keys, such as ``{"protocol.qout_window_s": 0.12}``) change the scenario
     further, for calibration experiments.  ``car`` adds the in-car loss that ns-3 applies at this
     speed (:func:`car_loss`).  ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) before
-    ``overrides``; the setting was validated with ``car=True``.
+    ``overrides``; the setting is meant for ``car=True`` (not validated).
     """
     ref = ref or load_reference()
     mob = ({"mobility.profile": "c%d" % speed_mps} if speed_mps in (8, 16, 30) else
@@ -198,7 +201,7 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
 def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Optional[str] = None,
                comparison: bool = False) -> Dict:
     """The check group ``ns3``.  ``comparison`` (2.5.0) runs HandoverLab with :data:`COMPARISON_SETTING`
-    and the in-car loss of ns-3 (``car=True``), the setting validated in study V1."""
+    and the in-car loss of ns-3 (``car=True``); a setting that brings the failure level closer, not validated."""
     rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s%s%s)"
                 % (len(seeds), "s" if len(seeds) > 1 else "", "; reference %s" % reference if reference else "",
                    "; comparison setting with the in-car loss" if comparison else ""))
@@ -217,7 +220,7 @@ def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Opt
               s["ho_rank"] >= L["rank_min"], "%.2f" % s["ho_rank"])
     rep.check("unnecessary-handover rate: rank correlation >= %.1f" % L["rank_min"],
               s["uho_rank"] >= L["rank_min"], "%.2f" % s["uho_rank"])
-    rep.note("failure rate (no limit; comparison setting passed on V1, TTT 80/320 ms, failed on N3)" if comparison else
+    rep.note("failure rate (no limit; comparison setting, not validated: 0.5-1.3 of ns-3)" if comparison else
              "failure rate (no limit: interfering load defined differently)",
              "mean %.3f / %.3f per UE-min, rank correlation %.2f"
              % (s["fail_mean"], s["fail_mean_ns3"], s["fail_rank"]))

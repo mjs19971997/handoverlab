@@ -154,7 +154,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 - No DRX (TR 38.854 also studies DRX 40-160 ms); no DPS, SFN or multi-TRP transmission; no Doppler, no fast fading (TR 38.854 clause 6.2.2: one tap per link); no uplink and no timing advance.
 - Radio-link monitoring uses the SSB-based link quality with the CSI-RS evaluation periods of Table 6.3.8.1-1 as filter time constants; cell detection delay (600 ms) is not modelled.
 - Scenario-B (Dmin 150 m, 2 beams per RRH) is not a card of its own; set `layout.site_offset_m: 149.98` and the beams accordingly.
-- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other.
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passed the pre-registered checks on none of three fresh sets (corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

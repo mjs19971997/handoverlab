@@ -172,7 +172,7 @@ def public_surface() -> Dict[str, Any]:
     import dataclasses
 
     import handoverlab
-    from . import eventlog, rules, studies
+    from . import eventlog, ns3bridge, rules, studies
     from .config import Scenario
     from .engine import EVENT_FIELDS
     from .engine.metrics import CAUSES, METRICS, OUTCOMES
@@ -192,7 +192,8 @@ def public_surface() -> Dict[str, Any]:
         schema=SCHEMA_VERSION,
         rule_api=RULE_API_VERSION,
         exports={"handoverlab": sorted(handoverlab.__all__), "handoverlab.rules": sorted(rules.__all__),
-                 "handoverlab.studies": sorted(studies.__all__), "handoverlab.stability": sorted(__all__)},
+                 "handoverlab.studies": sorted(studies.__all__), "handoverlab.stability": sorted(__all__),
+                 "handoverlab.ns3bridge": sorted(ns3bridge.__all__)},
         rule_hooks=hooks,
         rule_attributes=attrs,
         records=records,

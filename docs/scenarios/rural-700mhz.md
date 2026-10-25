@@ -103,7 +103,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 - Vehicles move on straight legs between random waypoints, not on roads; random waypoints are denser in the middle of the area, while ITU-R M.2412-0 Table 5c drops the users uniformly.
 - Links reach about 6.4 km (from a corner site to the opposite corner), beyond the 5 km up to which TR 38.901 Table 7.4.1-1 gives the RMa NLOS formula; those far interferers use it outside its range (handoverlab warns about this).
 - LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6).
-- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other.
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passed the pre-registered checks on none of three fresh sets (corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

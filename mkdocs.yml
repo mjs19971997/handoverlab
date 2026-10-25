@@ -46,6 +46,7 @@ nav:
       - User-plane buffers at handover: guides/buffers.md
       - Your own radio map: guides/radio-maps.md
       - A LEO satellite (NTN): guides/ntn.md
+      - A study in ns-3 and in HandoverLab: guides/ns3-bridge.md
       - Moving from 1.x to 2.0: migration-2.0.md
       - The 10 ms step: time-step.md
       - Reference study: reference-study.md
@@ -82,6 +83,7 @@ nav:
           - Studies: reference/api/studies.md
           - Paired statistics: reference/api/stats.md
           - Verification: reference/api/verify.md
+          - ns-3 bridge: reference/api/ns3bridge.md
           - Dashboard logic: reference/api/gui.md
           - Stability helpers: reference/api/stability.md
   - Explanation:

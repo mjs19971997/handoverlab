@@ -100,7 +100,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 - 20 users for 12 TRxPs instead of the 10 UEs per TRxP of ITU-R M.2412-0 Table 5a; the number is set for run time (the interference load of HandoverLab does not depend on it).
 - LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6).
 - The InH formulas hold for 3D distances of 1 m to 150 m; the hall keeps every link inside that range.
-- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other.
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passed the pre-registered checks on none of three fresh sets (corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

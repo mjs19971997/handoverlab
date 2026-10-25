@@ -103,7 +103,7 @@ Values in **bold** differ from the HandoverLab defaults.
 - Vehicles are placed independently, not by the gap model of TR 37.885 clause 6.1.2, and their number is a sample (100) of the about 870 vehicles of the grid.
 - The coupling gain to the strongest site lies 0.3-1.2 dB below an independent computation around the median (handoverlab verify, group scenarios, U4: failed as registered in 2.3.0; the LOS share close to the sites is a little below the probability, cause open).
 - Received-power level only: no fast fading, no Doppler, no sidelink.
-- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other.
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passed the pre-registered checks on none of three fresh sets (corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

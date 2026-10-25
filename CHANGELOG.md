@@ -7,6 +7,81 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-25
+
+No change of defaults or results: every golden fingerprint is unchanged. This release corrects a wrong
+claim of 2.5.0 about the failure level (see "Corrected").
+
+### Added
+
+- A bridge to ns-3 / 5G-LENA (`handoverlab.ns3bridge`, `handoverlab ns3 export|import|compare`;
+  [guide](docs/guides/ns3-bridge.md)). An ns-3 study file (`examples/ns3_study_v1.yaml`) defines conditions
+  (site distance, speed, time-to-trigger, A3 offset, traffic, fading), users, run length and seeds once.
+  `export` writes a ready-to-run package of the program `benchmarks/ns3/handoverlab-ns3-a3.cc`: the program,
+  `build.sh`, `run.py` (standard library only, resumable, parallel, zips the results), `run.ps1` and
+  `manifest.json` (study hash, HandoverLab version, every ns-3 command line). `import` reads the run JSONs
+  into a reference file in the format of `handoverlab.verify.ns3.load_reference`. `compare` runs HandoverLab
+  on the same cells and seeds (ideal execution, the in-car loss of ns-3; `--comparison` adds the comparison
+  setting of 2.5.0) and applies the checks of the studies N3 and V1 (F1 level, F2 order, F3 handover rate,
+  F4 time-to-trigger effect) with the limits as options. Options the program cannot simulate (other cards,
+  beams, NTN, CHO, DAPS, LTM, other site distances, unknown keys) are refused, naming the option, before any
+  file is written.
+- `handoverlab.ns3bridge` is part of the public surface (`tests/data/public_api.json`).
+
+### Validation
+
+- Pre-registered acceptance of the bridge: exporting the V1 design gives the program options of the hand-made
+  V1 package run by run (40 command lines); importing the 40 V1 results and running `compare` with and
+  without the comparison setting gives the numbers of V1 (rows C and R) exactly, with
+  `handoverlab.run_length: card`, the HandoverLab run length registered for V1 (150 s with 60 s warm-up, so
+  90 s measured against 120 s in ns-3). With the same run length on both sides (`run_length: study`, the
+  default; not registered) the comparison setting gives level 1.31, rank correlation 0.62 (below the limit
+  0.8), handover-rate ratio 0.92 and the TTT sign in 4 of 4 pairs; the default link monitoring 0.32, 0.62,
+  0.94 and 4 of 4. This difference revealed the error corrected below.
+
+### Corrected
+
+- **The failure-level analyses of 2.5.0 compared unequal run lengths.** For the fresh ns-3 sets N3, V1 and
+  V3 the HandoverLab side ran the card's 150 s with 60 s warm-up (90 s measured), while ns-3 ran 180 s with
+  60 s discarded (120 s measured); the level (F1) and order (F2) checks compare failure counts summed over
+  the cells, so the HandoverLab counts covered three quarters of the ns-3 time. A corrected analysis was
+  registered (amendment E1) before any corrected result was seen and applied to all three sets: equal run
+  lengths (180 s, 60 s discarded on both sides), same ns-3 runs, seeds, rows and criteria.
+- Corrected results (registered analysis with the wrong run length in brackets). The ns-3 comparison
+  setting: N3 level 0.52 (0.47), fails; V1 level 1.31 (0.97) but rank correlation 0.62 (0.88), fails; V3
+  level 0.64 (0.44), fails. So it passes F1-F3 on none of the three sets. The defaults (default link
+  monitoring, ideal execution) fail level and rank on all three: level 0.18 / 0.32 / 0.17 (0.16 / 0.33 /
+  0.095), rank 0.71 / 0.62 / 0.76. The handover-rate ratio (0.86-0.96) and the direction of the
+  time-to-trigger effect pass in every set and row. A rate-based level (failures per UE-minute, not affected
+  by the run length) equals the corrected count-based level in every set and row.
+- Consequence: the 2.5.0 statement that the comparison setting passed the pre-registered checks on V1 is
+  withdrawn. The absolute failure level is **not calibrated**: the comparison setting gives 0.5-1.3 times
+  ns-3's failure level depending on the set, and its order of failures across cells is not
+  reliable. `COMPARISON_SETTING`, `comparison=True` and `verify --ns3-comparison` are kept (the stability
+  policy keeps them within 2.x) and documented as a setting that brings the level closer, not validated.
+- Not affected: the comparisons of handover and unnecessary-handover rates (part A of the stored ns-3
+  reference, `handoverlab verify --ns3`, `verify.ns3.compare`) and N2, which use rates per UE-minute.
+- V3 (registered 2026-10-25 before its runs: 40 fresh ns-3 runs, site distance 200 / 300 m, 10 / 28 m/s,
+  time-to-trigger 512 / 1024 ms, seeds 601-605, 1122 ns-3 failures): the comparison setting fails the level
+  in both analyses (0.44 registered, 0.64 corrected) with rank 0.87 / 0.88; the defaults 0.095 / 0.17. At
+  long time-to-trigger HandoverLab has fewer failures than ns-3, consistent with ns-3's slower out-of-sync
+  detection (0.65-0.83 s), which HandoverLab does not model.
+- Planned, not in this release: an "ns-3-like" option (not a default) that imitates ns-3's slower
+  out-of-sync detection, built from the ns-3 data already seen and judged on a fresh set V4 (site distance
+  200 / 400 m, 14 / 22 m/s, time-to-trigger 128 / 1280 ms, seeds 701-705), collected and kept unopened until
+  the option and its settings are frozen.
+- Corrected everywhere the 2.5.0 claim appeared: README ("Checked against ns-3", the boundary table, What's
+  new), `docs/calibration.md` (the summary and the 2.5.0 study, with the registered numbers kept next to the
+  corrected ones, and new sections on V3 and the correction), `docs/comparison.md`, `docs/verification.md`,
+  `docs/standard-compliance.md`, the user guide, the guides, the 12 scenario cards (scenario pages
+  regenerated), the docstrings of `handoverlab.verify.ns3`, the note of `verify --ns3 --ns3-comparison`, and
+  the help of `verify --ns3-comparison` and `ns3 compare --comparison` (command-line reference regenerated).
+
+### Documentation
+
+- Version 2.6.0 in the README, the user guide, the documentation home page and the citation metadata.
+  Dashboard screenshots retaken with this version.
+
 ## [2.5.0] - 2026-10-25
 
 No change of defaults or results: every golden fingerprint is unchanged.
@@ -29,7 +104,8 @@ No change of defaults or results: every golden fingerprint is unchanged.
   time-to-trigger 80 / 320 ms, seeds 401-405). The N3 candidate, not re-tuned (`lm_load` 0.15, ideal
   execution, in-car loss): failure level 0.97 of ns-3 (limit 0.67-1.5), rank correlation 0.88 over the 8 cells,
   handover-rate ratio 0.965, TTT direction in 4 of 4: all pass, so it becomes the documented ns-3 comparison
-  setting. The 2.4.2 link monitoring with ideal execution: level 0.33 (fails), rank 0.84, ratio 0.973. V1 has
+  setting (corrected in 2.6.0: with equal run lengths it fails the rank on V1, 0.62, and is not validated).
+  The 2.4.2 link monitoring with ideal execution: level 0.33 (fails), rank 0.84, ratio 0.973. V1 has
   time-to-trigger 80 and 320 ms only; on the earlier fresh set N3 the same setting failed the level (0.47): its
   TTT 100 ms cells matched, its TTT 640 ms cells had about half of ns-3's failures (matching at 100 ms was not a
   registered criterion).
@@ -48,9 +124,10 @@ No change of defaults or results: every golden fingerprint is unchanged.
 - The failure level is now stated precisely everywhere it was called "not calibrated" (README, scenario cards,
   `docs/comparison.md`, `docs/verification.md`, the user guide and the guides): the ns-3
   comparison setting passed the pre-registered checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms:
-  level 0.97, rank 0.88) and failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the
-  default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3). Scenario
-  pages regenerated.
+  level 0.97, rank 0.88) (withdrawn in 2.6.0: wrong run length; see Corrected)
+  and failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the
+  default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3) (corrected
+  in 2.6.0). Scenario pages regenerated.
 - The learning-rule and AI/ML-mobility guides: the generalisation results of V2.
 - README, `CITATION.cff` and `.zenodo.json` describe HandoverLab as a reproducible system-level simulator for
   studying and comparing handover algorithms and procedures in 5G-Advanced, beyond-5G and some NTN scenarios,
@@ -1171,7 +1248,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/mjs19971997/handoverlab/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/mjs19971997/handoverlab/compare/v2.4.2...v2.5.0
 [2.4.2]: https://github.com/mjs19971997/handoverlab/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/mjs19971997/handoverlab/compare/v2.4.0...v2.4.1

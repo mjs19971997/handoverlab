@@ -100,7 +100,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 - One UT height (1.5 m) for every user: Table 7.2-5 puts indoor users on 1-2 floors (residential) or 1-5 floors (commercial).
 - Indoor users walk between random waypoints at 3 km/h across the area; buildings are not drawn.
 - Received-power level only: no fast fading.
-- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other.
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passed the pre-registered checks on none of three fresh sets (corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

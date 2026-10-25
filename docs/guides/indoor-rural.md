@@ -92,11 +92,10 @@ Means over three seeds per user-minute, with the cards as they are and with the 
   about 15 dB (InH at 20 m) when its state changes. In rural cells these jumps raise the failures from
   0.07 to 0.18 per user-minute and the handovers by about a fifth (13.07 to 15.62); indoors there are
   no failures with either state, and the hard switch adds only a few handovers (3.81 to 3.95).
-- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3
-  comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another
-  with TTT 640 ms cells; [calibration](../calibration.md#independent-validation-study-250)), not in these
-  scenarios; the default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16
-  on N3). Read
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`,
+  not in these scenarios: over equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's
+  level and passes the pre-registered checks on none of three fresh sets, and the default link-monitoring
+  model gives 0.17-0.32 of ns-3's level ([calibration](../calibration.md#correction-in-260-equal-run-lengths)). Read
   failure rates relative to each other.
 
 ## 4. Change them

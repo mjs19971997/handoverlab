@@ -13,7 +13,7 @@ and how something is deprecated before it goes.
 | Schema version of configuration and result files | `handoverlab.stability.SCHEMA_VERSION` (now 1) |
 | Metric and count names and their definitions | [metric reference](reference/metrics.md), `handoverlab.engine.METRICS` |
 | The rule interface: hooks, their arguments, the fields of `RuleContext`, `Observation`, `OutcomeRecord`, `FailureRecord`, the outcome labels and the registry | `handoverlab.rules`, version `handoverlab.stability.RULE_API_VERSION` (now 1) |
-| Python names exported by `handoverlab`, `handoverlab.rules`, `handoverlab.studies`, `handoverlab.stability`, and the documented functions of `handoverlab.eventlog`, `handoverlab.testing`, `handoverlab.verify` and `handoverlab.stats` | [API reference](reference/api/index.md) |
+| Python names exported by `handoverlab`, `handoverlab.rules`, `handoverlab.studies`, `handoverlab.stability`, `handoverlab.ns3bridge` (since 2.6.0), and the documented functions of `handoverlab.eventlog`, `handoverlab.testing`, `handoverlab.verify` and `handoverlab.stats` | [API reference](reference/api/index.md) |
 | Commands and options of the command line | [command-line reference](reference/cli.md) |
 
 Not public: modules and names starting with an underscore, the engine internals

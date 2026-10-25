@@ -44,10 +44,10 @@ together in your own scenario files.
   while the larger array gains 3.5 dB: the signal-to-noise ratio drops by about 3 dB. Interference
   scales with the signal, so `sinr_db` falls less where the cells are interference-limited.
 - Compare `failures_pm` and `unnecessary_pm` between the carriers for the same rule, not their
-  absolute values (the absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with
-  the ns-3 comparison setting, which passed on one fresh set with TTT 80 and 320 ms and failed the level
-  on another with TTT 640 ms cells; see
-  [calibration](../calibration.md#independent-validation-study-250)).
+  absolute values (the absolute failure level is not calibrated: it was checked against ns-3 only on
+  `ns3-urban-3.5ghz`, where the ns-3 comparison setting gives 0.5-1.3 times ns-3's level and passes the
+  pre-registered checks on none of three fresh sets; see
+  [calibration](../calibration.md#correction-in-260-equal-run-lengths)).
 - If a rule tuned at 10 GHz loses at 15 GHz, tune it per carrier (`group_by: [radio.carrier_ghz]`)
   before drawing conclusions: an untuned baseline makes any other rule look good.
 

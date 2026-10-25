@@ -123,6 +123,27 @@
    "deprecated_alias",
    "metric_name",
    "public_surface"
+  ],
+  "handoverlab.ns3bridge": [
+   "CARD",
+   "Cell",
+   "IDEAL_EXECUTION",
+   "LIMITS",
+   "Ns3BridgeError",
+   "Ns3Study",
+   "checks",
+   "command_args",
+   "compare",
+   "export",
+   "handoverlab_scenario",
+   "import_results",
+   "load_ns3_study",
+   "manifest",
+   "program_source",
+   "read_runs",
+   "reference_from_runs",
+   "runs",
+   "study_from_dict"
   ]
  },
  "rule_hooks": {
