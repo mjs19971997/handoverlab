@@ -45,7 +45,7 @@ sources:
   run.duration_s: "the ns-3 study (150 s, the first 60 s not counted)"
 limitations:
   - "Seeds are different realisations in the two simulators; only averages over settings and conditions can be compared."
-  - "The interfering load is defined differently in the two simulators, so failure rates are reported without a pass limit."
+  - "The interfering load is defined differently in the two simulators, so failure rates are reported without a pass limit. With the ns-3 comparison setting (2.5.0, `handoverlab.verify.ns3.COMPARISON_SETTING` with the in-car loss; `verify --ns3 --ns3-comparison`) the failure level passed the pre-registered checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms: level 0.97, rank 0.88) and failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3) (docs/calibration.md)."
   - "Only baseline handover can be compared: 5G-LENA has no conditional handover."
   - "The shadowing along each user's path has one decorrelation distance, the UMi LOS value of 10 m, also on NLOS links (TR 38.901 Table 7.5-6 Part-1: NLOS 13 m)."
 references:

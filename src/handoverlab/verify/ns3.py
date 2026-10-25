@@ -16,8 +16,16 @@ Acceptance limits (version 0.2):
 * rank correlation (Spearman) over the settings at least 0.9 for both.
 
 Failure rates and the mean serving SINR are reported without a limit: the
-two simulators define the load of interfering cells differently, and the
-failure model of HandoverLab is not calibrated in absolute terms.
+two simulators define the load of interfering cells differently.  With its
+default link-monitoring model HandoverLab gives a third to a sixth of the
+failure level of ns-3 (0.33 on the fresh set V1, 0.16 on N3).  The
+*comparison setting* (:data:`COMPARISON_SETTING`, since 2.5.0;
+``scenario_for(..., comparison=True)``, ``compare(..., comparison=True)``,
+``handoverlab verify --ns3 --ns3-comparison``) passed the pre-registered
+checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms: level 0.97,
+rank 0.88) and failed the level on another (N3: 0.47, because of its TTT
+640 ms cells) (docs/calibration.md, "Independent validation study (2.5.0)").  It is
+not a default: every default and every stored result is unchanged.
 
 The comparison is not part of the quick checks: it simulates 4 x 24 runs of
 150 s (a few minutes per seed on one core).
@@ -40,6 +48,15 @@ LIMITS = dict(ratio_lo=0.8, ratio_hi=1.25, rank_min=0.9)
 CAR_LOSS = {"radio.penetration_db": 9.0, "radio.penetration_sd_db": 5.0}
 
 
+# The ns-3 comparison setting (2.5.0): interferer load 0.15 at link monitoring and ideal execution (ns-3 has
+# an ideal random access).  The pre-registered candidate of study N3 (TTT 100 / 640 ms: failure level 0.47 of
+# ns-3, failed) passed the pre-registered checks, not re-tuned, in study V1 on 40 fresh ns-3 runs (TTT 80 / 320
+# ms: level 0.97, rank correlation 0.88, handover-rate ratio 0.965); checked together with the in-car loss
+# (``car=True``).  It passed on this one fresh set only; in the TTT 640 ms cells of N3 it gives about half of
+# ns-3's failures.  Not a default.
+COMPARISON_SETTING = {"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}
+
+
 def car_loss(speed_mps: float) -> Dict:
     """Overrides that reproduce the in-car loss ns-3 applies at ``speed_mps``."""
     return dict(CAR_LOSS) if 30.0 <= speed_mps * 3.6 <= 120.0 else {}
@@ -57,12 +74,13 @@ def load_reference(path: Optional[str] = None) -> dict:
 
 
 def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrides: Optional[Dict] = None,
-                 car: bool = False):
+                 car: bool = False, comparison: bool = False):
     """``ns3-urban-3.5ghz`` with the sites of ``isd_m`` and constant speed ``speed_mps`` (8, 16 or 30).
 
     ``overrides`` (dotted keys, such as ``{"protocol.qout_window_s": 0.12}``) change the scenario
     further, for calibration experiments.  ``car`` adds the in-car loss that ns-3 applies at this
-    speed (:func:`car_loss`).
+    speed (:func:`car_loss`).  ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) before
+    ``overrides``; the setting was validated with ``car=True``.
     """
     ref = ref or load_reference()
     mob = ({"mobility.profile": "c%d" % speed_mps} if speed_mps in (8, 16, 30) else
@@ -72,6 +90,8 @@ def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrid
         "layout.sites": ref["sites"][str(isd_m)]}))
     if car and car_loss(speed_mps):
         sc = sc.with_overrides(car_loss(speed_mps))
+    if comparison:
+        sc = sc.with_overrides(dict(COMPARISON_SETTING))
     return sc.with_overrides(overrides) if overrides else sc
 
 
@@ -81,11 +101,13 @@ def spearman(a: Sequence[float], b: Sequence[float]) -> float:
 
 
 def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
-            overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None) -> Dict:
+            overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None,
+            comparison: bool = False) -> Dict:
     """Run part A of the reference in HandoverLab and return the per-setting table and the summary.
 
     ``overrides`` change the scenario of every condition and ``car`` adds the in-car loss of ns-3
-    (see :func:`scenario_for`); ``reference`` is another reference file (:func:`load_reference`).
+    (see :func:`scenario_for`); ``reference`` is another reference file (:func:`load_reference`);
+    ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) to every condition.
     """
     ref = load_reference(reference)
     rows = [r for r in ref["rows"] if r["part"] == "A"]
@@ -95,7 +117,7 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
     keys = ("attempts_pm", "unnecessary_pm", "failures_pm", "sinr_db")
     sim = {}
     for isd, v in conds:
-        sc = scenario_for(isd, v, ref, overrides, car)
+        sc = scenario_for(isd, v, ref, overrides, car, comparison)
         for res in simulate(sc, rules, seeds=seeds):
             sim.setdefault((isd, v, res.rule), []).append([res.metrics[k] for k in keys])
         if progress:
@@ -118,7 +140,7 @@ def compare(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
         ho_mean_ns3=float(R[:, 0].mean()), ho_mean=float(S[:, 0].mean()),
         ttt_trend_ns3=_trend(table, "ns3"), ttt_trend=_trend(table, "handoverlab"),
         uho_mean_ns3=float(R[:, 1].mean()), uho_mean=float(S[:, 1].mean()),
-        seeds=list(seeds), conditions=[list(c) for c in conds])
+        seeds=list(seeds), conditions=[list(c) for c in conds], car=bool(car), comparison=bool(comparison))
     return dict(table=table, summary=summ)
 
 
@@ -131,12 +153,14 @@ def _trend(table, who: str) -> float:
 
 
 def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], None]] = None,
-            overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None) -> Dict:
+            overrides: Optional[Dict] = None, car: bool = False, reference: Optional[str] = None,
+            comparison: bool = False) -> Dict:
     """Run the held-back parts B and C of the reference (see the module text) and compare them cell by cell.
 
     Part B: two A3 settings on six conditions; part C: one setting with one parameter changed per cell
     (users, preparation delay, T310, site distance, run length, speed).  ``overrides`` change every
     scenario and ``car`` adds the in-car loss of ns-3, as in :func:`compare`; tune only on part A.
+    ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0).
     """
     ref = load_reference(reference)
     cells = [r for r in ref["rows"] if r["part"] in ("B", "C")]
@@ -148,7 +172,7 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
         jobs.setdefault(key, []).append(r)
     table = []
     for (isd, v, ovs), rows in jobs.items():
-        sc = scenario_for(isd, v, ref, overrides, car).with_overrides(json.loads(ovs))
+        sc = scenario_for(isd, v, ref, overrides, car, comparison).with_overrides(json.loads(ovs))
         rules = [{"rule": "a3", "name": "A3_%g_%d" % (r["a3_offset_db"], r["ttt_ms"]), "off_db": r["a3_offset_db"],
                   "ttt_s": r["ttt_ms"] / 1000.0} for r in rows]
         res = simulate(sc, rules, seeds=seeds)
@@ -171,10 +195,14 @@ def holdout(seeds: Sequence[int] = (500,), progress: Optional[Callable[[str], No
     return dict(table=table, summary=summ)
 
 
-def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Optional[str] = None) -> Dict:
-    rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s%s)"
-                % (len(seeds), "s" if len(seeds) > 1 else "", "; reference %s" % reference if reference else ""))
-    out = compare(seeds, progress, reference=reference)
+def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Optional[str] = None,
+               comparison: bool = False) -> Dict:
+    """The check group ``ns3``.  ``comparison`` (2.5.0) runs HandoverLab with :data:`COMPARISON_SETTING`
+    and the in-car loss of ns-3 (``car=True``), the setting validated in study V1."""
+    rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s%s%s)"
+                % (len(seeds), "s" if len(seeds) > 1 else "", "; reference %s" % reference if reference else "",
+                   "; comparison setting with the in-car loss" if comparison else ""))
+    out = compare(seeds, progress, reference=reference, car=comparison, comparison=comparison)
     s, L = out["summary"], LIMITS
     for x in out["table"]:
         rep.note("A3 %g dB / %4d ms" % (x["a3_offset_db"], x["ttt_ms"]),
@@ -189,7 +217,8 @@ def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Opt
               s["ho_rank"] >= L["rank_min"], "%.2f" % s["ho_rank"])
     rep.check("unnecessary-handover rate: rank correlation >= %.1f" % L["rank_min"],
               s["uho_rank"] >= L["rank_min"], "%.2f" % s["uho_rank"])
-    rep.note("failure rate (no limit: interfering load defined differently)",
+    rep.note("failure rate (no limit; comparison setting passed on V1, TTT 80/320 ms, failed on N3)" if comparison else
+             "failure rate (no limit: interfering load defined differently)",
              "mean %.3f / %.3f per UE-min, rank correlation %.2f"
              % (s["fail_mean"], s["fail_mean_ns3"], s["fail_rank"]))
     rep.note("mean serving SINR (no limit)", "%.1f dB / %.1f dB" % (s["sinr_mean"], s["sinr_mean_ns3"]))

@@ -50,6 +50,6 @@ limitations:
   - "One antenna gain per link (the antenna abstraction), no sectors and no beam pattern: TR 37.885 leaves the TXRU mapping to the proponents."
   - "The place-tied shadowing field is the same for all users at a place (TR 38.901 spatial consistency, exponential autocorrelation of Eq. 7.4-5) and uncorrelated between sites: TR 37.885 clause 6.2.2 takes the shadowing of the TR 38.901 path-loss model for B2V links, and TR 38.901 clause 7.5 step 4 has uncorrelated LSPs for different BS-UT links (since 2.1.0; until 2.0.0 half correlated, a value of the TR 36.885 model)."
   - "Received-power level only: no fast fading, no Doppler, no sidelink."
-  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+  - "The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other."
 references:
   - "Values checked against the texts of TR 37.885 V15.3.0, TR 36.885 V14.0.0 and TR 38.901 V19.5.0 (unchanged from V17.0.0); geometry, wrap-around and the coupling loss of the link are checked by handoverlab verify (group highway)."

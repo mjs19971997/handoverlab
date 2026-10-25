@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.4.2. It explains the ideas behind a run, the built-in
+This guide covers version 2.5.0. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -845,7 +845,11 @@ intervals are wide; the report shows them next to every estimate.
   SINRs and a slot scheduler with MCS and HARQ are options since 2.2.0 ([fading](guides/fading.md),
   [scheduler](guides/scheduler.md)).
 - The failure model uses the SINR thresholds and timers of TR 36.839 with the procedures of TS 38.331 and
-  TS 38.133 (see [standard compliance](standard-compliance.md)); it is not calibrated in absolute terms, so
+  TS 38.133 (see [standard compliance](standard-compliance.md)). Its absolute level was checked against
+  ns-3 / 5G-LENA only with the ns-3 comparison setting (`handoverlab.verify.ns3.COMPARISON_SETTING`, not a
+  default), which passed the pre-registered checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms:
+  level 0.97, rank 0.88) and failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the
+  default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3), so
   failure rates are best read relative to each other.
 - The radio map of a large grid takes some time and memory to build (for the default 3 x 3 grid at
   100 m spacing, 76 sites and 0.2 million street pixels: about 17 s on a modest machine, see
@@ -857,8 +861,10 @@ intervals are wide; the report shows them next to every estimate.
 - Compared with ns-3 / 5G-LENA, handover and unnecessary-handover rates agree (median ratios 0.95 and
   1.06 over 24 A3 settings, version 2.1.0), failure rates do not: 0.03 against 0.43 per UE-minute (see the
   validation section of [verification.md](verification.md)). Compare failure rates between rules
-  within HandoverLab, not with absolute values from other simulators or from the field. An attempt
-  to calibrate the failure model against ns-3 found no setting that holds on independent ns-3
-  results ([calibration](calibration.md)).
+  within HandoverLab, not with absolute values from other simulators or from the field. With the ns-3
+  comparison setting (2.5.0; `handoverlab verify --ns3 --ns3-comparison`) the setting passed the
+  pre-registered checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms: level 0.97, rank 0.88) and
+  failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the default link-monitoring
+  model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3) ([independent validation study](calibration.md#independent-validation-study-250)).
 - Tuning gates check the search, not the model: a study that passes every gate can still answer the
   wrong question if the scenario does not fit it.

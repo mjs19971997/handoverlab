@@ -53,8 +53,8 @@ options:
 
 ```text
 usage: handoverlab verify [-h] [--only GROUP [GROUP ...]] [--full] [--ns3] [--ns3-seeds NS3_SEEDS]
-                          [--ns3-reference FILE] [--results FILE] [--sample SAMPLE] [--json OUT]
-                          [-q]
+                          [--ns3-reference FILE] [--ns3-comparison] [--results FILE]
+                          [--sample SAMPLE] [--json OUT] [-q]
 
 options:
   -h, --help            show this help message and exit
@@ -69,6 +69,10 @@ options:
                         seeds per condition for --ns3 (default 1)
   --ns3-reference FILE  with --ns3: compare with this reference file instead of the stored one
                         (written by benchmarks/ns3/run_benchmark.py)
+  --ns3-comparison      with --ns3: run HandoverLab with the ns-3 comparison setting of 2.5.0
+                        (interferer load 0.15 at link monitoring, ideal execution, the in-car loss
+                        of ns-3; passed on one fresh ns-3 set with TTT 80/320 ms, failed the level
+                        on one with TTT 640 ms; not a default)
   --results FILE        recompute a JSON result file of 'run' and compare fingerprints
   --sample SAMPLE       with --results: recompute only this many runs, chosen at random
   --json OUT            also write the report as JSON

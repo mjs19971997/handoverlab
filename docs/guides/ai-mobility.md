@@ -162,6 +162,15 @@ almost all of the gain comes from not waiting for the time-to-trigger: sample an
 passed only by 0.0002 attempts per UE per second), and both make 55 % more attempts and three times the
 ping-pongs. The TR tables report no ping-pong rate; read the gain together with that cost.
 
+**Generalisation (2.5.0).** Tuned and trained on `urban-grid-10ghz` (ridge, case A) and tested on four other
+cards with unseen seeds in a pre-registered study ([V2](../calibration.md#v2-do-the-adaptive-and-learning-rules-generalise)), `a3_pred` did not generalise: on
+`urban-macro-tr37885-4ghz` it had more unnecessary handovers than tuned A3 (+0.95 per UE-minute) while its
+failures fell (0.38 against 1.76), and it cannot run on `ns3-urban-3.5ghz`, whose 0.2 s measurement period
+differs from the 0.04 s the predictor was trained at (the rule refuses such a predictor). Limits of the design:
+with 5 seeds the smallest two-sided Wilcoxon p is 0.0625, so the no-harm check could not fail, and
+`fr3-urban-15ghz` is the training grid at another frequency, so it is the least independent test card
+([V2](../calibration.md#v2-do-the-adaptive-and-learning-rules-generalise)).
+
 The runner and the full numbers are kept outside the package; `handoverlab verify --only learning` repeats a
 short check of the mechanics (P1-P4) on the `smoke` card.
 

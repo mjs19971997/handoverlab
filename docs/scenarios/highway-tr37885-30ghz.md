@@ -150,7 +150,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 - The road passes under the centre site (TR 36.885 Figure A.1.3-3): within 10 m of it the UMa LOS formula, specified for 10 m <= d2D (TR 38.901 Table 7.4.1-1), is evaluated at d2D = 10 m (radio.pl_min_distance_m, since 2.0.0).
 - TR 37.885 clause 6.2.1 sets the effective environment height hE to 0.25 m for these links; the simulator's UMa uses hE = 1 m. Only the breakpoint distance depends on it (5.8 km instead of 13.4 km), and both lie beyond every distance on this road, so the path loss is the same.
 - Received-power level only: no fast fading, no Doppler, no sidelink.
-- The failure model is not calibrated in absolute terms; read failure rates relative to each other.
+- The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

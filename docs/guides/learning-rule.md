@@ -123,6 +123,14 @@ interface, not a tuned method: in a run of the code above (three training seeds 
 and 2.61 against 5.09, 4.04 and 3.94 per user-minute); its failures were the same on seed 1, lower
 on seed 2 (0.13 against 0.16) and higher on seed 3 (0.03 against 0).
 
+**Generalisation (2.5.0).** In a pre-registered study, tuned and trained on `urban-grid-10ghz` and tested on
+four other cards with unseen seeds ([V2](../calibration.md#v2-do-the-adaptive-and-learning-rules-generalise)), `dqn` kept fewer unnecessary handovers than tuned A3 on all four
+test cards (-0.36 to -1.41 per UE-minute) with no cost flag. `a3_bandit` met the registered criteria only
+formally: it had more unnecessary handovers than tuned A3 on every card and 1.65 to 4.15 times its ping-pong
+on three of them, in exchange for fewer failures. Limits of the design: with 5 seeds the smallest two-sided
+Wilcoxon p is 0.0625, so the no-harm check could not fail, and `fr3-urban-15ghz` is the training grid at another
+frequency, so it is the least independent test card ([V2](../calibration.md#v2-do-the-adaptive-and-learning-rules-generalise)).
+
 ## 4. Write your own learning rule
 
 A learning rule sets `learns = True` and implements `on_outcome` (and, if it wants, `on_link_failure`):

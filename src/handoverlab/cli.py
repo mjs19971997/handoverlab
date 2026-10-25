@@ -8,7 +8,8 @@ Commands
         the configuration, else ``results/<config name>.csv``).  ``--events``
         writes the event logs as a table (.parquet with pyarrow, else .csv);
         with ``--event-level full`` also the procedure trace (FILE-trace).
-    verify [--only GROUP ...] [--full] [--ns3 [--ns3-reference FILE]] [--results FILE --sample N] [--json OUT]
+    verify [--only GROUP ...] [--full] [--ns3 [--ns3-reference FILE] [--ns3-comparison]]
+           [--results FILE --sample N] [--json OUT]
         Run the verification checks and print a pass/fail report.
     scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
         List the built-in scenarios, or show the card of one.
@@ -113,7 +114,8 @@ def _cmd_verify(args) -> int:
     printer = None if args.quiet else (lambda msg: print(msg, flush=True))
     try:
         rep = run_verify(groups, full=args.full, ns3=args.ns3, ns3_seeds=args.ns3_seeds, results=args.results,
-                         sample=args.sample, printer=printer, ns3_reference=args.ns3_reference)
+                         sample=args.sample, printer=printer, ns3_reference=args.ns3_reference,
+                         ns3_comparison=args.ns3_comparison)
     except (ValueError, OSError) as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
@@ -284,6 +286,11 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--ns3-reference", metavar="FILE",
                    help="with --ns3: compare with this reference file instead of the stored one "
                         "(written by benchmarks/ns3/run_benchmark.py)")
+    v.add_argument("--ns3-comparison", action="store_true",
+                   help="with --ns3: run HandoverLab with the ns-3 comparison setting of 2.5.0 (interferer load "
+                        "0.15 at link monitoring, ideal execution, the in-car loss of ns-3; passed on "
+                        "one fresh ns-3 set with TTT 80/320 ms, failed the level on one with TTT 640 ms; "
+                        "not a default)")
     v.add_argument("--results", metavar="FILE", help="recompute a JSON result file of 'run' and compare fingerprints")
     v.add_argument("--sample", type=int, help="with --results: recompute only this many runs, chosen at random")
     v.add_argument("--json", metavar="OUT", help="also write the report as JSON")

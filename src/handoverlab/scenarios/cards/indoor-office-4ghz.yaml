@@ -49,6 +49,6 @@ limitations:
   - "20 users for 12 TRxPs instead of the 10 UEs per TRxP of ITU-R M.2412-0 Table 5a; the number is set for run time (the interference load of HandoverLab does not depend on it)."
   - "LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters, Table 7.5-6)."
   - "The InH formulas hold for 3D distances of 1 m to 150 m; the hall keeps every link inside that range."
-  - "The failure model is not calibrated in absolute terms; read failure rates relative to each other."
+  - "The absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells, docs/calibration.md); read failure rates relative to each other."
 references:
   - "Layout, heights, speeds, path loss, LOS probability and correlation distances checked against TR 38.901 V19.5.0 (unchanged from V17.0.0) and the link budget against ITU-R M.2412-0; path loss and LOS probability against values computed by hand (handoverlab verify, group pathloss); determinism and invariant checks as for every scenario."

@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23409131.svg)](https://doi.org/10.5281/zenodo.23409131) [![PyPI](https://img.shields.io/pypi/v/handoverlab.svg)](https://pypi.org/project/handoverlab/)
 
-A system-level handover simulator for 5G-Advanced and beyond-5G research, written in Python.
+HandoverLab is a reproducible system-level simulator for studying and comparing handover algorithms and procedures in 5G-Advanced, beyond-5G and some NTN scenarios, with explicit models, optional features and a documented validation scope. It is written in Python.
 
 HandoverLab simulates 3GPP mobility procedures (baseline handover with Event A3, Release-16
 conditional handover and DAPS handover, Release-18 L1/L2-triggered mobility, conditional handover with
@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.4.2** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.5.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -199,7 +199,7 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference; options: a slot scheduler (`protocol.scheduler`: round robin or proportional fair) with the MCS, TBS and HARQ of TS 38.214 (since 2.2.0), and user-plane buffers at handover (`protocol.buffers`: simplified PDCP / RLC in AM or UM with Xn data forwarding, since 2.3.0) | by default the rate from the SINR (Shannon-type mapping) without a scheduler; with the scheduler the channel is held for the 10 ms step and the MCS is chosen from the SINR of one measurement interval earlier (no CSI reports); buffers: downlink only, one bearer per user, the interruption quantised to the measurement interval; both options need the base engine (no beams, layers, NTN or TS 38.133 periods) | uplink data, CSI-based link adaptation, PDCP reordering and status reports at the UE, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
 | Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `a3_pred`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
-| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; absolute failure rates are not calibrated: compare rules with each other |
+| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; the absolute failure level: the ns-3 comparison setting passed the pre-registered checks on one fresh ns-3 set (TTT 80 and 320 ms) and failed the level on another (TTT 640 ms cells); the default gives a third to a sixth of ns-3's: compare rules with each other |
 | Time | 10 ms step by default (`protocol.step_s`); the effect of the step is measured in [time step](https://github.com/mjs19971997/handoverlab/blob/main/docs/time-step.md) | events rounded to the step | sub-slot timing |
 
 Built-in cards: `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`, `urban-grid-28ghz-beams`, `dense-urban-2layer`,
@@ -268,9 +268,15 @@ The same 24 Event-A3 settings were simulated in HandoverLab and in the packet-le
 ns-3 with 5G-LENA. Handover and unnecessary-handover rates agree (median ratios 0.95 and 1.06,
 rank correlation 0.99; `handoverlab verify --ns3`, version 2.1.0). For failure rates, with the in-car loss of ns-3 and the restart of the link
 monitoring switched on, the order of settings and conditions agrees too, also on ns-3 results
-that were held back from any tuning (rank correlation 0.82-0.91). The absolute values
-differ, so compare failure rates between rules within HandoverLab. The causes are traced in
-[docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md). On two of them HandoverLab follows the 3GPP texts more closely
+that were held back from any tuning (rank correlation 0.82-0.91). For the failure level,
+the ns-3 comparison setting of 2.5.0 (`handoverlab.verify.ns3.COMPARISON_SETTING`: interferer load
+0.15 at link monitoring and ideal execution, with the in-car loss of ns-3;
+`handoverlab verify --ns3 --ns3-comparison`) passed the pre-registered checks on one fresh set of ns-3
+runs (V1, TTT 80 and 320 ms: level 0.97 of ns-3, rank 0.88) and failed the level on another (N3: 0.47,
+because of its TTT 640 ms cells). The default link-monitoring model gives a third to a sixth of ns-3's
+level (0.33 on V1, 0.16 on N3). The setting is not a default, so
+compare failure rates between rules within HandoverLab. The study and the causes of the differences are
+in [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md). On two of the causes HandoverLab follows the 3GPP texts more closely
 than ns-3:
 
 - **In-car penetration loss.** TR 38.901 clause 7.4.3.2 gives it to a user inside a car. ns-3 adds
@@ -287,6 +293,16 @@ L1/L2-triggered mobility.
 
 ## What's new
 
+- **2.5.0**: an independent, pre-registered [validation study](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md#independent-validation-study-250). On 40
+  fresh ns-3 runs (V1, TTT 80 and 320 ms) the ns-3 comparison setting passed the pre-registered checks
+  (level 0.97, order 0.88); on the earlier fresh set N3 it failed the level (0.47, because of its TTT 640 ms
+  cells). It is now documented as code (`handoverlab.verify.ns3.COMPARISON_SETTING`,
+  `verify --ns3 --ns3-comparison`; not a default). Tuned on one card and tested on four unseen cards and
+  seeds, `a3_mro` and `dqn` kept fewer unnecessary handovers than tuned A3; `a3_bandit` met the criteria
+  only formally (more unnecessary handovers and ping-pong); `a3_pred` did not generalise. Limits of this
+  design: with 5 seeds the smallest two-sided Wilcoxon p is 0.0625, so the no-harm check could not fail, and
+  `fr3-urban-15ghz` is the training grid at another frequency, so it is the least independent test card
+  ([V2](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md#v2-do-the-adaptive-and-learning-rules-generalise)). No change of results.
 - **2.4.0**: UE receive beams (panels of TR 38.802, best beam or a sweep); a measurement-prediction rule after
   TR 38.744 (`a3_pred`: predicted Event A3 or measurement skipping, sample and hold or a trained ridge
   predictor); the slot scheduler as a compiled kernel (`run.backend: numba`, bit-identical; on the ns-3 card
@@ -511,9 +527,12 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     scheduler, the 7 GHz calibration and the comparison with other simulators.
 27. 2.4.1: pictures, citation and tutorials brought up to date; the example study
     completes again; no change of results.
-28. **2.4.2 (this release)**: every option has a picture; the dashboard pictures show the current version;
+28. 2.4.2: every option has a picture; the dashboard pictures show the current version;
     guide and tutorial examples rerun; facts made consistent; no change of results.
-29. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
+29. **2.5.0 (this release)**: an independent, pre-registered validation study: the ns-3 comparison setting
+    for the failure level (passed on one fresh set with TTT 80 and 320 ms, failed the level on N3), and the generalisation of the adaptive and learning rules to
+    unseen cards and seeds; no change of results.
+30. Later (planned, not done), staying a handover simulator: the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain, hundreds of
     users per run, and one scenario definition that also runs in ns-3; condEventT1 and earth-fixed beams.
 
@@ -523,9 +542,10 @@ If you use HandoverLab, please cite it as described in [CITATION.cff](https://gi
 it under *Cite this repository*). Every release is archived on Zenodo:
 [doi:10.5281/zenodo.23409131](https://doi.org/10.5281/zenodo.23409131) cites all versions (it resolves to
 the latest). To cite the exact version you used, take its DOI from the version list on that page, where
-the DOI of the latest version is listed; for example, version 2.4.1 is
+the DOI of the latest version is listed; for example, version 2.4.2 is
+[doi:10.5281/zenodo.23589215](https://doi.org/10.5281/zenodo.23589215), version 2.4.1
 [doi:10.5281/zenodo.23585308](https://doi.org/10.5281/zenodo.23585308) and version 2.4.0
-[doi:10.5281/zenodo.23582521](https://doi.org/10.5281/zenodo.23582521). The BibTeX entry below cites 2.4.1;
+[doi:10.5281/zenodo.23582521](https://doi.org/10.5281/zenodo.23582521). The BibTeX entry below cites 2.4.2;
 replace version and DOI with those of the version you used.
 
 ```bibtex
@@ -534,8 +554,8 @@ replace version and DOI with those of the version you used.
   title     = {{HandoverLab}: system-level handover simulator for 5G-Advanced and beyond-5G research},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {2.4.1},
-  doi       = {10.5281/zenodo.23585308},
+  version   = {2.4.2},
+  doi       = {10.5281/zenodo.23589215},
   url       = {https://github.com/mjs19971997/handoverlab}
 }
 ```

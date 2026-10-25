@@ -4,6 +4,14 @@ The radio model itself is calibrated against 3GPP (TR 38.901 clause 7.8.1, the 2
 R1-165974); see [radio calibration against 3GPP](calibration-3gpp.md). This page is about the
 failure model, which no 3GPP calibration covers.
 
+**Where the failure level stands (2.5.0).** The *ns-3 comparison setting*
+(`handoverlab.verify.ns3.COMPARISON_SETTING`: interferer load 0.15 at link monitoring, ideal execution,
+with the in-car loss of ns-3) passed the pre-registered checks against ns-3 / 5G-LENA on one fresh set
+of ns-3 runs (V1, TTT 80 and 320 ms: level 0.97, rank 0.88) and failed the level on another (N3: 0.47,
+because of its TTT 640 ms cells). The default link-monitoring model gives a third to a sixth of ns-3's
+level (0.33 on V1, 0.16 on N3). The setting is not a default. See the [independent validation study (2.5.0)](#independent-validation-study-250) at the
+end of this page, which also tests whether the adaptive and learning rules generalise.
+
 **Fresh hold-out D (1.9.0).** 48 new ns-3 runs on conditions never used before (12 and 20 m/s)
 were compared with the 1.3.0 configuration fixed in advance: handover and unnecessary-handover
 rates agree (median ratios 0.93 and 0.95, ranks 0.97), and the failure level agrees too (ratio
@@ -53,7 +61,9 @@ traffic), with limits fixed before the runs:
 At TTT 100 ms the fixed load gives ns-3's failure counts (17 against 14, 11 against 10); at
 TTT 640 ms it gives about half of them (84 against 180, 68 against 193), the known effect of ns-3's
 slow out-of-sync detection (below). As fixed in advance, the setting is not adopted because the
-level check fails; it is reported here, and no further tuning was done on these runs.
+level check fails; it is reported here, and no further tuning was done on these runs. It was
+adopted as the comparison setting in 2.5.0 after V1, see
+[below](#independent-validation-study-250).
 
 **Summary (1.5.0).** Handover and unnecessary-handover rates of HandoverLab agree with ns-3 /
 5G-LENA. For failure rates, the order of settings and conditions agrees on part A and on both
@@ -381,3 +391,111 @@ time should follow the control traffic of each cell.
 
 Reproduce with `compare(seeds=[500, 501], overrides=...)` and
 `holdout(seeds=[500, 501, 502, 503], overrides=...)` from `handoverlab.verify.ns3`.
+
+## Independent validation study (2.5.0)
+
+A study in two parts was registered on 2026-10-24, before any of its runs, with its conditions, seeds,
+criteria and decisions fixed; one amendment (2026-10-25, before any run of part V2) fixed the tuning
+grids and the test procedure without changing a criterion, card, seed or selection rule. Nothing was
+tuned on the study's data, and every result is reported as it came. Code: HandoverLab 2.4.2 (results
+identical to 2.4.0).
+
+### V1: failure rate against fresh ns-3 runs
+
+**Runs.** 40 new ns-3 / 5G-LENA runs (`benchmarks/ns3/handoverlab-ns3-a3.cc`, ns-3.48 with the
+documented upstream commits, 5G-LENA v5.1 with the one documented local change, see
+`benchmarks/ns3/README.md`) on conditions never used before: urban, 20 users, 180 s (60 s
+discarded), light traffic, A3 3 dB, site distance 200 and 300 m, 10 and 28 m/s (both inside the
+30-120 km/h range of the ns-3 in-car loss), time-to-trigger 80 and 320 ms, seeds 401-405: 8 cells of
+5 runs. HandoverLab ran `verify.ns3.scenario_for(isd, v, car=True)` with seeds 401-405 in two rows
+fixed in advance:
+
+- **R** (reference): the 2.4.2 defaults with `protocol.exec_can_fail: false` (ns-3 has ideal execution);
+- **C** (the N3 candidate above, not re-tuned): R with `protocol.lm_load: 0.15`.
+
+| Row | F1 level, sum HandoverLab / sum ns-3 (0.67-1.5) | F2 order, Spearman over the 8 cells (at least 0.8) | F3 handover rate, median ratio (0.8-1.25) | F4 TTT direction (3 of 4) |
+|---|---|---|---|---|
+| C: `lm_load` 0.15, ideal execution | 0.97, passes | 0.88, passes | 0.965, passes | 4, passes |
+| R: 2.4.2 link monitoring, ideal execution | 0.33, fails | 0.84, passes | 0.973, passes | 4, passes |
+
+Failures summed over the 5 seeds per cell (site distance / speed / time-to-trigger):
+
+| Cell | 200 m, 10 m/s, 80 ms | 200, 10, 320 | 200, 28, 80 | 200, 28, 320 | 300, 10, 80 | 300, 10, 320 | 300, 28, 80 | 300, 28, 320 | Total |
+|---|---|---|---|---|---|---|---|---|---|
+| ns-3 | 16 | 29 | 7 | 47 | 3 | 15 | 4 | 12 | 133 |
+| HandoverLab, row C | 8 | 46 | 7 | 33 | 5 | 16 | 3 | 11 | 129 |
+| HandoverLab, row R | 6 | 12 | 2 | 13 | 3 | 6 | 0 | 2 | 44 |
+
+**Decision, as registered.** Row C passes F1-F3 on V1, the fresh set after N3 (on which it had failed F1), so it is the
+documented **ns-3 comparison setting** of 2.5.0: `handoverlab.verify.ns3.COMPARISON_SETTING`
+(`{"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}`), used with the in-car loss of ns-3
+(`scenario_for(isd, v, car=True, comparison=True)`, `compare(..., car=True, comparison=True)`, or
+`handoverlab verify --ns3 --ns3-comparison`, which adds the in-car loss itself). It is not a default:
+every default, golden fingerprint and stored result is unchanged.
+
+**Validity range.** The setting passed the pre-registered checks on one fresh set only (V1,
+time-to-trigger 80 and 320 ms). On N3 the same row failed the level (0.47) because of the TTT 640 ms
+cells, where it gives about half of ns-3's failures (84 against 180, 68 against 193, 30 against 46,
+36 against 80), the slow out-of-sync detection of ns-3 described in the version 1.4.0 section; its
+TTT 100 ms cells matched (17 against 14, 11 against 10, 1 against 3, 3 against 1), but matching at
+100 ms was not a registered criterion. Both results stand side by side. The default link-monitoring
+model (row R) gives a third to a sixth of ns-3's failure level (0.33 here, 0.16 on N3), with the order
+of the cells kept here (0.84) but not on N3 (0.78).
+
+A run of 5G-LENA without the local change is not part of V1: it aborts the run instead of producing
+data, and how often it would do so cannot be measured in the optimised build (logging compiled out).
+
+### V2: do the adaptive and learning rules generalise?
+
+**Design.** Rules `a3_mro`, `a3_bandit`, `a3_pred` (ridge predictor, case A) and `dqn`, against
+A3-ref (3 dB, 160 ms) and A3-tuned. Tuning and training on `urban-grid-10ghz`, seeds 101-104 only:
+8 evaluated settings per rule from its grid (5 drawn at random, 3 around the best), the lowest
+`unnecessary_pm` among settings with `failures_pm` at most that of A3-ref on the same runs (budget
+0.0638 per UE-minute), ties within 5 % broken by fewer RRC messages. Settings and weights were frozen
+before any test run. Test cards never used for tuning: `ns3-urban-3.5ghz`, `urban-macro-tr37885-4ghz`,
+`highway-tr37885-4ghz`, `fr3-urban-15ghz`, with test seeds 501-505 and each card's default length and
+users; also the training card with the test seeds. Criteria, paired by card and seed against
+A3-tuned (two-sided Wilcoxon, Holm over the 4 test cards):
+
+- **G-A (no harm):** failures not significantly higher than A3-tuned's on at least 3 of the 4 test cards;
+- **G-B (gain kept):** the sign of the mean difference in `unnecessary_pm` on the training card's test
+  seeds is the same on at least 3 of the 4 test cards;
+- cost flags, no limit: attempts, ping-pong or RRC messages above 1.5 times A3-tuned's on a test card.
+
+A rule generalises if it passes G-A and G-B.
+
+**Selected settings.** A3-tuned 4 dB / 160 ms; `a3_mro` offset 6 dB, 160 ms, step 2 dB, window 5 s;
+`a3_bandit` arms 1-5 dB, 40 ms, epoch 5, `w_failure` 2; `a3_pred` offset 6 dB, 80 ms, prediction window
+0.4 s; `dqn` offsets 0-6 dB, 160 ms, `w_failure` 1.
+
+Difference to A3-tuned in unnecessary handovers per UE-minute (rule minus A3-tuned, mean over seeds
+501-505):
+
+| Rule | `urban-grid-10ghz` (training card) | `ns3-urban-3.5ghz` | `urban-macro-tr37885-4ghz` | `highway-tr37885-4ghz` | `fr3-urban-15ghz` | G-A | G-B | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| `a3_mro` | -0.780 | -1.120 | -4.793 | -0.637 | -0.798 | 4 of 4 | 4 of 4 | generalises |
+| `dqn` | -0.357 | -0.520 | -1.408 | -0.382 | -0.363 | 4 of 4 | 4 of 4 | generalises |
+| `a3_bandit` | +1.644 | +0.033 | +4.069 | +0.537 | +1.617 | 4 of 4 | 4 of 4 | meets the criteria, but worse (below) |
+| `a3_pred` | -0.288 | not run | +0.946 | -0.507 | -0.312 | 3 of 4 | 2 of 4 | does not generalise |
+
+- **`a3_mro` and `dqn` generalise.** Both keep fewer unnecessary handovers than A3-tuned on all four
+  test cards (every seed in the same direction; Wilcoxon p 0.0625, Holm 0.25), with no cost flag. Their
+  failure differences are small and of both signs (`a3_mro` -0.307 on `urban-macro-tr37885-4ghz`,
+  +0.021 on `fr3-urban-15ghz`; `dqn` +0.020 and +0.015 per UE-minute), none significant.
+- **`a3_bandit` is worse in unnecessary handovers and ping-pong, although it formally meets the
+  registered criteria.** G-B checks only that the sign stays the same, and its sign is +: the setting
+  chosen within the failure budget already had more unnecessary handovers than A3-tuned on the training
+  card (+1.644 per UE-minute), and that loss stays on every test card. It has fewer failures (0.782
+  against 1.759 per UE-minute on `urban-macro-tr37885-4ghz`) and pays with 1.65, 4.15 and 2.80 times
+  A3-tuned's ping-pong on `urban-macro-tr37885-4ghz`, `highway-tr37885-4ghz` and `fr3-urban-15ghz`.
+  Its G-B pass is a consistent loss, not a kept gain.
+- **`a3_pred` does not generalise.** It loses the sign on `urban-macro-tr37885-4ghz` (+0.946
+  unnecessary handovers per UE-minute, while failures fall from 1.759 to 0.384), and it cannot run on
+  `ns3-urban-3.5ghz`: that card measures every 0.2 s, the predictor was trained at the 0.04 s of the
+  training card, and the rule refuses a predictor trained with another measurement period (counted as
+  not passed, as registered).
+
+**Limits of the design.** With 5 paired seeds the smallest two-sided exact Wilcoxon p is 0.0625, so no
+card can show significant harm and G-A cannot fail; read the failure differences themselves.
+`fr3-urban-15ghz` has the same street grid and users as the training card on another carrier and gives
+nearly the same numbers, so it is the least independent of the four test cards.

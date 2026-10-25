@@ -7,6 +7,57 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-25
+
+No change of defaults or results: every golden fingerprint is unchanged.
+
+### Added
+
+- The ns-3 comparison setting as code: `handoverlab.verify.ns3.COMPARISON_SETTING`
+  (`{"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}`: interferer load 0.15 at link monitoring,
+  ideal execution), applied by `scenario_for(..., comparison=True)`, `compare(..., comparison=True)` and
+  `holdout(..., comparison=True)` (after the in-car loss, before `overrides`), by
+  `ns3_checks(..., comparison=True)` and `run_verify(..., ns3_comparison=True)` together with the in-car loss
+  of ns-3, and on the command line by `handoverlab verify --ns3 --ns3-comparison`. The summary of `compare`
+  records `car` and `comparison`. It is not a default.
+
+### Validation
+
+- An independent validation study, registered before any of its runs, with one amendment fixed before the runs
+  of its second part; nothing tuned on its data (`docs/calibration.md`, "Independent validation study (2.5.0)").
+- **V1, failure rate against 40 fresh ns-3 / 5G-LENA runs** (site distance 200 / 300 m, 10 / 28 m/s,
+  time-to-trigger 80 / 320 ms, seeds 401-405). The N3 candidate, not re-tuned (`lm_load` 0.15, ideal
+  execution, in-car loss): failure level 0.97 of ns-3 (limit 0.67-1.5), rank correlation 0.88 over the 8 cells,
+  handover-rate ratio 0.965, TTT direction in 4 of 4: all pass, so it becomes the documented ns-3 comparison
+  setting. The 2.4.2 link monitoring with ideal execution: level 0.33 (fails), rank 0.84, ratio 0.973. V1 has
+  time-to-trigger 80 and 320 ms only; on the earlier fresh set N3 the same setting failed the level (0.47): its
+  TTT 100 ms cells matched, its TTT 640 ms cells had about half of ns-3's failures (matching at 100 ms was not a
+  registered criterion).
+- **V2, generalisation of the adaptive and learning rules** (tuned and trained on `urban-grid-10ghz`, seeds
+  101-104; tested on `ns3-urban-3.5ghz`, `urban-macro-tr37885-4ghz`, `highway-tr37885-4ghz` and
+  `fr3-urban-15ghz`, seeds 501-505, against tuned A3). `a3_mro` and `dqn` generalise (fewer unnecessary
+  handovers on all four test cards, no cost flag). `a3_bandit` meets the registered criteria only formally: it
+  has more unnecessary handovers than tuned A3 on every card (+1.644 per UE-minute on the training card) and
+  1.65 to 4.15 times its ping-pong on three test cards. `a3_pred` does not generalise (the gain is lost on
+  `urban-macro-tr37885-4ghz`, and it cannot run at the 0.2 s measurement period of `ns3-urban-3.5ghz`). Limits
+  of the design: with 5 seeds the no-harm criterion cannot fail (smallest Wilcoxon p 0.0625), and
+  `fr3-urban-15ghz` is the least independent test card.
+
+### Documentation
+
+- The failure level is now stated precisely everywhere it was called "not calibrated" (README, scenario cards,
+  `docs/comparison.md`, `docs/verification.md`, the user guide and the guides): the ns-3
+  comparison setting passed the pre-registered checks on one fresh set of ns-3 runs (V1, TTT 80 and 320 ms:
+  level 0.97, rank 0.88) and failed the level on another (N3: 0.47, because of its TTT 640 ms cells); the
+  default link-monitoring model gives a third to a sixth of ns-3's level (0.33 on V1, 0.16 on N3). Scenario
+  pages regenerated.
+- The learning-rule and AI/ML-mobility guides: the generalisation results of V2.
+- README, `CITATION.cff` and `.zenodo.json` describe HandoverLab as a reproducible system-level simulator for
+  studying and comparing handover algorithms and procedures in 5G-Advanced, beyond-5G and some NTN scenarios,
+  with explicit models, optional features and a documented validation scope.
+- Citation with the DOI of 2.4.2 (10.5281/zenodo.23589215).
+- Command-line reference: `verify --ns3-comparison`. Dashboard screenshots retaken with this version.
+
 ## [2.4.2] - 2026-10-23
 
 No change of results.
@@ -1120,7 +1171,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.4.2...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/mjs19971997/handoverlab/compare/v2.4.2...v2.5.0
 [2.4.2]: https://github.com/mjs19971997/handoverlab/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/mjs19971997/handoverlab/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/mjs19971997/handoverlab/compare/v2.3.0...v2.4.0

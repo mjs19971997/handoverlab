@@ -123,6 +123,48 @@ def test_ns3_scenario_overrides():
     assert sc.layout.sites == base.layout.sites and sc.mobility.profile == "c16"
 
 
+def test_ns3_comparison_setting_applies_its_keys_and_leaves_the_defaults():
+    """2.5.0: the ns-3 comparison setting (study V1) is opt-in; the defaults stay as they were."""
+    assert ns3.COMPARISON_SETTING == {"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}
+    base = ns3.scenario_for(200, 30, car=True)
+    sc = ns3.scenario_for(200, 30, car=True, comparison=True)
+    assert sc.protocol.lm_load == 0.15 and sc.protocol.exec_can_fail is False
+    assert base.protocol.lm_load is None and base.protocol.exec_can_fail is True
+    plain = ns3.scenario_for(200, 30).to_dict(full=True)
+    assert plain == ns3.scenario_for(200, 30, comparison=False).to_dict(full=True)
+    a, b = base.to_dict(full=True), sc.to_dict(full=True)
+    a["protocol"].update(lm_load=0.15, exec_can_fail=False)
+    assert a == b                                      # nothing else changes
+    assert sc.radio.penetration_db == 9.0              # the in-car loss is kept
+    ov = ns3.scenario_for(200, 16, comparison=True, overrides={"protocol.lm_load": 0.2})
+    assert ov.protocol.lm_load == 0.2 and ov.protocol.exec_can_fail is False   # overrides come after
+
+
+def test_ns3_comparison_flag_reaches_the_simulated_scenarios(monkeypatch):
+    seen = []
+
+    def fake(sc, rules, seeds):
+        seen.append((sc.protocol.lm_load, sc.protocol.exec_can_fail, sc.radio.penetration_db))
+        return _fake_simulate(sc, rules, seeds)
+    monkeypatch.setattr(ns3, "simulate", fake)
+    out = ns3.compare(seeds=[1])
+    assert {x[:2] for x in seen} == {(None, True)} and out["summary"]["comparison"] is False
+    seen.clear()
+    rep = Report()
+    out = ns3.ns3_checks(rep, seeds=[1], comparison=True)
+    assert {x[:2] for x in seen} == {(0.15, False)} and out["summary"]["comparison"] is True
+    assert out["summary"]["car"] is True and any(x[2] > 0 for x in seen)      # 30 m/s: the in-car loss
+    seen.clear()
+    ns3.holdout(seeds=[1], comparison=True)
+    assert {x[:2] for x in seen} == {(0.15, False)}
+    seen.clear()
+    calls = []
+    monkeypatch.setattr(ns3, "ns3_checks", lambda rep, **kw: calls.append(kw))
+    assert main(["verify", "--ns3", "--ns3-comparison", "-q"]) == 0
+    assert main(["verify", "--ns3", "-q"]) == 0
+    assert [c["comparison"] for c in calls] == [True, False]
+
+
 def test_ns3_reference_from_a_file(tmp_path):
     """2.1.0: verify --ns3 --ns3-reference reads a reference file written by benchmarks/ns3/run_benchmark.py."""
     from handoverlab.verify import ns3

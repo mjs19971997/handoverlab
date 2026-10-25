@@ -371,7 +371,7 @@ configuration and the limits were fixed in writing before the runs; nothing was 
 | Failures: rank | >= 0.8 | 0.68 (fail) | 0.64 (fail) |
 
 The 1.3.0 configuration (in-car loss, ideal execution, restart of link monitoring) meets the
-failure level of ns-3 on data it had never seen. The 3GPP profile has far fewer failures than ns-3
+failure level of ns-3 on data it had never seen (later checks, N3 and V1 of the [calibration page](calibration.md), found the level of the defaults at a third to a sixth of ns-3's and validated a separate comparison setting). The 3GPP profile has far fewer failures than ns-3
 because the ns-3 build counts every command that arrives during T310 as a failure (the TR 36.839
 evaluation rule), while the profile follows TS 38.331. The order of the failure rates over the
 conditions agrees in neither configuration: ns-3 failures grow much more with the time-to-trigger.

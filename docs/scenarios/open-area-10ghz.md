@@ -96,7 +96,7 @@ Not read by this layout and radio model, so not listed: `layout.site_offset_m`, 
 - No minimum distance to the sites: users may pass closer than the 10 m of TR 38.901 Table 7.2-1 (UMi); the path loss is evaluated at 10 m there (since 2.0.0).
 - The LOS state follows the TR 38.901 LOS probability with the UMi street-canyon formula although there are no streets; it stands for scattered obstacles.
 - Random-waypoint users cross the area in straight lines; their density is higher in the middle.
-- Same received-power-level abstraction and uncalibrated failure model as the street grid.
+- Same received-power-level abstraction and failure model as the street grid; the absolute failure level was checked against ns-3 only on `ns3-urban-3.5ghz`, with the ns-3 comparison setting (it passed on one fresh set with TTT 80 and 320 ms and failed the level on another with TTT 640 ms cells).
 - One shadowing decorrelation distance, the UMi LOS value of 10 m, also for the NLOS links (TR 38.901 Table 7.5-6 Part-1: UMi LOS 10 m, NLOS 13 m); LOS and NLOS links share one unit shadowing realisation scaled by the LOS or NLOS standard deviation (TR 38.901 gives separate LOS and NLOS parameters).
 - The UE antenna is the 1.5 m of the outdoor UEs of ITU-R M.2412-0, not the 1.6 m of TR 37.885 vehicle type 2: the random-waypoint users of this card follow no TR 37.885 mobility model.
 
