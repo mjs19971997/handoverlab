@@ -31,7 +31,7 @@ from typing import List, Sequence
 import numpy as np
 
 from ..measurement import EPS
-from .core import Engine, ctrl_rate, rlm_count, rlm_indications, rlm_kernel
+from .core import Engine, ctrl_rate, rlm_count, rlm_indications, rlm_kernel, rlm_weights
 from .procedures import CONNECTED, EXECUTING
 
 
@@ -115,6 +115,11 @@ class EngineBatch:
             if lm:
                 for e in E:
                     e.lm_ln = ln
+            if e0.dyn:                                 # neighbour activity of the step: one draw for the batch
+                b_now = e0.bursts.step()
+                for e in E:
+                    e.b_now = b_now
+                    rlm_weights(P, e.chi, b_now, e.u_occ, e.rc_lm)
             # --- end of an execution or of a re-establishment
             if cnz(state):
                 due = np.nonzero((state != CONNECTED) & (t >= t_done - EPS))
@@ -248,6 +253,10 @@ class EngineBatch:
         thr = np.where(ok, rate * np.where(gbr, np.take_along_axis(gs, serv, axis=1),
                                            np.take_along_axis(bs, serv, axis=1)), 0.0)
         rho_new = np.minimum(1.0, bg + G * gs + B * bs)
+        if e0.dyn:                                             # share used by the simulated users
+            used = np.minimum(1.0, G * gs + B * bs)
+            for j, e in enumerate(E):
+                e.u_occ[:] = used[j]
         rho += e0.a_rho * (rho_new - rho)
         np.multiply(e0.chi, rho, out=rc)
         if e0.lm:

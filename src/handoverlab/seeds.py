@@ -5,7 +5,10 @@ Everything random in a run (radio map, trajectories, services, background
 load, time variation, measurement error) is drawn from independent NumPy
 generators that are derived from the run seed and a named *purpose*.  The
 protocol engine and the built-in handover rules draw no random numbers, so
-every rule compared on one seed sees exactly the same radio samples.
+every rule compared on one seed sees exactly the same radio samples.  (The
+one exception, the background bursts of the optional dynamic link-monitoring
+interference, comes from its own ``rlm`` stream of the run seed and does not
+depend on the rule, so it is the same for every rule too.)
 
 Purposes and the generators each one provides (in this order):
 
@@ -19,6 +22,8 @@ Purposes and the generators each one provides (in this order):
 ``harq``      decoding draws of the optional slot scheduler (since 2.2.0)
 ``o2i``       O2I building penetration loss of the indoor users (since 2.3.0)
 ``ue_beams``  bearing of the UE panels of the optional UE receive beams (since 2.4.0)
+``rlm``       background file arrivals of every cell for the optional dynamic
+              interference on link monitoring (``protocol.rlm_interference``)
 ============  ================================================================
 
 A further layer of the optional multi-carrier model (since 1.10.0) draws its
@@ -34,7 +39,7 @@ import numpy as np
 
 _PURPOSE = {"world": 3, "map": 11, "radio": 29, "rule": 71, "penetration": 97, "traffic": 101, "beams": 113,
             "ntn": 127, "fading": 131, "harq": 137, "o2i": 139,
-            "ue_beams": 149}
+            "ue_beams": 149, "rlm": 151}
 _STRIDE = 1000003
 
 

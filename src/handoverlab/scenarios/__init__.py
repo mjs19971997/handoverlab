@@ -101,6 +101,15 @@ DEFAULT_SOURCES: Dict[str, str] = {
                             "user, base); with ns3_oos_rx only",
     "protocol.ns3_ctrl_per_ue_hz": "measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second "
                                    "per user served by the cell); with ns3_oos_rx only",
+    "protocol.rlm_interference": "static by default (the load of the data channel, or lm_load); 'dynamic': every "
+                                 "neighbour's activity of the step on the RLM-RS (bursty FTP traffic gives "
+                                 "time-varying interference, TR 36.814 A.2.1.3; RLM quality over the RLM-RS REs, "
+                                 "TS 38.133 A.6.5.1.1 NOTE 3)",
+    "protocol.rlm_rs_type": "SSB (TS 38.133 8.1.1: SSB or CSI-RS); with rlm_interference dynamic only",
+    "protocol.rlm_ssb_overlap": "assumption: 1, a synchronous network with the same SSB positions in every cell "
+                                "(3GPP does not say whether neighbour SSBs meet); with rlm_interference dynamic only",
+    "protocol.rlm_bg_se": "assumption: 2 bit/s/Hz while a cell sends a background file (sets the burst length); "
+                          "with rlm_interference dynamic only",
     "radio.penetration_db": "off by default; TR 38.901 clause 7.4.3.2: 9 dB in a standard car",
     "radio.penetration_sd_db": "off by default; TR 38.901 clause 7.4.3.2: 5 dB in a standard car",
     "radio.o2i_model": "low: TR 38.901 Table 7.4.3-2 (applies to the users of an indoor speed group only)",

@@ -16,7 +16,7 @@ abstract: >-
   handover rules (including a measurement-prediction rule after TR 38.744), equal-budget tuning
   studies with paired statistics, and verification against hand-computed values, golden event-log
   fingerprints, the 3GPP large-scale calibration and ns-3 / 5G-LENA.
-version: "2.7.0"
+version: "2.8.0"
 doi: 10.5281/zenodo.23409131
 identifiers:
   - type: doi
@@ -37,7 +37,7 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.23589215
     description: "Version 2.4.2 on Zenodo"
-date-released: 2026-10-25
+date-released: 2026-10-26
 license: MIT
 repository-code: "https://github.com/mjs19971997/handoverlab"
 url: "https://mjs19971997.github.io/handoverlab/"

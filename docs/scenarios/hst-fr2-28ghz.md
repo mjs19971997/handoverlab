@@ -116,6 +116,10 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.ns3_ins_rx` | 100 | ns-3 / 5G-LENA v5.1 (NrUePhy NumQinEvalSf: 100 control receptions); with ns3_oos_rx only |
 | `protocol.ns3_ctrl_hz` | 206 | measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second of a user, base); with ns3_oos_rx only |
 | `protocol.ns3_ctrl_per_ue_hz` | 16.5 | measured in ns-3 / 5G-LENA runs at light traffic (control receptions per second per user served by the cell); with ns3_oos_rx only |
+| `protocol.rlm_interference` | static | static by default (the load of the data channel, or lm_load); 'dynamic': every neighbour's activity of the step on the RLM-RS (bursty FTP traffic gives time-varying interference, TR 36.814 A.2.1.3; RLM quality over the RLM-RS REs, TS 38.133 A.6.5.1.1 NOTE 3) |
+| `protocol.rlm_rs_type` | ssb | SSB (TS 38.133 8.1.1: SSB or CSI-RS); with rlm_interference dynamic only |
+| `protocol.rlm_ssb_overlap` | 1 | assumption: 1, a synchronous network with the same SSB positions in every cell (3GPP does not say whether neighbour SSBs meet); with rlm_interference dynamic only |
+| `protocol.rlm_bg_se` | 2 | assumption: 2 bit/s/Hz while a cell sends a background file (sets the burst length); with rlm_interference dynamic only |
 | `traffic.services` | 5 entries | TS 23.501 Table 5.7.4-1 (5QI); thresholds are assumptions |
 | `traffic.se_max` | 7.4 | assumption (spectral-efficiency cap) |
 | `traffic.hotspot_share` | 0.25 | assumption |

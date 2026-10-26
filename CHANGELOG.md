@@ -7,6 +7,72 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-26
+
+No change of defaults or results: every golden fingerprint is unchanged. The new option models time-varying,
+load-dependent interference on radio-link monitoring from the 3GPP texts. It is a sensitivity option: off by
+default, **not validated** and not meant as a default; the absolute failure level of HandoverLab stays not
+calibrated.
+
+### Added
+
+- Dynamic interference on radio-link monitoring, `protocol.rlm_interference: dynamic` (default `static`, the
+  model so far: the smoothed data-channel load, or `lm_load`). The link-monitoring SINR is taken on the RLM
+  reference signal with each neighbour's activity of the step:
+  - background traffic of every cell as bursts of files (`traffic.ftp_file_bytes`, Poisson arrivals as FTP
+    model 1 / 3 of TR 36.814 Table A.2.1.3.1-1 and TR 36.872 A.1.1), sent over the whole carrier at
+    `protocol.rlm_bg_se` bit/s/Hz (2, an assumption), with the resource utilisation (TR 36.814 A.2.1.3.2)
+    equal to the cell's background load; plus the share used by the simulated users; an idle resource
+    element sends nothing; the time correlation is that of the queue (mean busy period d / (1 - load));
+  - `protocol.rlm_rs_type: csi-rs`: the CSI-RS sees that activity (weight `radio.isolation` x activity);
+    `ssb` (default): a share `protocol.rlm_ssb_overlap` (default 1: a synchronous network with the same SSB
+    positions) of the SSB meets the neighbours' SSBs, sent whatever the load (weight 1), the rest sees the
+    activity;
+  - the quality over the RLM-RS resource elements follows TS 38.215 5.1.5 / 5.1.6 (SS-SINR, CSI-SINR) and
+    the RLM test conditions of TS 38.133 A.6.5.1.1 (SNR over the SSS REs); the Qout / Qin thresholds, windows,
+    indications and timers are unchanged. What neighbours send on the RLM-RS, and whether SSBs meet, is not
+    specified by 3GPP and is stated as an assumption.
+  - Its own random stream (`seeds` purpose `rlm`), the same for every rule of a seed; single and batch
+    engines give the same results; the compiled kernel is not used; base engine only; it replaces
+    `lm_load` / `lm_load_per_ue`. New class `handoverlab.traffic.CellBursts`, function
+    `handoverlab.engine.core.rlm_weights`. The new keys are left out of job IDs while at their defaults.
+- Tests `tests/test_rlm_interference.py`: defaults, the full-load and zero-activity limits, the burst process
+  (busy share, busy period, correlation time), single = batch, seeds, validation.
+
+### What 3GPP leaves open
+
+- 3GPP does not fix three choices that decide the result: the RLM-RS (SSB or CSI-RS, TS 38.133 8.1.1;
+  TS 38.213 clause 5), whether neighbour SSBs overlap (TS 38.133 7.7.1 states frame and SFN alignment,
+  not SSB overlap), and the mapping from SINR to the BLER of the hypothetical PDCCH (not given
+  in TS 38.133 clause 8.1; kept here as the TR 36.839 SINR thresholds). The first two are keys
+  (`rlm_rs_type`, `rlm_ssb_overlap`); across them the failure level moves from far below ns-3 (CSI-RS, light
+  traffic) to 2.8-15 times ns-3 (aligned SSBs). Use them as a sensitivity axis, not as one answer.
+
+### In sample (not a validation)
+
+- On the seen ns-3 sets N2, N3, V1, V3 and V4 (equal run lengths, nothing fitted), SSB-based monitoring with
+  aligned SSBs gives 2.8-15 times ns-3's failures (fails F1 and F3 on every set); CSI-RS-based monitoring
+  gives 0.05-0.14 of ns-3's failures on N3, V1, V3 and V4 and 0.20 on N2 at light traffic, but 25 times with
+  full-buffer traffic on N2 (ns-3 has fewer failures at full traffic); with the ns-3-like detection the SSB
+  case equals the ns-3-like setting with `lm_load` 1.0, run for run, on the four sets where that run exists
+  (N2, N3, V1, V3). The model does not reproduce ns-3, whose control-channel interference does not follow
+  the data load ([calibration](docs/calibration.md#dynamic-interference-on-link-monitoring)).
+- Comparison of rules (`urban-grid-10ghz`, A3 3 dB / 160 ms against CHO, seeds 201-210, paired): the order of
+  the rules is unchanged in every variant and on every seed: CHO has fewer failures (one tie, CSI-RS on one
+  seed) and less outage. The size of the gap is not: with aligned SSBs the failure gap is 12 times that of
+  the defaults (-0.88 against -0.072 per UE-minute) and the gaps in handovers, unnecessary handovers, outage
+  and rate grow 2.7-3.2 times; CSI-RS-based monitoring moves them by less than half. Results should be reported
+  for the RLM configuration they assume.
+- The absolute failure level stays **not calibrated**. Making this option the default would need field data
+  on radio-link failures, not ns-3.
+
+### Documentation
+
+- README (model boundaries, what's new, roadmap), `docs/calibration.md` (new section "Dynamic interference
+  on link monitoring"), the user guide, `docs/standard-compliance.md`, and the generated pages of the three
+  scenario cards that list every key (`highway-tr37885-4ghz`, `highway-tr37885-30ghz`, `hst-fr2-28ghz`);
+  dashboard images retaken.
+
 ## [2.7.0] - 2026-10-25
 
 No change of defaults or results: every golden fingerprint is unchanged. The new option is off by default and
@@ -1326,7 +1392,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/mjs19971997/handoverlab/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/mjs19971997/handoverlab/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/mjs19971997/handoverlab/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/mjs19971997/handoverlab/compare/v2.4.2...v2.5.0

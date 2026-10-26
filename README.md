@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.7.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.8.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -199,7 +199,7 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference; options: a slot scheduler (`protocol.scheduler`: round robin or proportional fair) with the MCS, TBS and HARQ of TS 38.214 (since 2.2.0), and user-plane buffers at handover (`protocol.buffers`: simplified PDCP / RLC in AM or UM with Xn data forwarding, since 2.3.0) | by default the rate from the SINR (Shannon-type mapping) without a scheduler; with the scheduler the channel is held for the 10 ms step and the MCS is chosen from the SINR of one measurement interval earlier (no CSI reports); buffers: downlink only, one bearer per user, the interruption quantised to the measurement interval; both options need the base engine (no beams, layers, NTN or TS 38.133 periods) | uplink data, CSI-based link adaptation, PDCP reordering and status reports at the UE, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
 | Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `a3_pred`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
-| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; the absolute failure level is not calibrated: with equal run lengths the default gives 0.17-0.32 of ns-3's and the ns-3 comparison setting 0.5-1.3 depending on the set, passing the pre-registered checks on 1 of 4 fresh ns-3 sets (V4); the ns-3-like option (2.7.0) imitates ns-3's failure detection but is not validated (right at long time-to-trigger, far too few failures at short): compare rules with each other |
+| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart; option (2.8.0, `protocol.rlm_interference: dynamic`): time-varying, load-dependent interference on SSB- or CSI-RS-based link monitoring from FTP burst traffic (TR 36.814, TR 36.872) | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH; by default the interferers' smoothed data load at link monitoring; with the option, what meets the RLM-RS (RLM-RS type, SSB overlap) is an assumption, since 3GPP does not fix it | BLER-based link monitoring; the absolute failure level is not calibrated: with equal run lengths the default gives 0.17-0.32 of ns-3's and the ns-3 comparison setting 0.5-1.3 depending on the set, passing the pre-registered checks on 1 of 4 fresh ns-3 sets (V4); the ns-3-like option (2.7.0) imitates ns-3's failure detection but is not validated (right at long time-to-trigger, far too few failures at short); the dynamic link-monitoring interference (2.8.0) is a sensitivity option, not validated, that gives from far below ns-3's failure level (CSI-RS, light traffic) to 2.8-15 times it (aligned SSBs): compare rules with each other, for a stated RLM configuration |
 | Time | 10 ms step by default (`protocol.step_s`); the effect of the step is measured in [time step](https://github.com/mjs19971997/handoverlab/blob/main/docs/time-step.md) | events rounded to the step | sub-slot timing |
 
 Built-in cards: `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`, `urban-grid-28ghz-beams`, `dense-urban-2layer`,
@@ -282,7 +282,10 @@ that analysis compared 90 s of HandoverLab with 120 s of ns-3. The ns-3-like opt
 (`handoverlab.verify.ns3.NS3_LIKE_SETTING`) imitates ns-3's failure detection; frozen before V4 was opened,
 it gives level 1.03 on V4, right at time-to-trigger 1280 ms (1.07) but far too low at 128 ms (0.03), and
 fails the handover-rate check (0.759, limit 0.8), so it is **not validated**. Neither setting is a default,
-so compare failure rates between rules within HandoverLab. The study and the causes of the differences are
+so compare failure rates between rules within HandoverLab. The dynamic link-monitoring interference of 2.8.0
+(`protocol.rlm_interference: dynamic`, not a default) follows the 3GPP texts where they are fixed and does not reproduce ns-3
+either: depending on the RLM-RS and the SSB overlap, which 3GPP leaves open, it gives in sample from far below
+ns-3's failure level to 2.8-15 times it. The study and the causes of the differences are
 in [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md). On two of the causes HandoverLab follows the 3GPP texts more closely
 than ns-3:
 
@@ -303,6 +306,20 @@ To run your own study in both simulators, `handoverlab ns3 export|import|compare
 
 ## What's new
 
+- **2.8.0**: an option for time-varying, load-dependent interference on radio-link monitoring,
+  `protocol.rlm_interference: dynamic` (default `static`; keys `rlm_rs_type`, `rlm_ssb_overlap`,
+  `rlm_bg_se`), built from the 3GPP texts: every neighbour's activity comes from FTP-style burst traffic
+  (TR 36.814 A.2.1.3, TR 36.872 A.1.1) at the cell's load, and the SINR is taken over the RLM-RS resource
+  elements (TS 38.215 5.1.5, 5.1.6), with SSB or CSI-RS as the RLM-RS (TS 38.133 8.1.1) and the SSB overlap as
+  a parameter. 3GPP does not fix the RLM-RS choice, whether neighbour SSBs overlap, or the SINR-to-BLER
+  mapping; across the first two the failure level moves, in sample, from far below ns-3 (CSI-RS, light
+  traffic) to 2.8-15 times ns-3 (aligned SSBs). It is a sensitivity option, **not validated** and not a
+  default. On `urban-grid-10ghz`, A3 against CHO, the order of the rules is unchanged in every variant and on
+  every seed (CHO has fewer failures, with one tie, and less outage), but the size of the failure gap changes
+  by up to 12 times: report results for the RLM configuration you assume. The absolute failure level stays not calibrated; making the
+  option the default would need field data, not ns-3
+  ([calibration](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md#dynamic-interference-on-link-monitoring)).
+  No change of results.
 - **2.7.0**: an ns-3-like option (`handoverlab.verify.ns3.NS3_LIKE_SETTING`, `--ns3-like`; not a default)
   that imitates how ns-3 / 5G-LENA v5.1 declares a radio-link failure: out-of-sync after 200 control
   receptions below Qout (0.65-0.9 s, against about 200 ms in TS 38.133) and a handover command during T310
@@ -561,10 +578,13 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 30. 2.6.0: the bridge to ns-3 / 5G-LENA (export, import, compare); the correction of the
     2.5.0 failure-level comparison (equal run lengths: the absolute failure level is not calibrated); no
     change of results.
-31. **2.7.0 (this release)**: the ns-3-like option (not a default), judged on the fresh ns-3 set V4 and not
+31. 2.7.0: the ns-3-like option (not a default), judged on the fresh ns-3 set V4 and not
     validated (right at long time-to-trigger, far too few failures at short); no change of results.
-32. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
-    time-to-trigger under the ns-3-like detection; the effect of a handover on what the user
+32. **2.8.0 (this release)**: dynamic, load-dependent interference on radio-link monitoring from the 3GPP
+    texts, a sensitivity option (not a default, not validated); no change of results.
+33. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
+    time-to-trigger under the ns-3-like detection; field data on radio-link failures, which a link-monitoring
+    interference model would need before it could become a default; the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain and hundreds of
     users per run; condEventT1 and earth-fixed beams.
 

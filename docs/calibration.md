@@ -4,7 +4,7 @@ The radio model itself is calibrated against 3GPP (TR 38.901 clause 7.8.1, the 2
 R1-165974); see [radio calibration against 3GPP](calibration-3gpp.md). This page is about the
 failure model, which no 3GPP calibration covers.
 
-**Where the failure level stands (2.7.0).** The absolute failure level is **not calibrated**.
+**Where the failure level stands (2.8.0).** The absolute failure level is **not calibrated**.
 On four fresh, pre-registered sets of ns-3 / 5G-LENA runs (N3, V1, V3, V4), compared over equal run lengths
 (120 s measured on both sides), the comparison setting passes the checks of level, order and handover rate on
 one set (V4) and fails on the other three; the default link monitoring fails the level on all four:
@@ -32,6 +32,14 @@ detects a radio-link failure. Frozen in the code before V4 was opened, it gives 
 0.93 and the TTT direction in 4 of 4 pairs, but a handover-rate ratio of 0.759 (limit 0.8), so it is **not
 validated**. Its level is right at TTT 1280 ms (1.07) and far too low at 128 ms (0.03: 1 failure against 29).
 See [the ns-3-like setting](#the-ns-3-like-setting-270) and [V4](#v4-the-ns-3-like-setting-on-a-fresh-set).
+
+The *dynamic interference on link monitoring* (2.8.0, `protocol.rlm_interference: dynamic`, not a default)
+follows the 3GPP texts where they are fixed and states the three choices they leave open: the RLM-RS (SSB or
+CSI-RS), whether neighbour SSBs overlap, and the SINR-to-BLER mapping. Across the first two the failure level
+moves, in sample, from far below ns-3 (CSI-RS, light traffic: 0.05-0.20) to 2.8-15 times ns-3 (aligned
+SSBs). It is a sensitivity option, **not validated**; on `urban-grid-10ghz` it leaves the order of A3 and CHO
+in failures, handovers, unnecessary handovers, outage and rate unchanged but changes the size of their failure gap by up to 12 times. See
+[dynamic interference on link monitoring](#dynamic-interference-on-link-monitoring).
 
 **Fresh hold-out D (1.9.0).** 48 new ns-3 runs on conditions never used before (12 and 20 m/s)
 were compared with the 1.3.0 configuration fixed in advance: handover and unnecessary-handover
@@ -632,6 +640,115 @@ gives 0.5-1.3 times ns-3's level depending on the set (V4: 0.73). The defaults s
 **Open question (future work).** Why HandoverLab has too few failures at short time-to-trigger under the
 ns-3-like detection. The likely cause, not checked, is that it has fewer long periods below Qout before a
 neighbour becomes 3 dB stronger.
+
+### Dynamic interference on link monitoring
+
+`protocol.rlm_interference: dynamic` (off by default; `static` keeps every result) takes the
+link-monitoring SINR on the RLM reference signal with each neighbour's activity of the step, instead of the
+smoothed data-channel load (or `lm_load`). It follows what 3GPP fixes and states where it has to choose:
+
+- **Fixed by 3GPP.** The RLM-RS is SSB or CSI-RS (TS 38.133 8.1.1; TS 38.213 clause 5); Qout / Qin are the
+  10 % / 2 % BLER of a hypothetical PDCCH (Table 8.1.1-1; AL 8 / 4, +4 / 0 dB over the SSS or CSI-RS energy,
+  Tables 8.1.2.1-1/-2 and 8.1.3.1-1/-2); the RLM test states its SNR "over the SSS REs" (A.6.5.1.1 NOTE 3),
+  and SS-SINR / CSI-SINR take noise and interference over the REs of the SSS / CSI-RS (TS 38.215 5.1.5,
+  5.1.6). The evaluation method contrasts full buffer ("non-varying interference") with bursty FTP traffic
+  ("time-varying interference"; TR 36.814 A.2.1.3), with Poisson file arrivals (FTP model 1, Table
+  A.2.1.3.1-1; FTP model 3, TR 36.872 A.1.1) and resource utilisation = used RBs / available RBs
+  (TR 36.814 A.2.1.3.2); TR 36.839 (Table 5.2.4.1 NOTE 1) equates full-buffer background users with full
+  power in all RBs.
+- **Not fixed by 3GPP, chosen here.** The SINR-to-BLER mapping (kept: the TR 36.839 SINR thresholds); what
+  a neighbour sends on the serving RLM-RS REs; whether neighbour SSBs meet (TS 38.133 7.7.1 states
+  frame and SFN alignment, not SSB overlap); how neighbour load varies in time; the rate at
+  which a cell sends a background file.
+
+**Model.** Each cell sends background files of `traffic.ftp_file_bytes` (0.5 Mbyte, TR 38.802 Table
+A.2.1-1) that arrive as a Poisson process, one after the other over the whole carrier at `rlm_bg_se`
+bit/s/Hz (2, an assumption), at the rate that makes its resource utilisation equal to its background load
+(`traffic.normal_load` / `hotspot_load`); a load of 1 is full buffer. Its activity in a step is the busy
+share `b` of these bursts plus `(1 - b)` times the share used by the simulated users, and an idle RE sends
+nothing. The time correlation is that of the queue (on/off, mean busy period d / (1 - load) with d the
+transmission time of a file), not an added noise term. On a **CSI-RS** (`rlm_rs_type: csi-rs`) a neighbour
+interferes with `radio.isolation` x its activity. On an **SSB** (`rlm_rs_type: ssb`, the default) a share
+`rlm_ssb_overlap` of the SSB REs meets the neighbours' SSBs, which are sent whatever the load with the
+energy the RSRP measures (weight 1); the rest sees the activity. `rlm_ssb_overlap: 1` (default) is a
+synchronous network with the same SSB positions in every cell: there the SSB-based link monitoring does not
+depend on load at all. The bursts come from their own random stream (`seeds` purpose `rlm`), the same for
+every rule of a seed; single and batch engines give the same results; the compiled kernel is not used.
+
+**In sample only, not a validation.** Nothing was fitted to ns-3; every ns-3 set below was seen before.
+Equal run lengths (180 s, 60 s discarded), the same seeds, the bridge criteria F1-F4. Level = HandoverLab
+failures / ns-3 failures:
+
+| Set (TTT ms) | R: defaults | C: comparison | N1: ns-3-like (2.7.0) | D: dynamic, SSB | Dc: dynamic, CSI-RS | DN: ns-3-like + dynamic SSB | DNc: ns-3-like + dynamic CSI-RS |
+|---|---|---|---|---|---|---|---|
+| N2 (300) | 7.09 (0.41, full 25.70) | 1.91 (1.30, full 3.62) | 0.16 (0.11, full 0.30) | 14.80 (10.06, full 28.00) | 6.69 (0.20, full 24.73) | 1.11 (0.76, full 2.11) | 0.42 (0.03, full 1.51) |
+| N3 (100 / 640) | 0.17 (0.79, 0.14) | 0.52 (1.04, 0.49) | 0.87 (0.04, 0.91) | 3.45 (19.79, 2.54) | 0.10 (0.64, 0.07) | 1.97 (0.14, 2.07) | 0.04 (0.00, 0.04) |
+| V1 (80 / 320) | 0.32 (0.23, 0.35) | 1.31 (0.50, 1.54) | 0.05 (0.03, 0.05) | 12.62 (18.17, 11.01) | 0.14 (0.13, 0.14) | 0.69 (0.07, 0.87) | 0.00 (0.00, 0.00) |
+| V3 (512 / 1024) | 0.17 (0.18, 0.17) | 0.64 (0.71, 0.62) | 0.97 (0.52, 1.18) | 2.82 (3.86, 2.35) | 0.05 (0.05, 0.04) | 2.02 (1.77, 2.14) | 0.05 (0.03, 0.06) |
+| V4 (128 / 1280) | 0.27 (0.55, 0.26) | 0.73 (1.83, 0.70) | 1.03 (0.03, 1.06) | 2.87 (25.24, 2.12) | 0.06 (0.38, 0.05) | 1.84 (0.31, 1.89) | 0.07 (0.03, 0.07) |
+
+Each cell: overall level (level per TTT group, shortest first; N2: light, then full traffic at 300 ms).
+ns-3 failures: N2 103 light / 37 full; N3 28 / 499; V1 30 / 103; V3 353 / 769; V4 29 / 868. Row R was
+recomputed on V1 with the new code and equals the stored result.
+
+D is the option at its defaults with ideal execution; Dc the same with CSI-RS; DN and DNc the ns-3-like
+detection with the dynamic model instead of the fixed `lm_load` 0.38.
+
+- **SSB-based (D, DN).** In this scenario (omnidirectional antennas, `radio.isolation` 1) aligned SSBs give
+  every neighbour the weight 1 at all times, so D and DN do not depend on traffic. DN equals, run for run,
+  the ns-3-like setting with `lm_load` 1.0 run in 2.7.0 (same failures in every cell of the four sets with
+  such a run: N2, N3, V1, V3), a check of the implementation. D gives 2.8-15 times ns-3's failures and fails F1 (and F3) on every set;
+  DN 0.7-2.0 times.
+- **CSI-RS-based (Dc, DNc).** At light traffic the neighbours are idle most of the time, so the link is
+  close to noise-limited: Dc gives 0.05-0.14 of ns-3's failures on N3, V1, V3 and V4 (N2 light 0.20), DNc
+  0-0.07 (N2 light 0.03). With full-buffer traffic
+  (N2) Dc gives 25 times ns-3's failures, while ns-3 has fewer failures with full traffic (37) than with
+  light traffic (103): ns-3's control-channel interference does not follow the data load. The default
+  model (R), which follows the smoothed data load, behaves like Dc here (N2 full traffic 25.7).
+- So the 3GPP-based model does not reproduce ns-3, in either direction: depending on the RLM-RS and on a
+  deployment property that 3GPP does not fix, it gives from almost none to fifteen times ns-3's failures.
+  ns-3's failures come from its own control-channel model (all cells send control in the same symbols),
+  which neither 3GPP case describes.
+
+**Effect on the comparison of rules** (`urban-grid-10ghz`, A3 3 dB / 160 ms against CHO with its defaults,
+seeds 201-210, paired; mean and 95 % interval over the seeds, failures per UE-minute):
+
+| Metric | Variant | A3 | CHO | CHO - A3 | change of CHO - A3 against R |
+|---|---|---|---|---|---|
+| failures / UE-min | R | 0.0885 +- 0.027 | 0.0165 +- 0.0061 | -0.072 +- 0.026 |  |
+|  | D | 0.904 +- 0.11 | 0.024 +- 0.01 | -0.88 +- 0.11 | -0.808 +- 0.094 |
+|  | Dc | 0.057 +- 0.02 | 0.0165 +- 0.0061 | -0.0405 +- 0.019 | 0.0315 +- 0.012 |
+| handovers / UE-min | R | 12.3 +- 0.29 | 12.8 +- 0.34 | 0.457 +- 0.1 |  |
+|  | D | 11.3 +- 0.29 | 12.8 +- 0.34 | 1.46 +- 0.14 | 1 +- 0.11 |
+|  | Dc | 12.4 +- 0.29 | 12.8 +- 0.34 | 0.42 +- 0.097 | -0.0375 +- 0.015 |
+| unnecessary / UE-min | R | 2.13 +- 0.32 | 2.53 +- 0.37 | 0.402 +- 0.11 |  |
+|  | D | 1.41 +- 0.26 | 2.52 +- 0.37 | 1.11 +- 0.15 | 0.704 +- 0.1 |
+|  | Dc | 2.16 +- 0.32 | 2.53 +- 0.37 | 0.364 +- 0.11 | -0.0375 +- 0.015 |
+| too late / UE-min | R | 0 +- 0 | 0 +- 0 | 0 +- 0 |  |
+|  | D | 0.304 +- 0.059 | 0 +- 0 | -0.304 +- 0.059 | -0.304 +- 0.059 |
+|  | Dc | 0 +- 0 | 0 +- 0 | 0 +- 0 | 0 +- 0 |
+| outage % | R | 2.75 +- 0.22 | 1.53 +- 0.084 | -1.22 +- 0.15 |  |
+|  | D | 4.92 +- 0.43 | 1.55 +- 0.088 | -3.36 +- 0.37 | -2.15 +- 0.28 |
+|  | Dc | 2.64 +- 0.19 | 1.53 +- 0.084 | -1.11 +- 0.12 | 0.107 +- 0.042 |
+| rate Mbit/s | R | 15 +- 1.5 | 15.2 +- 1.5 | 0.198 +- 0.029 |  |
+|  | D | 14.6 +- 1.5 | 15.2 +- 1.5 | 0.535 +- 0.06 | 0.337 +- 0.042 |
+|  | Dc | 15 +- 1.5 | 15.2 +- 1.5 | 0.179 +- 0.024 | -0.019 +- 0.01 |
+
+The order of the rules is unchanged in all three cases and on every seed: the differences in failures,
+handovers, unnecessary handovers, outage and rate keep their direction (one tie in failures under Dc, seed
+207): CHO has fewer failures and less outage, more handovers and unnecessary handovers. But
+the size of the differences depends strongly on the link-monitoring interference: with aligned SSBs
+(D) the failure gap is 12 times that of the defaults (A3 gets too-late failures that CHO avoids), and the
+gaps in handovers, unnecessary handovers, outage and rate grow 2.7-3.2 times; CSI-RS-based monitoring (Dc)
+moves the gaps by less than half. A comparison of rules is therefore sensitive to this modelling choice in
+its size, not in its order, here: report results for the RLM configuration you assume.
+
+**Status.** An option, **not validated** and **not a default**: no defaults, fingerprints or stored results
+change. Its result is dominated by what meets the RLM-RS (SSB overlap or CSI-RS), which 3GPP leaves to the
+deployment, so it is best used as a sensitivity axis (`rlm_rs_type`, `rlm_ssb_overlap`) rather than as one
+answer. The SINR-to-BLER mapping, the third open choice, is not varied: the TR 36.839 SINR thresholds are
+kept. The absolute failure level stays **not calibrated**; making this option the default would need field
+data on radio-link failures, not ns-3, since ns-3's control-channel model is not one of the 3GPP cases.
 
 ### V2: do the adaptive and learning rules generalise?
 

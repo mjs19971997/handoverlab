@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.7.0. It explains the ideas behind a run, the built-in
+This guide covers version 2.8.0. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -268,6 +268,7 @@ output: results/metrics.csv
 | | `rlm_eval` | `fixed` | `ts38133` (1.10.0): Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 for the serving cell's frequency range (FR2: 1.6 s / 0.8 s at T_SSB 20 ms) instead of `qout_window_s` / `qin_window_s` |
 | | `dc` | `null` | (2.3.0) dual connectivity, NR-DC of TS 37.340: `{scg_layer, add_thresh_dbm, add_ttt_s, change_off_db, change_ttt_s, release_thresh_dbm, release_ttt_s, prep_s, exec_s, on_mcg_ho}` with defaults first layer, `-110`, `0.16`, `3`, `0.16`, `-120`, `0.16`, `protocol.prep_s`, `protocol.exec_s`, `keep`: an SCG on the cells of one layer next to the MCG ([guide](guides/dual-connectivity.md)) |
 | | `ns3_oos_rx`, `ns3_ins_rx`, `ns3_ctrl_hz`, `ns3_ctrl_per_ue_hz` | `null`, `100`, `206`, `16.5` | (2.7.0) link monitoring as ns-3 / 5G-LENA v5.1 implements it, not 3GPP: out-of-sync after `ns3_oos_rx` consecutive control receptions below Qout, in-sync after `ns3_ins_rx` above Qin while T310 runs, at `ns3_ctrl_hz` + `ns3_ctrl_per_ue_hz` x (users of the cell) receptions per second; `null`: the 3GPP model; base engine only; DAPS source-link monitoring is not applied with it; used by `NS3_LIKE_SETTING`, not validated ([calibration](calibration.md#the-ns-3-like-setting-270)) |
+| | `rlm_interference`, `rlm_rs_type`, `rlm_ssb_overlap`, `rlm_bg_se` | `static`, `ssb`, `1`, `2` | (2.8.0) optional, off by default: `dynamic` takes the link-monitoring SINR over the RLM-RS resource elements (TS 38.215 5.1.5, 5.1.6; TS 38.133 A.6.5.1.1 NOTE 3) with every neighbour's activity of the step: background FTP bursts (time-varying interference, TR 36.814 A.2.1.3; Poisson arrivals, Table A.2.1.3.1-1, TR 36.872 A.1.1) of `traffic.ftp_file_bytes` at a resource utilisation equal to the cell's background load, sent at `rlm_bg_se` bit/s/Hz (an assumption), plus the share used by the simulated users; `rlm_rs_type` (SSB or CSI-RS, TS 38.133 8.1.1): `csi-rs` -- the CSI-RS sees that activity; `ssb` -- a share `rlm_ssb_overlap` of the SSB meets the neighbours' SSBs, sent whatever the load (1: a synchronous network with the same SSB positions; 3GPP does not say whether neighbour SSBs overlap, TS 38.133 7.7.1); replaces `lm_load` (needs `lm_load: null`, `lm_load_per_ue: 0`); base engine only; a sensitivity option, not validated ([calibration](calibration.md#dynamic-interference-on-link-monitoring)) |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |
@@ -857,7 +858,12 @@ intervals are wide; the report shows them next to every estimate.
   the default link-monitoring model gives 0.17-0.32 (corrected in 2.6.0), so failure rates are best read
   relative to each other. The ns-3-like setting (2.7.0, `handoverlab.verify.ns3.NS3_LIKE_SETTING`, not a
   default) imitates ns-3's failure detection; on V4 it is right at long time-to-trigger, gives far too few
-  failures at short time-to-trigger and fails the handover-rate check, so it is not validated.
+  failures at short time-to-trigger and fails the handover-rate check, so it is not validated. The dynamic
+  interference on link monitoring (2.8.0, `protocol.rlm_interference: dynamic`, not a default, a sensitivity option, not validated) depends on
+  choices 3GPP leaves open: in sample it gives from far below ns-3's failure level (CSI-RS, light traffic) to
+  2.8-15 times it (aligned SSBs), and on `urban-grid-10ghz` it keeps the order of A3 and CHO in failures, handovers, outage and rate (A3 3 dB / 160 ms, seeds 201-210) but changes
+  their failure gap by up to 12 times; report results for the RLM configuration you assume
+  ([calibration](calibration.md#dynamic-interference-on-link-monitoring)).
 - The radio map of a large grid takes some time and memory to build (for the default 3 x 3 grid at
   100 m spacing, 76 sites and 0.2 million street pixels: about 17 s on a modest machine, see
   [performance.md](performance.md)). Use a larger `site_spacing_m`, a coarser `map_res_m` or fewer

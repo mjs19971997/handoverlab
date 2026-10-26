@@ -39,6 +39,47 @@ def background_load(traffic, n_sites: int, rng) -> np.ndarray:
     return np.where(hot, rng.uniform(*traffic.hotspot_load, n_sites), rng.uniform(*traffic.normal_load, n_sites))
 
 
+class CellBursts:
+    """Background traffic of every cell as bursts of files, for the optional dynamic interference on link
+    monitoring (``protocol.rlm_interference: dynamic``).
+
+    Files of ``file_bits`` arrive at cell m as a Poisson process (FTP model 1 of TR 36.814 Table A.2.1.3.1-1;
+    FTP model 3 of TR 36.872 Annex A.1.1 has Poisson arrivals too) and the cell sends them one after the other
+    over the whole carrier at ``rate_bps``, each in ``d = file_bits / rate_bps`` seconds (an M/D/1 queue).  The
+    arrival rate ``load_m / d`` makes the long-run share of busy time, the resource utilisation of TR 36.814
+    A.2.1.3.2, equal to ``load_m``; a cell with ``load_m >= 1`` is always busy (full buffer).  :meth:`step`
+    returns the busy share of every cell in the next step of ``step_s``: an on/off process whose time
+    correlation comes from the queue alone (mean busy period ``d / (1 - load_m)``).  Files that arrive within a
+    step join the queue at its start.  The queue starts empty.
+    """
+
+    def __init__(self, load, file_bits: float, rate_bps: float, step_s: float, rng):
+        load = np.asarray(load, dtype=float)
+        self.full = load >= 1.0
+        self.d = float(file_bits) / float(rate_bps)
+        self.p = np.where(self.full, 0.0, np.maximum(load, 0.0)) / self.d * step_s   # mean arrivals per step
+        self.dt = float(step_s)
+        self.work = np.zeros(len(load))                 # unfinished work of every cell [s]
+        self.rng = rng
+        self.block = np.zeros((0, len(load)))            # arrivals of the next steps, drawn BLOCK steps at a time
+        self.i = 0
+
+    BLOCK = 1000
+
+    def step(self) -> np.ndarray:
+        """Busy share (0 to 1) of every cell in the next step."""
+        if self.i >= len(self.block):
+            self.block = self.rng.poisson(self.p, size=(self.BLOCK, len(self.p))) * self.d
+            self.i = 0
+        self.work += self.block[self.i]
+        self.i += 1
+        busy = np.minimum(self.work, self.dt)
+        self.work -= busy
+        busy /= self.dt
+        busy[self.full] = 1.0
+        return busy
+
+
 class ServiceTable:
     """Per-user columns of the service table (arrays of length U)."""
 

@@ -483,6 +483,18 @@ class ProtocolConfig:
     ns3_ins_rx: float = 100.0
     ns3_ctrl_hz: float = 206.0
     ns3_ctrl_per_ue_hz: float = 16.5
+    # interference on the link-monitoring reference signal (optional, off by default; see
+    # handoverlab.engine.core.rlm_weights).  "static" keeps the model above (the smoothed data-channel load, or
+    # lm_load).  "dynamic": every neighbour interferes with its activity of the step: background FTP bursts
+    # (Poisson files of traffic.ftp_file_bytes sent at rlm_bg_se bit/s/Hz, resource utilisation = the cell's
+    # background load; TR 36.814 A.2.1.3) plus the share used by the simulated users.  rlm_rs_type "csi-rs": the CSI-RS
+    # resource elements see that activity; "ssb": a share rlm_ssb_overlap of the SSB resource elements meets the
+    # neighbours' SSBs, sent whatever the load (1: synchronous network with the same SSB positions), the rest the
+    # activity.  Replaces lm_load / lm_load_per_ue; base engine only.
+    rlm_interference: str = "static"
+    rlm_rs_type: str = "ssb"
+    rlm_ssb_overlap: float = 1.0
+    rlm_bg_se: float = 2.0
 
 
 @dataclass
@@ -796,6 +808,20 @@ class Scenario:
                    and P.meas_periods == "sample" and P.rlm_eval == "fixed" and P.dc is None,
                    "protocol.ns3_oos_rx", "needs the base engine: no beams, layers, NTN, dual connectivity or "
                    "TS 38.133 periods (meas_periods: sample, rlm_eval: fixed)")
+        _check(P.rlm_interference in ("static", "dynamic"), "protocol.rlm_interference",
+               "must be 'static' or 'dynamic'")
+        _check(P.rlm_rs_type in ("ssb", "csi-rs"), "protocol.rlm_rs_type", "must be 'ssb' or 'csi-rs'")
+        _check(0.0 <= P.rlm_ssb_overlap <= 1.0, "protocol.rlm_ssb_overlap", "must be in [0, 1]")
+        _check(P.rlm_bg_se > 0, "protocol.rlm_bg_se", "must be positive")
+        if P.rlm_interference == "dynamic":
+            _check(P.lm_load is None and P.lm_load_per_ue == 0.0, "protocol.rlm_interference",
+                   "'dynamic' replaces protocol.lm_load and lm_load_per_ue: leave them unset (null / 0)")
+            _check(self.radio.beams is None and not self.radio.layers and self.layout.kind != "ntn"
+                   and P.meas_periods == "sample" and P.rlm_eval == "fixed" and P.dc is None,
+                   "protocol.rlm_interference", "'dynamic' needs the base engine: no beams, layers, NTN, dual "
+                   "connectivity or TS 38.133 periods (meas_periods: sample, rlm_eval: fixed)")
+            _check(self.traffic.ftp_file_bytes > 0, "traffic.ftp_file_bytes",
+                   "must be positive (size of the background files of protocol.rlm_interference: dynamic)")
         _check(P.scheduler in (None, "rr", "pf"), "protocol.scheduler", "must be null, 'rr' or 'pf'")
         if P.scheduler is not None:
             _check(isinstance(P.harq_max_tx, int) and P.harq_max_tx >= 1, "protocol.harq_max_tx",
@@ -960,7 +986,9 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                       "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db",
                                                       "buffers", "forwarding", "early_forwarding", "xn_delay_s",
                                                       "discard_timer_s", "sdu_bytes", "dc", "ns3_oos_rx",
-                                                      "ns3_ins_rx", "ns3_ctrl_hz", "ns3_ctrl_per_ue_hz")}
+                                                      "ns3_ins_rx", "ns3_ctrl_hz", "ns3_ctrl_per_ue_hz",
+                                                      "rlm_interference", "rlm_rs_type", "rlm_ssb_overlap",
+                                                      "rlm_bg_se")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")

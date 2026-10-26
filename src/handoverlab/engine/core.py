@@ -5,7 +5,9 @@ One :class:`Engine` simulates one handover rule on given radio samples.  All
 users advance together on the step grid (10 ms by default); cell load and
 interference are coupled through the users' serving cells.  The engine draws
 no random numbers, so two rules run on the same samples differ only through
-their decisions.
+their decisions.  (The optional dynamic interference on link monitoring,
+``protocol.rlm_interference``, draws background bursts from its own stream of
+the run seed; they do not depend on the rule, so this still holds.)
 
 Per step
     1. end of an execution (join the target if its SINR is at least Qout,
@@ -50,7 +52,7 @@ from ..channel.l2s import capacity_esm, miesm_qpsk
 from ..eventlog import EVENT_FIELDS, TRACE_FIELDS, event_level, fingerprint
 from ..measurement import EPS, INF, L3Filter
 from ..rules.base import EARLY, LATE, UNNECESSARY, USEFUL, FailureRecord, Observation, OutcomeRecord, RuleContext
-from ..seeds import rule_stream
+from ..seeds import rule_stream, streams
 from . import invariants as inv
 from .metrics import Counters, summarize
 from .procedures import CONNECTED, EXECUTING, REESTABLISHING, make_procedure
@@ -88,6 +90,35 @@ def ctrl_rate(P, serv, con, M):
     ``ns3_ctrl_hz + ns3_ctrl_per_ue_hz * n``, with ``n`` the connected users served by the user's cell."""
     n = np.bincount(serv[con], minlength=M)
     return P.ns3_ctrl_hz + P.ns3_ctrl_per_ue_hz * n[serv]
+
+
+def rlm_weights(P, chi, b, u, out) -> None:
+    """Interference weight of every cell on the link-monitoring reference signal (RLM-RS) of the step, for
+    ``protocol.rlm_interference: dynamic``; written into ``out``.
+
+    ``b`` is the busy share of each cell's background bursts (:class:`~handoverlab.traffic.CellBursts`), ``u``
+    the share of its resources used by the simulated users (last measurement instant), so the cell transmits on
+    the share ``a = b + (1 - b) u`` of its resource elements; an idle resource element sends nothing.  ``chi`` is
+    ``radio.isolation`` (mean-to-peak gain of an interfering data beam).
+
+    * ``rlm_rs_type: csi-rs``: the CSI-RS resource elements see the neighbours' data and control activity:
+      ``chi * a``.
+    * ``rlm_rs_type: ssb``: a share ``ov = rlm_ssb_overlap`` of the SSB resource elements meets the neighbours' SSBs,
+      sent whatever the load with the energy per resource element that the RSRP measures (weight 1, no
+      isolation); the rest sees the activity: ``ov + (1 - ov) chi a``.
+
+    TS 38.133 states the RLM test conditions as the SNR over the SSS resource elements (A.6.5.1.1, NOTE 3) and
+    TS 38.215 (5.1.5 SS-SINR, 5.1.6 CSI-SINR) measures interference over the resource elements of the reference
+    signal, so the link-monitoring SINR is taken on the RLM-RS resource elements; what a neighbour sends on them,
+    and whether
+    neighbour SSBs meet, is not specified by 3GPP (a deployment property, set by ``rlm_ssb_overlap``).
+    """
+    a = b + (1.0 - b) * u
+    if P.rlm_rs_type == "csi-rs":
+        np.multiply(chi, a, out=out)
+    else:
+        ov = P.rlm_ssb_overlap
+        out[...] = ov + (1.0 - ov) * chi * a
 
 
 def rlm_count(P, sl, qout, qin, run, c_o, c_i, n_o, n_i, mon, live, rx):
@@ -129,13 +160,13 @@ def rlm_count(P, sl, qout, qin, run, c_o, c_i, n_o, n_i, mon, live, rx):
 def rlm_kernel(engine):
     """The compiled step kernel if ``run.backend`` is ``"numba"`` and it covers the engine's monitoring, else None.
 
-    It covers N310 = N311 = 1 without the monitoring load option (``protocol.lm_load``); other settings and
-    debug mode use the NumPy path.
+    It covers N310 = N311 = 1 without the monitoring load options (``protocol.lm_load``,
+    ``protocol.rlm_interference: dynamic``); other settings and debug mode use the NumPy path.
     """
     sc = engine.world.scenario
     P = sc.protocol
     if (getattr(sc.run, "backend", "numpy") != "numba" or engine.lm or P.n310 != 1 or P.n311 != 1
-            or engine.cnt):
+            or engine.cnt or engine.dyn):
         return None
     if engine.std and engine.daps_mon:
         return None                     # the source link of DAPS during T304: the NumPy path
@@ -195,6 +226,17 @@ class Engine:
         self.lm0 = 0.0 if P.lm_load is None else float(P.lm_load)
         self.rc_lm = self.rc.copy()
         self.lm_ln = None                                             # radio sample of the current step
+        # dynamic interference on the link-monitoring reference signal (protocol.rlm_interference, off by
+        # default): the weights rc_lm follow every neighbour's activity of the step (rlm_weights)
+        self.dyn = P.rlm_interference == "dynamic"
+        if self.dyn:
+            from ..traffic import CellBursts
+            self.lm = True
+            self.bursts = CellBursts(self.bg, 8.0 * T.ftp_file_bytes, R.bandwidth_mhz * 1e6 * P.rlm_bg_se, P.step_s,
+                                     streams(world.seed, "rlm", 1)[0])
+            self.b_now = np.where(self.bursts.full, 1.0, 0.0)          # busy share of the background, this step
+            self.u_occ = np.zeros(self.M)                             # share used by the simulated users
+            rlm_weights(P, self.chi, self.b_now, self.u_occ, self.rc_lm)
         self.fad_now, self.n_rlm = None, 0                            # fast fading of the step (2.2.0)
         self.sched = None                                             # slot scheduler (2.2.0)
         if P.scheduler is not None:
@@ -457,7 +499,11 @@ class Engine:
         return lc / (ln[u] @ self.rc_lm - self.rc_lm[cell] * lc + self.noise)
 
     def _update_lm(self, con) -> None:
-        """Interferer load at link monitoring: lm_load plus lm_load_per_ue per served user, at most 1."""
+        """Interferer load at link monitoring: lm_load plus lm_load_per_ue per served user, at most 1 (with
+        ``protocol.rlm_interference: dynamic``: :func:`rlm_weights` of the current step)."""
+        if self.dyn:
+            rlm_weights(self.P, self.chi, self.b_now, self.u_occ, self.rc_lm)
+            return
         n = np.bincount(self.serv[con], minlength=self.M)
         np.multiply(self.chi, np.minimum(1.0, self.lm0 + self.P.lm_load_per_ue * n), out=self.rc_lm)
 
@@ -662,6 +708,9 @@ class Engine:
             tot = ln @ self.rc
             if self.lm:
                 self.lm_ln = ln
+            if self.dyn:                                   # neighbour activity of this step
+                self.b_now = self.bursts.step()
+                rlm_weights(P, self.chi, self.b_now, self.u_occ, self.rc_lm)
             if fad is not None:
                 self.fad_now, self.n_rlm = fad[i], ch.n_rlm
             # --- end of an execution or of a re-establishment
@@ -843,6 +892,8 @@ class Engine:
                 got, used = self.sched.serve(sinr, rate * self.mdt, con, serv, free)
             thr = got / self.mdt
             rho_new = np.minimum(1.0, self.bg + used)
+            if self.dyn:
+                np.minimum(1.0, used, out=self.u_occ)
         else:
             need = np.where(ok, rate / (self.W * np.maximum(se, 1e-3)), 0.0)
             G = np.bincount(serv, weights=need * self.gbr, minlength=self.M)
@@ -852,7 +903,9 @@ class Engine:
             bs = np.minimum(1.0, rem / np.maximum(B, 1e-12))
             thr = np.where(ok, rate * np.where(self.gbr, gs[serv], bs[serv]), 0.0)
             rho_new = np.minimum(1.0, self.bg + G * gs + B * bs)
-        if buf is not None:                                      # FIFO order, delays (round-robin share rate)
+            if self.dyn:
+                np.minimum(1.0, G * gs + B * bs, out=self.u_occ)
+        if buf is not None:                                     # FIFO order, delays (round-robin share rate)
             n_act = np.bincount(serv, weights=thr > 0, minlength=self.M)
             thr = buf.deliver(t, thr * self.mdt, self.W * se * free[serv] / np.maximum(n_act[serv], 1.0)) / self.mdt
         elif self.backlog is not None:
