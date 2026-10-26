@@ -286,7 +286,7 @@ def _cmd_ns3(args) -> int:
     row = res.get("setting") or ("comparison" if res["comparison"] else "reference")
     print("study %s, %s, HandoverLab run length: %s" % (
         res["study"], {"comparison": "comparison setting",
-                       "ns3-like": "ns-3-like setting (imitates ns-3, not 3GPP; validation pending)"}.get(
+                       "ns3-like": "ns-3-like setting (imitates ns-3, not 3GPP; not validated)"}.get(
             row, "default link monitoring, ideal execution"), res["run_length"]))
     for text, val, ok in rows:
         print("  %-48s %-16s %s" % (text, val, "n/a" if ok is None else ("pass" if ok else "FAIL")))
@@ -361,8 +361,8 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--ns3-like", action="store_true",
                    help="with --ns3: run HandoverLab with the ns-3-like setting (imitates the link monitoring of "
                         "ns-3 / 5G-LENA: out-of-sync after 200 control receptions, a command lost while T310 "
-                        "runs; with the in-car loss of ns-3): imitates ns-3, not 3GPP; validation pending; not a "
-                        "default")
+                        "runs; with the in-car loss of ns-3): imitates ns-3, not 3GPP; not validated (on the "
+                        "fresh set V4 the level is right at TTT 1280 ms, far too low at 128 ms); not a default")
     v.add_argument("--results", metavar="FILE", help="recompute a JSON result file of 'run' and compare fingerprints")
     v.add_argument("--sample", type=int, help="with --results: recompute only this many runs, chosen at random")
     v.add_argument("--json", metavar="OUT", help="also write the report as JSON")
@@ -421,7 +421,8 @@ def build_parser() -> argparse.ArgumentParser:
                          "not a default")
     nc.add_argument("--ns3-like", action="store_true",
                     help="run HandoverLab with the ns-3-like setting (imitates the link monitoring of ns-3 / "
-                         "5G-LENA, not 3GPP): validation pending; not a default")
+                         "5G-LENA, not 3GPP): not validated (on the fresh set V4 it fails the handover-rate "
+                         "check F3; level right at TTT 1280 ms, far too low at 128 ms); not a default")
     nc.add_argument("--workers", type=int, default=1, help="processes for the HandoverLab runs (default 1)")
     nc.add_argument("-o", "--output", metavar="OUT", help="also write the cells and checks as JSON")
     nc.add_argument("--level", type=float, nargs=2, default=[0.67, 1.5], metavar=("LO", "HI"),

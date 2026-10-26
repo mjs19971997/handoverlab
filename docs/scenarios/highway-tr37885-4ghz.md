@@ -136,7 +136,7 @@ Not read by this layout and radio model, so not listed: `layout.blocks`, `layout
 - One antenna gain per link (the antenna abstraction), no sectors and no beam pattern: TR 37.885 leaves the TXRU mapping to the proponents.
 - The place-tied shadowing field is the same for all users at a place (TR 38.901 spatial consistency, exponential autocorrelation of Eq. 7.4-5) and uncorrelated between sites: TR 37.885 clause 6.2.2 takes the shadowing of the TR 38.901 path-loss model for B2V links, and TR 38.901 clause 7.5 step 4 has uncorrelated LSPs for different BS-UT links (since 2.1.0; until 2.0.0 half correlated, a value of the TR 36.885 model).
 - Received-power level only: no fast fading, no Doppler, no sidelink.
-- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passed the pre-registered checks on none of three fresh sets (corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
+- The absolute failure level is not calibrated. It was checked against ns-3 only on `ns3-urban-3.5ghz`: with equal run lengths the ns-3 comparison setting gives 0.5-1.3 times ns-3's failure level, depending on the set, and passes the pre-registered checks on 1 of 4 fresh sets (V4; corrected in 2.6.0, docs/calibration.md); read failure rates relative to each other.
 
 ## Reference results
 

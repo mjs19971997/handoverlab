@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.6.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.7.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -199,7 +199,7 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference; options: a slot scheduler (`protocol.scheduler`: round robin or proportional fair) with the MCS, TBS and HARQ of TS 38.214 (since 2.2.0), and user-plane buffers at handover (`protocol.buffers`: simplified PDCP / RLC in AM or UM with Xn data forwarding, since 2.3.0) | by default the rate from the SINR (Shannon-type mapping) without a scheduler; with the scheduler the channel is held for the 10 ms step and the MCS is chosen from the SINR of one measurement interval earlier (no CSI reports); buffers: downlink only, one bearer per user, the interruption quantised to the measurement interval; both options need the base engine (no beams, layers, NTN or TS 38.133 periods) | uplink data, CSI-based link adaptation, PDCP reordering and status reports at the UE, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
 | Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `a3_pred`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
-| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; the absolute failure level is not calibrated: with equal run lengths the default gives 0.17-0.32 of ns-3's and the ns-3 comparison setting 0.5-1.3 depending on the set, passing the pre-registered checks on none of three fresh ns-3 sets (corrected in 2.6.0): compare rules with each other |
+| Failure model | Qout/Qin with windows, N310/N311/T310, T304, command received during T310, re-establishment, link-monitoring restart | Qout/Qin as SINR thresholds (TR 36.839 values) instead of the BLER of a hypothetical PDCCH | BLER-based link monitoring; the absolute failure level is not calibrated: with equal run lengths the default gives 0.17-0.32 of ns-3's and the ns-3 comparison setting 0.5-1.3 depending on the set, passing the pre-registered checks on 1 of 4 fresh ns-3 sets (V4); the ns-3-like option (2.7.0) imitates ns-3's failure detection but is not validated (right at long time-to-trigger, far too few failures at short): compare rules with each other |
 | Time | 10 ms step by default (`protocol.step_s`); the effect of the step is measured in [time step](https://github.com/mjs19971997/handoverlab/blob/main/docs/time-step.md) | events rounded to the step | sub-slot timing |
 
 Built-in cards: `smoke`, `urban-grid-10ghz`, `fr3-urban-15ghz`, `urban-grid-28ghz-beams`, `dense-urban-2layer`,
@@ -269,17 +269,20 @@ ns-3 with 5G-LENA. Handover and unnecessary-handover rates agree (median ratios 
 rank correlation 0.99; `handoverlab verify --ns3`, version 2.1.0). For failure rates, with the in-car loss of ns-3 and the restart of the link
 monitoring switched on, the order of settings and conditions agrees too, also on ns-3 results
 that were held back from any tuning (rank correlation 0.82-0.91). **The absolute failure level is not
-calibrated.** On three fresh, pre-registered sets of ns-3 runs (N3, V1, V3), compared over equal run
-lengths, the default link-monitoring model gives 0.18, 0.32 and 0.17 of ns-3's failure level and fails
-level and order on all three. The ns-3 comparison setting of 2.5.0
+calibrated.** On four fresh, pre-registered sets of ns-3 runs (N3, V1, V3, V4), compared over equal run
+lengths, the default link-monitoring model gives 0.18, 0.32, 0.17 and 0.27 of ns-3's failure level and fails
+the level on all four. The ns-3 comparison setting of 2.5.0
 (`handoverlab.verify.ns3.COMPARISON_SETTING`: interferer load 0.15 at link monitoring and ideal execution,
 with the in-car loss of ns-3; `handoverlab verify --ns3 --ns3-comparison`) brings the level closer but is
-not validated: 0.52 (N3), 1.31 (V1, where the order of failures across cells fails, rank 0.62) and 0.64
-(V3), so 0.5-1.3 times ns-3's level depending on the set, passing the checks on none of the
-three sets. The handover-rate ratio (0.86-0.96) and the direction of the time-to-trigger effect agree in
+not validated: 0.52 (N3), 1.31 (V1, where the order of failures across cells fails, rank 0.62), 0.64
+(V3) and 0.73 (V4), so 0.5-1.3 times ns-3's level depending on the set, passing the checks on 1 of the 4
+sets (V4). The handover-rate ratio (0.815-0.96) and the direction of the time-to-trigger effect agree in
 every set. *Corrected in 2.6.0:* 2.5.0 reported that the setting passed on V1 (level 0.97, rank 0.88);
-that analysis compared 90 s of HandoverLab with 120 s of ns-3. The setting is not a default, so
-compare failure rates between rules within HandoverLab. The study and the causes of the differences are
+that analysis compared 90 s of HandoverLab with 120 s of ns-3. The ns-3-like option of 2.7.0
+(`handoverlab.verify.ns3.NS3_LIKE_SETTING`) imitates ns-3's failure detection; frozen before V4 was opened,
+it gives level 1.03 on V4, right at time-to-trigger 1280 ms (1.07) but far too low at 128 ms (0.03), and
+fails the handover-rate check (0.759, limit 0.8), so it is **not validated**. Neither setting is a default,
+so compare failure rates between rules within HandoverLab. The study and the causes of the differences are
 in [docs/calibration.md](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md). On two of the causes HandoverLab follows the 3GPP texts more closely
 than ns-3:
 
@@ -287,8 +290,9 @@ than ns-3:
   it only while a user moves at 30-120 km/h and drops it above 120 km/h. HandoverLab applies it
   per user when configured (`radio.penetration_db`), at any speed.
 - **Time to detect a radio problem.** TS 38.133 clause 8.1 evaluates out-of-sync over about
-  200 ms. ns-3 counts control receptions instead of time, and at light traffic this took 0.65 to
-  0.83 s in the reference runs. HandoverLab evaluates over time (`protocol.qout_window_s`, 0.2 s).
+  200 ms. ns-3 counts control receptions instead of time, and at light traffic this takes 0.65-0.9 s
+  (measured in 2.7.0). HandoverLab evaluates over time (`protocol.qout_window_s`, 0.2 s);
+  the ns-3-like option (2.7.0) counts receptions as ns-3 does.
 
 On a third point ns-3 was closer to the 3GPP texts: link monitoring restarts on a newly joined cell.
 HandoverLab has had this as an option since 1.3.0 (`protocol.rlm_holdoff_s`), on by default since 2.0.0. The comparison
@@ -299,6 +303,14 @@ To run your own study in both simulators, `handoverlab ns3 export|import|compare
 
 ## What's new
 
+- **2.7.0**: an ns-3-like option (`handoverlab.verify.ns3.NS3_LIKE_SETTING`, `--ns3-like`; not a default)
+  that imitates how ns-3 / 5G-LENA v5.1 declares a radio-link failure: out-of-sync after 200 control
+  receptions below Qout (0.65-0.9 s, against about 200 ms in TS 38.133) and a handover command during T310
+  counted as a failure. Frozen before the fresh, pre-registered ns-3 set V4 was opened, it is **not
+  validated** on V4: level 1.03, right at time-to-trigger 1280 ms (1.07) but far too low at 128 ms (0.03),
+  and the handover-rate check fails (0.759, limit 0.8). On V4 the ns-3 comparison setting passes the checks
+  (level 0.73), its first pass, so 1 of 4 fresh sets; the absolute failure level stays not calibrated
+  ([V4](https://github.com/mjs19971997/handoverlab/blob/main/docs/calibration.md#v4-the-ns-3-like-setting-on-a-fresh-set)). No change of results.
 - **2.6.0**: a bridge to ns-3 / 5G-LENA (`handoverlab ns3 export|import|compare`) that writes a ready-to-run
   ns-3 package for a study, reads its results back and applies the checks of the ns-3 studies
   ([guide](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/ns3-bridge.md)). It found an error in 2.5.0: the failure counts of
@@ -546,13 +558,15 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 29. 2.5.0: an independent, pre-registered validation study: the ns-3 comparison setting for the
     failure level (its pass on V1 was corrected in 2.6.0: not validated), and the generalisation of the
     adaptive and learning rules to unseen cards and seeds; no change of results.
-30. **2.6.0 (this release)**: the bridge to ns-3 / 5G-LENA (export, import, compare); the correction of the
+30. 2.6.0: the bridge to ns-3 / 5G-LENA (export, import, compare); the correction of the
     2.5.0 failure-level comparison (equal run lengths: the absolute failure level is not calibrated); no
     change of results.
-31. Later (planned, not done), staying a handover simulator: an "ns-3-like" option imitating ns-3's slower
-    out-of-sync detection, judged on a fresh ns-3 set (V4) kept unopened until it is frozen; the effect of a handover on what the user
-    sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain, hundreds of
-    users per run, and one scenario definition that also runs in ns-3; condEventT1 and earth-fixed beams.
+31. **2.7.0 (this release)**: the ns-3-like option (not a default), judged on the fresh ns-3 set V4 and not
+    validated (right at long time-to-trigger, far too few failures at short); no change of results.
+32. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
+    time-to-trigger under the ns-3-like detection; the effect of a handover on what the user
+    sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain and hundreds of
+    users per run; condEventT1 and earth-fixed beams.
 
 ## Citation
 

@@ -19,22 +19,23 @@ Failure rates and the mean serving SINR are reported without a limit: the
 two simulators define the load of interfering cells differently.  The
 absolute failure level is not calibrated.  With equal run lengths on both
 sides (corrected in 2.6.0; the 2.5.0 analyses compared 90 s of HandoverLab
-with 120 s of ns-3), the default link-monitoring model gives 0.18, 0.32 and
-0.17 of the failure level of ns-3 on the fresh sets N3, V1 and V3.  The
-*comparison setting* (:data:`COMPARISON_SETTING`, since 2.5.0;
+with 120 s of ns-3), the default link-monitoring model gives 0.18, 0.32,
+0.17 and 0.27 of the failure level of ns-3 on the fresh sets N3, V1, V3
+and V4.  The *comparison setting* (:data:`COMPARISON_SETTING`, since 2.5.0;
 ``scenario_for(..., comparison=True)``, ``compare(..., comparison=True)``,
 ``handoverlab verify --ns3 --ns3-comparison``) brings the level closer
-(0.52, 1.31 and 0.64 on N3, V1 and V3) but is not
-validated: it passes the pre-registered checks on none of the three sets
-(on V1 the rank correlation is 0.62) (docs/calibration.md).  It is not a
+(0.52, 1.31, 0.64 and 0.73 on N3, V1, V3 and V4) but is not validated:
+it passes the pre-registered checks on 1 of the 4 fresh sets (V4; on V1
+the rank correlation is 0.62) (docs/calibration.md).  It is not a
 default: every default and every stored result is unchanged.
 
 The *ns-3-like setting* (:data:`NS3_LIKE_SETTING`; ``scenario_for(..., ns3_like=True)``,
 ``compare(..., ns3_like=True)``, ``handoverlab verify --ns3 --ns3-like``) imitates the link
 monitoring of ns-3 / 5G-LENA v5.1 as found in its code and measured in its runs (out-of-sync after
 200 control receptions below Qout, 0.65-0.9 s, and a handover command that fails while T310 runs).
-It imitates ns-3, not 3GPP, and is not a default; its validation on a fresh ns-3 set (V4) is
-pending (docs/calibration.md).
+It imitates ns-3, not 3GPP, and is not a default.  It is not validated: on the fresh ns-3 set V4
+(2.7.0) its failure level is 1.03 of ns-3's (1.07 at TTT 1280 ms, 0.03 at 128 ms) but the
+handover-rate check fails (0.759, limit 0.8) (docs/calibration.md).
 
 The comparison is not part of the quick checks: it simulates 4 x 24 runs of
 150 s (a few minutes per seed on one core).
@@ -62,17 +63,20 @@ CAR_LOSS = {"radio.penetration_db": 9.0, "radio.penetration_sd_db": 5.0}
 # failure level closer to ns-3's, NOT validated.  With equal run lengths on both sides (corrected in 2.6.0; the
 # 2.5.0 analyses compared 90 s of HandoverLab with 120 s of ns-3) it gives 0.52 (N3, TTT 100 / 640 ms), 1.31
 # (V1, TTT 80 / 320 ms; rank correlation 0.62) and 0.64 (V3, TTT 512 / 1024 ms) of ns-3's failure level, so it
-# passes the pre-registered checks on none of the three fresh sets; the handover-rate ratio and the direction
-# of the time-to-trigger effect agree.  Kept for compatibility within 2.x.  Not a default.
+# passes the pre-registered checks on none of these three fresh sets; on the fourth, V4 (TTT 128 / 1280 ms;
+# 2.7.0), it passes (level 0.73), so on 1 of 4.  The handover-rate ratio and the direction of the
+# time-to-trigger effect agree.  Kept for compatibility within 2.x.  Not a default.
 COMPARISON_SETTING = {"protocol.lm_load": 0.15, "protocol.exec_can_fail": False}
 
-# The ns-3-like setting: imitates ns-3 / 5G-LENA v5.1, NOT 3GPP; not a default.  It reproduces the link-failure
+# The ns-3-like setting: imitates ns-3 / 5G-LENA v5.1, NOT 3GPP; not a default.  It imitates the link-failure
 # mechanism found in the code of 5G-LENA v5.1 and measured in ns-3 runs (docs/calibration.md): out-of-sync after
 # 200 consecutive control receptions below Qout (0.65-0.9 s at light traffic, against about 200 ms in TS 38.133),
 # in-sync after 100 receptions above Qin, both counted afresh on every new cell, a reception rate that grows with
 # the users of the cell, a handover command that fails when it arrives while T310 runs (the TR 36.839 model that
 # ns-3 uses; TS 38.331 lets the command stop T310), and ideal execution.  Used with the in-car loss
-# (``car=True``).  Validation on a fresh ns-3 set (V4) is pending.
+# (``car=True``).  Frozen before the fresh ns-3 set V4 was opened and NOT validated on it (2.7.0): failure level
+# 1.03 of ns-3's, right at TTT 1280 ms (1.07) and far too low at 128 ms (0.03, 1 failure against 29); the
+# handover-rate check F3 fails (0.759, limit 0.8).  An option that imitates ns-3, not a validated reproduction.
 NS3_LIKE_SETTING = {"protocol.ns3_oos_rx": 200.0, "protocol.ns3_ins_rx": 100.0, "protocol.ns3_ctrl_hz": 206.0,
                     "protocol.ns3_ctrl_per_ue_hz": 16.5, "protocol.rlm_holdoff_s": 0.0,
                     "protocol.cmd_during_t310": "lost", "protocol.exec_can_fail": False, "protocol.lm_load": 0.38}
@@ -103,7 +107,7 @@ def scenario_for(isd_m: int, speed_mps: int, ref: Optional[dict] = None, overrid
     further, for calibration experiments.  ``car`` adds the in-car loss that ns-3 applies at this
     speed (:func:`car_loss`).  ``comparison`` applies :data:`COMPARISON_SETTING` (2.5.0) before
     ``overrides``; the setting is meant for ``car=True`` (not validated).  ``ns3_like`` applies
-    :data:`NS3_LIKE_SETTING` instead (imitates ns-3, not 3GPP; meant for ``car=True``; validation pending).
+    :data:`NS3_LIKE_SETTING` instead (imitates ns-3, not 3GPP; meant for ``car=True``; not validated).
     """
     if comparison and ns3_like:
         raise ValueError("comparison and ns3_like are two different settings; choose one")
@@ -228,7 +232,7 @@ def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Opt
                comparison: bool = False, ns3_like: bool = False) -> Dict:
     """The check group ``ns3``.  ``comparison`` (2.5.0) runs HandoverLab with :data:`COMPARISON_SETTING`
     and the in-car loss of ns-3 (``car=True``); a setting that brings the failure level closer, not validated.
-    ``ns3_like`` runs it with :data:`NS3_LIKE_SETTING` and the in-car loss (imitates ns-3; validation pending)."""
+    ``ns3_like`` runs it with :data:`NS3_LIKE_SETTING` and the in-car loss (imitates ns-3; not validated)."""
     rep.section("ns3", "reference comparison with ns-3 / 5G-LENA (24 A3 settings x 4 conditions, %d seed%s%s%s)"
                 % (len(seeds), "s" if len(seeds) > 1 else "", "; reference %s" % reference if reference else "",
                    "; comparison setting with the in-car loss" if comparison else
@@ -250,7 +254,7 @@ def ns3_checks(rep, seeds: Sequence[int] = (500,), progress=None, reference: Opt
     rep.check("unnecessary-handover rate: rank correlation >= %.1f" % L["rank_min"],
               s["uho_rank"] >= L["rank_min"], "%.2f" % s["uho_rank"])
     rep.note("failure rate (no limit; comparison setting, not validated: 0.5-1.3 of ns-3)" if comparison else
-             "failure rate (no limit; ns-3-like setting, validation pending)" if ns3_like else
+             "failure rate (no limit; ns-3-like setting, imitates ns-3, not validated)" if ns3_like else
              "failure rate (no limit: interfering load defined differently)",
              "mean %.3f / %.3f per UE-min, rank correlation %.2f"
              % (s["fail_mean"], s["fail_mean_ns3"], s["fail_rank"]))

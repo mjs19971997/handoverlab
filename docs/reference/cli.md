@@ -55,7 +55,7 @@ options:
 
 ```text
 usage: handoverlab verify [-h] [--only GROUP [GROUP ...]] [--full] [--ns3] [--ns3-seeds NS3_SEEDS]
-                          [--ns3-reference FILE] [--ns3-comparison] [--results FILE]
+                          [--ns3-reference FILE] [--ns3-comparison] [--ns3-like] [--results FILE]
                           [--sample SAMPLE] [--json OUT] [-q]
 
 options:
@@ -75,6 +75,11 @@ options:
                         (interferer load 0.15 at link monitoring, ideal execution, the in-car loss
                         of ns-3): a setting that brings the failure level closer (0.5-1.3 of
                         ns-3's, depending on the set), not validated; not a default
+  --ns3-like            with --ns3: run HandoverLab with the ns-3-like setting (imitates the link
+                        monitoring of ns-3 / 5G-LENA: out-of-sync after 200 control receptions, a
+                        command lost while T310 runs; with the in-car loss of ns-3): imitates
+                        ns-3, not 3GPP; not validated (on the fresh set V4 the level is right at
+                        TTT 1280 ms, far too low at 128 ms); not a default
   --results FILE        recompute a JSON result file of 'run' and compare fingerprints
   --sample SAMPLE       with --results: recompute only this many runs, chosen at random
   --json OUT            also write the report as JSON
@@ -206,9 +211,9 @@ options:
 ### ns3 compare
 
 ```text
-usage: handoverlab ns3 compare [-h] [--comparison] [--workers WORKERS] [-o OUT] [--level LO HI]
-                               [--rank-min RANK_MIN] [--ho-ratio LO HI] [--ttt-share TTT_SHARE]
-                               [--min-failures MIN_FAILURES] [-q]
+usage: handoverlab ns3 compare [-h] [--comparison] [--ns3-like] [--workers WORKERS] [-o OUT]
+                               [--level LO HI] [--rank-min RANK_MIN] [--ho-ratio LO HI]
+                               [--ttt-share TTT_SHARE] [--min-failures MIN_FAILURES] [-q]
                                study reference
 
 positional arguments:
@@ -220,6 +225,10 @@ options:
   --comparison          run HandoverLab with the ns-3 comparison setting of 2.5.0 (interferer load
                         0.15 at link monitoring): brings the failure level closer (0.5-1.3 of
                         ns-3's), not validated; not a default
+  --ns3-like            run HandoverLab with the ns-3-like setting (imitates the link monitoring
+                        of ns-3 / 5G-LENA, not 3GPP): not validated (on the fresh set V4 it fails
+                        the handover-rate check F3; level right at TTT 1280 ms, far too low at 128
+                        ms); not a default
   --workers WORKERS     processes for the HandoverLab runs (default 1)
   -o OUT, --output OUT  also write the cells and checks as JSON
   --level LO HI         F1: limits of the failure level HandoverLab / ns-3 (default 0.67 1.5)

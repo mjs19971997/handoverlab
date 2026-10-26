@@ -16,7 +16,7 @@ abstract: >-
   handover rules (including a measurement-prediction rule after TR 38.744), equal-budget tuning
   studies with paired statistics, and verification against hand-computed values, golden event-log
   fingerprints, the 3GPP large-scale calibration and ns-3 / 5G-LENA.
-version: "2.6.0"
+version: "2.7.0"
 doi: 10.5281/zenodo.23409131
 identifiers:
   - type: doi

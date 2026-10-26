@@ -109,12 +109,12 @@ F1 and F2 are "not measurable", and fail, when ns-3 has fewer than 20 failures i
 The HandoverLab side has ideal execution (ns-3 has an ideal random access); `--comparison` adds the ns-3
 comparison setting of 2.5.0 (`handoverlab.verify.ns3.COMPARISON_SETTING`, interferer load 0.15 at link
 monitoring), a setting that brings the failure level closer (0.5-1.3 of ns-3's, depending on the
-set) but is not validated: with equal run lengths it passes F1-F3 on none of the fresh sets N3, V1
-and V3 ([calibration](../calibration.md)); it is not a default. `--ns3-like` runs the ns-3-like setting
+set) but is not validated: with equal run lengths it passes F1-F4 on 1 of the 4 fresh sets (V4; it
+fails on N3, V1 and V3; [calibration](../calibration.md)); it is not a default. `--ns3-like` runs the ns-3-like setting
 instead (row N; `handoverlab.verify.ns3.NS3_LIKE_SETTING`, see below). `-o OUT` writes
 the cells and the checks as JSON; the exit code is 0 when no check fails.
 
-### The ns-3-like setting (planned validation on V4 pending)
+### The ns-3-like setting (not validated on V4)
 
 `--ns3-like` (Python: `compare(..., setting="ns3-like")`) runs HandoverLab with a setting that imitates how
 ns-3 / 5G-LENA v5.1 detects a radio-link failure: out-of-sync only after 200 consecutive control-channel
@@ -125,8 +125,17 @@ applies), ideal execution and an interferer load of 0.38 at link monitoring. It 
 3GPP** (TS 38.133 evaluates the radio link over about 200 ms, and in TS 38.331 a handover command stops
 T310), and it is not a default. It was built from ns-3 data already seen (N2, N3, V1, V3); in sample it
 matches the failure level at long time-to-trigger (N3, V3) but gives far too few failures at 80-320 ms
-(N2, V1). Its validation on the fresh ns-3 set V4, collected before the option existed and kept unopened,
-is planned and pending ([calibration](../calibration.md#the-ns-3-like-setting-validation-on-v4-pending)).
+(N2, V1).
+
+On the fresh ns-3 set V4 (collected before the option existed and kept unopened until the setting was frozen
+in the code; site distance 200 / 400 m, 14 / 22 m/s, TTT 128 / 1280 ms, seeds 701-705, 180 s with 60 s
+discarded on both sides) it gives level 1.03, order 0.93 and the TTT direction in 4 of 4 pairs, but a
+handover-rate ratio of 0.759, below the limit 0.8, so it is **not validated** under the registered rule
+(counted with HandoverLab's failed attempts, as ns-3's `ho_pm` does, the ratio is 0.945; a side report
+announced in advance, not the criterion). Its level is right at TTT 1280 ms (1.07) and far too low at
+128 ms (0.03: 1 failure against 29). Use it to imitate ns-3's failure detection, not as a validated
+reproduction of ns-3 ([calibration](../calibration.md#v4-the-ns-3-like-setting-on-a-fresh-set)). On the
+same set the comparison setting passes F1-F4 (level 0.73, order 0.98, ratio 0.815, 4 of 4).
 
 ## Python
 
@@ -161,7 +170,8 @@ The corrected numbers are the ones that count; the registered ones are reproduce
 This difference showed that the 2.5.0 analyses of N3, V1 and V3 compared failure counts over unequal run
 lengths. Redone with equal run lengths (amendment E1, registered before the corrected results were seen), the
 comparison setting passes F1-F3 on none of the three sets (level 0.52, 1.31 with rank 0.62, and 0.64), so the
-statement of 2.5.0 that it passed on V1 is withdrawn in 2.6.0 ([calibration](../calibration.md)). The
+statement of 2.5.0 that it passed on V1 is withdrawn in 2.6.0 ([calibration](../calibration.md)); on the
+fourth fresh set, V4 (2.7.0), it passes. The
 comparisons of handover rates were not affected.
 
 ## Limits

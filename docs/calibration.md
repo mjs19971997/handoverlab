@@ -4,26 +4,34 @@ The radio model itself is calibrated against 3GPP (TR 38.901 clause 7.8.1, the 2
 R1-165974); see [radio calibration against 3GPP](calibration-3gpp.md). This page is about the
 failure model, which no 3GPP calibration covers.
 
-**Where the failure level stands (2.6.0, corrected).** The absolute failure level is **not calibrated**.
-On three fresh, pre-registered sets of ns-3 / 5G-LENA runs (N3, V1, V3), compared over equal run lengths
-(120 s measured on both sides), no HandoverLab setting passes the checks of level, order and handover rate:
+**Where the failure level stands (2.7.0).** The absolute failure level is **not calibrated**.
+On four fresh, pre-registered sets of ns-3 / 5G-LENA runs (N3, V1, V3, V4), compared over equal run lengths
+(120 s measured on both sides), the comparison setting passes the checks of level, order and handover rate on
+one set (V4) and fails on the other three; the default link monitoring fails the level on all four:
 
 | Set (time-to-trigger) | Comparison setting: level, rank | Default link monitoring: level, rank | Handover-rate ratio (C / R) |
 |---|---|---|---|
 | N3 (100, 640 ms) | 0.52 fails, 0.95 | 0.18 fails, 0.71 fails | 0.92 / 0.96 |
 | V1 (80, 320 ms) | 1.31, 0.62 fails | 0.32 fails, 0.62 fails | 0.92 / 0.94 |
 | V3 (512, 1024 ms) | 0.64 fails, 0.88 | 0.17 fails, 0.76 fails | 0.86 / 0.94 |
+| V4 (128, 1280 ms) | 0.73, 0.98 | 0.27 fails, 0.95 | 0.815 / 0.90 |
 
 The *ns-3 comparison setting* (`handoverlab.verify.ns3.COMPARISON_SETTING`: interferer load 0.15 at link
 monitoring, ideal execution, with the in-car loss of ns-3) brings the level closer, to 0.5-1.3 times ns-3's
-depending on the set, but it is not validated, and its order of failures across cells is not
-reliable. The handover-rate ratio (0.86-0.96) and the direction of the time-to-trigger effect agree in every
-set and row. The setting is not a default. *Corrected in 2.6.0:* 2.5.0 stated that the setting passed on V1
+depending on the set (V4: 0.73), but it is not validated: it passes on 1 of the 4 fresh sets, and its order
+of failures across cells is not reliable. The handover-rate ratio (0.815-0.96) and the direction of the
+time-to-trigger effect agree in every set and row. The setting is not a default. *Corrected in 2.6.0:* 2.5.0 stated that the setting passed on V1
 (level 0.97, rank 0.88; N3 0.47, defaults 0.33 and 0.16); those numbers are the registered analysis with the
 wrong run length (90 s of HandoverLab against 120 s of ns-3). See the
 [correction](#correction-in-260-equal-run-lengths) and the [independent validation study
 (2.5.0)](#independent-validation-study-250) at the end of this page, which also tests whether the adaptive
 and learning rules generalise.
+
+The *ns-3-like setting* (2.7.0, `handoverlab.verify.ns3.NS3_LIKE_SETTING`, not a default) imitates how ns-3
+detects a radio-link failure. Frozen in the code before V4 was opened, it gives on V4 a level of 1.03, order
+0.93 and the TTT direction in 4 of 4 pairs, but a handover-rate ratio of 0.759 (limit 0.8), so it is **not
+validated**. Its level is right at TTT 1280 ms (1.07) and far too low at 128 ms (0.03: 1 failure against 29).
+See [the ns-3-like setting](#the-ns-3-like-setting-270) and [V4](#v4-the-ns-3-like-setting-on-a-fresh-set).
 
 **Fresh hold-out D (1.9.0).** 48 new ns-3 runs on conditions never used before (12 and 20 m/s)
 were compared with the 1.3.0 configuration fixed in advance: handover and unnecessary-handover
@@ -460,7 +468,9 @@ against 47), so the condition of this decision is not met: the setting and its c
 (the [stability policy](stability.md) keeps them within 2.x), documented as a setting that brings the
 level closer (0.5-1.3 of ns-3's), **not validated**.
 
-**Validity range (corrected in 2.6.0).** The setting passes the pre-registered checks on no fresh set.
+**Validity range (corrected in 2.6.0).** The setting passes the pre-registered checks on none of N3, V1
+and V3 (in 2.7.0 it passes on the fourth fresh set, [V4](#v4-the-ns-3-like-setting-on-a-fresh-set), so on 1
+of 4).
 2.5.0 stated that it passed on V1 (time-to-trigger 80 and 320 ms) and failed the level on N3 (0.47); both
 were the registered analysis with the wrong run length. With equal run lengths: V1 level 1.31 but rank
 0.62 (fails); N3 level 0.52 (fails; TTT 640 ms cells 97 against 180, 71 against 193, 27 against 46, 48
@@ -487,8 +497,9 @@ seeds and criteria as V1.
 | R | corrected (2.6.0), equal run lengths | 0.17, fails | 0.76, fails | 0.94, passes | 4, passes |
 
 Row C fails the level at long time-to-trigger, as on N3 at 640 ms, consistent with ns-3's slower
-out-of-sync detection (0.65-0.83 s, version 1.4.0 section), which HandoverLab does not model; its order and
-the time-to-trigger direction hold. The verdict is the same in both analyses.
+out-of-sync detection (0.65-0.83 s, version 1.4.0 section), which the default model does not reproduce
+(the ns-3-like option of 2.7.0 imitates it); its order and the time-to-trigger direction hold. The verdict
+is the same in both analyses.
 
 ### Correction in 2.6.0: equal run lengths
 
@@ -522,12 +533,13 @@ time-to-trigger effect pass in every set and row. The absolute failure level of 
 handover and unnecessary-handover rates (part A of the stored reference, `handoverlab verify --ns3`) and
 N2, which use rates per UE-minute.
 
-**Next.** An "ns-3-like" option that imitates ns-3's slower out-of-sync detection (not a default) was
-built from the ns-3 data already seen; see the next section. It is judged on a fresh set (V4: site distance
-200 and 400 m, 14 and 22 m/s, time-to-trigger 128 and 1280 ms, seeds 701-705), collected before the option
-existed and kept unopened until the option and its settings were frozen.
+**Next (done in 2.7.0).** An "ns-3-like" option that imitates ns-3's slower out-of-sync detection (not a
+default) was built from the ns-3 data already seen; see the next section. It was judged on a fresh set (V4:
+site distance 200 and 400 m, 14 and 22 m/s, time-to-trigger 128 and 1280 ms, seeds 701-705), collected
+before the option existed and kept unopened until the option and its settings were frozen; it is not
+validated ([V4](#v4-the-ns-3-like-setting-on-a-fresh-set)).
 
-### The ns-3-like setting (validation on V4 pending)
+### The ns-3-like setting (2.7.0)
 
 `handoverlab.verify.ns3.NS3_LIKE_SETTING` imitates how ns-3 / 5G-LENA v5.1 declares a radio-link failure.
 It imitates ns-3, **not 3GPP**, and it is **not a default**; every default and golden fingerprint is unchanged.
@@ -552,6 +564,8 @@ In the ns-3 runs 97 % of the out-of-sync indications ended in a failure, and 96 
 handover command that arrived while T310 ran. The interferer load 0.38 is the one at which HandoverLab's
 link-monitoring SINR has the share of time below Qout and the quantiles of the ns-3 control-channel SINR in
 N2; at that load HandoverLab has fewer long periods below Qout than ns-3 (a load of 1.0 matches those).
+Of these two candidates, both derived from the ns-3 control-channel SINR, 0.38 was chosen in sample, after the
+in-sample rows below were seen: F1-F4 pass on 2 of the 4 seen sets against 1, pooled level 0.82 against 1.85.
 
 **In sample, not a validation.** The values were chosen with the ns-3 sets already seen; with equal run
 lengths (180 s, 60 s discarded) the setting (row N) gives:
@@ -568,10 +582,56 @@ It matches ns-3's failure level at long time-to-trigger (512-1024 ms) but gives 
 ns-3's at 512-1024 ms). So the slower detection explains the long-TTT gap, but the short-TTT failures of ns-3,
 which need long periods below Qout before any neighbour is 3 dB stronger, are not reproduced.
 
-**Validation pending.** The setting and the procedure were frozen before V4 was opened (amendment N1
-of the validation plan): rows R, C and N on V4's 8 cells and seeds 701-705 with equal run lengths, criteria F1-F4 as
-V1 (TTT direction 1280 - 128 ms) and the rate-based level; the level of the 128 ms and the 1280 ms cells is
-reported separately. Until then the failure level stays **not calibrated**.
+**Not validated on V4** (next section): level 1.03 overall and 1.07 at TTT 1280 ms, but 0.03 at 128 ms,
+and the handover-rate check fails (0.759). The failure level stays **not calibrated**.
+
+### V4: the ns-3-like setting on a fresh set
+
+Registered before the set was opened (amendment N1 of the validation plan), with the ns-3-like setting
+committed to the code beforehand (commit abb8b92) and its values checked by the judging script: 40 fresh
+ns-3 runs, collected before the option existed and kept unopened (urban, 20 users, light traffic, A3 3 dB,
+no fading), site distance 200 and 400 m, 14 and 22 m/s, time-to-trigger 128 and 1280 ms, seeds 701-705.
+Both sides run 180 s with 60 s discarded (equal run lengths). ns-3 has 897 failures: 29 in the 128 ms
+cells and 868 in the 1280 ms cells. Rows R (default link monitoring, ideal execution), C
+(`COMPARISON_SETTING`) and N (`NS3_LIKE_SETTING`) were run through the [ns-3 bridge](guides/ns3-bridge.md)
+with the same seeds; criteria F1-F4 as V1 (TTT direction 1280 - 128 ms) and the rate-based level. Row N is
+validated only if it passes all of them.
+
+| Row | F1 level (0.67-1.5) | F2 order (at least 0.8) | F3 handover rate (0.8-1.25) | F4 TTT direction (3 of 4) | Verdict |
+|---|---|---|---|---|---|
+| R: default link monitoring, ideal execution | 0.27, fails | 0.95 | 0.90 | 4 of 4 | fails F1 |
+| C: `COMPARISON_SETTING` | 0.73 | 0.98 | 0.815 | 4 of 4 | **passes F1-F4** |
+| N: `NS3_LIKE_SETTING` | 1.03 | 0.93 | **0.759, fails** | 4 of 4 | **not validated** (F3) |
+
+The rate-based level equals F1 in every row. Reported next to the verdict, as registered, not part of it:
+
+| Row | Level at TTT 128 ms (failures HandoverLab / ns-3) | Level at TTT 1280 ms | F3 counting HandoverLab's failed attempts |
+|---|---|---|---|
+| R | 0.55 (16 / 29) | 0.26 (225 / 868) | 0.95 |
+| C | 1.83 (53 / 29) | 0.70 (605 / 868) | 0.94 |
+| N | 0.03 (1 / 29) | 1.07 (924 / 868) | 0.945 |
+
+**Row N.** The overall level is close to ns-3's (1.03), and the order of the cells and the direction of the
+time-to-trigger effect are right, but the registered F3 (completed HandoverLab handovers against ns-3's
+handover attempts) is 0.759, below 0.8, so by the registered rule the setting is **not validated**. Counted
+with HandoverLab's failed attempts, as ns-3's `ho_pm` counts them, F3 is 0.945; this was announced in
+advance as a side report, not as the criterion, and does not change the verdict. The level splits as in
+sample: right at 1280 ms (1.07), far too low at 128 ms (1 failure against 29). In sample it was also right
+only at long time-to-trigger (N3 0.87, V3 0.97; V1 0.05, N2 0.16). So the setting imitates ns-3's failure
+detection and matches ns-3's failure level at long time-to-trigger, but gives far too few failures at short
+time-to-trigger. It is offered as an option, not as a validated reproduction of ns-3; it is not a default.
+
+**Row C** passes F1-F4 on V4 (level 0.73, just inside 0.67), the first fresh set with equal run lengths on
+which it passes; it passes 1 of the 4 fresh sets (N3, V1, V3, V4). Its level is too high at 128 ms (1.83)
+and too low at 1280 ms (0.70). **Row R** fails the level, as on every set (0.27). F2 and F4 pass
+for every row; F3 passes for rows R and C (row N: 0.759).
+
+**Consequence.** The absolute failure level of HandoverLab stays **not calibrated**: the comparison setting
+gives 0.5-1.3 times ns-3's level depending on the set (V4: 0.73). The defaults stay those of 3GPP.
+
+**Open question (future work).** Why HandoverLab has too few failures at short time-to-trigger under the
+ns-3-like detection. The likely cause, not checked, is that it has fewer long periods below Qout before a
+neighbour becomes 3 dB stronger.
 
 ### V2: do the adaptive and learning rules generalise?
 

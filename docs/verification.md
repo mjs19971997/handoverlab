@@ -11,6 +11,7 @@ handoverlab verify                 # about two minutes; prints PASS / FAIL / NOT
 handoverlab verify --full          # three seeds for the radio statistics, 60 s engine runs
 handoverlab verify --ns3           # only the comparison with ns-3 / 5G-LENA (a few minutes)
 handoverlab verify --ns3 --ns3-comparison   # the same with the ns-3 comparison setting (2.5.0; not validated)
+handoverlab verify --ns3 --ns3-like         # the same with the ns-3-like setting (2.7.0; imitates ns-3, not validated)
 handoverlab verify --results results.json --sample 5     # repeat stored runs and compare
 ```
 
@@ -166,7 +167,8 @@ models, not a sampling effect, and it is not resolved in this version. What is k
   give the same failure times. With its defaults, HandoverLab's failure model is therefore *not
   calibrated in absolute terms*. Since 2.5.0 an ns-3 comparison setting is documented that brings the
   level closer (0.5-1.3 of ns-3's), but it is not validated: compared over equal run lengths it passes
-  the pre-registered checks on none of three fresh sets of ns-3 runs (below; corrected in 2.6.0).
+  the pre-registered checks on 1 of 4 fresh sets of ns-3 runs (V4; below; corrected in 2.6.0). The
+  ns-3-like setting of 2.7.0, which imitates ns-3's failure detection, is not validated either (below).
 
 **What this means for results.** Compare failure rates between rules within HandoverLab (the
 tuning budgets of a study are shares of a reference rule's failure rate for this reason), and
@@ -197,6 +199,22 @@ closer, not validated and not a default: `handoverlab.verify.ns3.COMPARISON_SETT
 `scenario_for(..., car=True, comparison=True)`, `compare(..., car=True, comparison=True)` or
 `handoverlab verify --ns3 --ns3-comparison`. The numbers are on the
 [calibration page](calibration.md#correction-in-260-equal-run-lengths).
+
+**Fourth fresh set, V4 (2.7.0).** 40 fresh ns-3 runs (site distance 200 and 400 m, 14 and 22 m/s,
+time-to-trigger 128 and 1280 ms, seeds 701-705, 897 ns-3 failures), registered and kept unopened until the
+ns-3-like setting was frozen in the code, judged with the same checks over equal run lengths:
+
+| Row | Level | Order | Handover-rate ratio | TTT direction | Level at TTT 128 / 1280 ms |
+|---|---|---|---|---|---|
+| defaults (default link monitoring, ideal execution) | 0.27, fails | 0.95 | 0.90 | 4 of 4 | 0.55 / 0.26 |
+| comparison setting (`COMPARISON_SETTING`) | 0.73 | 0.98 | 0.815 | 4 of 4 | 1.83 / 0.70 |
+| ns-3-like setting (`NS3_LIKE_SETTING`) | 1.03 | 0.93 | 0.759, fails | 4 of 4 | 0.03 / 1.07 |
+
+The comparison setting passes, its first pass on a fresh set with equal run lengths (1 of 4). The ns-3-like
+setting (`handoverlab verify --ns3 --ns3-like`, `handoverlab ns3 compare --ns3-like`; not a default)
+imitates how ns-3 / 5G-LENA declares a radio-link failure: it is right at long time-to-trigger but gives far
+too few failures at short time-to-trigger, and fails the handover-rate check, so it is **not validated**.
+The absolute failure level stays not calibrated ([V4](calibration.md#v4-the-ns-3-like-setting-on-a-fresh-set)).
 
 Reproduce the comparison with `handoverlab verify --ns3`; the fully loaded variant is the same
 scenario with `traffic.normal_load: [1.0, 1.0]` and `traffic.hotspot_load: [1.0, 1.0]`.

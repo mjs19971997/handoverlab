@@ -342,8 +342,8 @@ The ns-3 / 5G-LENA build of the comparison study was read at the source (contrib
 
 | Rule | ns-3 / 5G-LENA | HandoverLab (3GPP profile) |
 |---|---|---|
-| Command received while T310 runs (TS 38.331 5.3.5.5.2) | executed and T310 stopped in the stock code; the study build switched on a TR 36.839 rule (`Tr36839HandoverFailure`) that counts it as a failure | executed when the link reaches Qout |
-| Out-of-sync detection in about 200 ms (TS 38.133 8.1.2.2) | 20 frames of 10 control receptions, 0.65-0.83 s at light traffic | 0.2 s |
+| Command received while T310 runs (TS 38.331 5.3.5.5.2) | executed and T310 stopped in the stock code; the study build switched on a TR 36.839 rule (`Tr36839HandoverFailure`) that counts it as a failure | executed when the link reaches Qout (the ns-3-like option of 2.7.0, not a default: a failure, as in ns-3) |
+| Out-of-sync detection in about 200 ms (TS 38.133 8.1.2.2) | 20 frames of 10 control receptions, 0.65-0.83 s at light traffic | 0.2 s (the ns-3-like option of 2.7.0, not a default: 200 control receptions, as in ns-3) |
 | In-car loss per user (TR 38.901 7.4.3.2) | only at 30-120 km/h | any speed, per user |
 | T304 at the UE (TS 38.331 5.3.5.8.3) | handover joining timeout of 200 ms at the target gNB | UE timer, 1 s |
 | Link monitoring restart on the new cell | yes | yes (`rlm_holdoff_s`) |
@@ -371,8 +371,9 @@ configuration and the limits were fixed in writing before the runs; nothing was 
 | Failures: rank | >= 0.8 | 0.68 (fail) | 0.64 (fail) |
 
 The 1.3.0 configuration (in-car loss, ideal execution, restart of link monitoring) meets the
-failure level of ns-3 on data it had never seen (later checks, N3, V1 and V3 of the [calibration page](calibration.md), found the level of the defaults at 0.18, 0.32 and 0.17 of ns-3's, and a separate comparison setting at 0.5-1.3 of
-ns-3's, not validated; corrected in 2.6.0). The 3GPP profile has far fewer failures than ns-3
+failure level of ns-3 on data it had never seen (later checks, N3, V1, V3 and V4 of the [calibration page](calibration.md), found the level of the defaults at 0.18, 0.32, 0.17 and 0.27 of ns-3's, and a separate comparison setting at 0.5-1.3 of
+ns-3's, passing on 1 of the 4 sets (V4), not validated; corrected in 2.6.0; the ns-3-like setting of 2.7.0 is
+not validated on V4 either). The 3GPP profile has far fewer failures than ns-3
 because the ns-3 build counts every command that arrives during T310 as a failure (the TR 36.839
 evaluation rule), while the profile follows TS 38.331. The order of the failure rates over the
 conditions agrees in neither configuration: ns-3 failures grow much more with the time-to-trigger.

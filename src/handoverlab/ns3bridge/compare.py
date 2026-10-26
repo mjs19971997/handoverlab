@@ -7,7 +7,7 @@ random access), the users, the run length (unless ``run_length: card``), the tra
 study, and, with ``setting="comparison"`` (or ``comparison=True``),
 :data:`handoverlab.verify.ns3.COMPARISON_SETTING`, with ``setting="ns3-like"``
 :data:`handoverlab.verify.ns3.NS3_LIKE_SETTING` (imitates the link monitoring of ns-3 / 5G-LENA, not 3GPP;
-validation pending).  Each seed of the reference runs with the same seed in HandoverLab.
+not validated: it fails F3 on the fresh set V4).  Each seed of the reference runs with the same seed in HandoverLab.
 
 The checks are those of the studies N3 and V1 (limits as parameters, defaults those of V1):
 

@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.6.0. It explains the ideas behind a run, the built-in
+This guide covers version 2.7.0. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -267,6 +267,7 @@ output: results/metrics.csv
 | | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.1 and 9.3.4 (1.10.0) |
 | | `rlm_eval` | `fixed` | `ts38133` (1.10.0): Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 for the serving cell's frequency range (FR2: 1.6 s / 0.8 s at T_SSB 20 ms) instead of `qout_window_s` / `qin_window_s` |
 | | `dc` | `null` | (2.3.0) dual connectivity, NR-DC of TS 37.340: `{scg_layer, add_thresh_dbm, add_ttt_s, change_off_db, change_ttt_s, release_thresh_dbm, release_ttt_s, prep_s, exec_s, on_mcg_ho}` with defaults first layer, `-110`, `0.16`, `3`, `0.16`, `-120`, `0.16`, `protocol.prep_s`, `protocol.exec_s`, `keep`: an SCG on the cells of one layer next to the MCG ([guide](guides/dual-connectivity.md)) |
+| | `ns3_oos_rx`, `ns3_ins_rx`, `ns3_ctrl_hz`, `ns3_ctrl_per_ue_hz` | `null`, `100`, `206`, `16.5` | (2.7.0) link monitoring as ns-3 / 5G-LENA v5.1 implements it, not 3GPP: out-of-sync after `ns3_oos_rx` consecutive control receptions below Qout, in-sync after `ns3_ins_rx` above Qin while T310 runs, at `ns3_ctrl_hz` + `ns3_ctrl_per_ue_hz` x (users of the cell) receptions per second; `null`: the 3GPP model; base engine only; DAPS source-link monitoring is not applied with it; used by `NS3_LIKE_SETTING`, not validated ([calibration](calibration.md#the-ns-3-like-setting-270)) |
 | `traffic` | `services` | 5 classes | list of `{key, fiveqi, gbr, t_min_s, theta_q_db, share, rate_mbps}` |
 | | `se_max` | `7.4` | spectral-efficiency cap [bit/s/Hz] |
 | | `hotspot_share`, `hotspot_load`, `normal_load` | `0.25`, `[0.55, 0.85]`, `[0.05, 0.25]` | background load |
@@ -351,7 +352,7 @@ optimisation](guides/mro.md).
 
 ```text
 handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--event-level summary|full] [--debug] [-q]
-handoverlab verify [--only GROUP ...] [--full] [--ns3 [--ns3-seeds N]] [--results FILE [--sample N]] [--json OUT] [-q]
+handoverlab verify [--only GROUP ...] [--full] [--ns3 [--ns3-seeds N] [--ns3-comparison | --ns3-like]] [--results FILE [--sample N]] [--json OUT] [-q]
 handoverlab scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
 handoverlab study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report] [-q]
 handoverlab report DIR [-o OUT] [--format md html] [--no-figures]
@@ -359,7 +360,7 @@ handoverlab status STUDY|DIR [-o DIR] [--workers N]
 handoverlab gui [--port N] [--address A] [--headless]
 handoverlab ns3 export STUDY --out DIR [--program FILE] [--force]
 handoverlab ns3 import RESULTS.zip|DIR --out REF.json
-handoverlab ns3 compare STUDY REF.json [--comparison] [--workers N] [-o OUT] [--level LO HI] [--rank-min R] [-q]
+handoverlab ns3 compare STUDY REF.json [--comparison | --ns3-like] [--workers N] [-o OUT] [--level LO HI] [--rank-min R] [-q]
 handoverlab rules
 handoverlab init [PATH] [--force]
 handoverlab --version
@@ -850,11 +851,13 @@ intervals are wide; the report shows them next to every estimate.
   [scheduler](guides/scheduler.md)).
 - The failure model uses the SINR thresholds and timers of TR 36.839 with the procedures of TS 38.331 and
   TS 38.133 (see [standard compliance](standard-compliance.md)). Its absolute level is not calibrated.
-  It was checked against ns-3 / 5G-LENA on three fresh sets of ns-3 runs: over equal run lengths the ns-3
+  It was checked against ns-3 / 5G-LENA on four fresh sets of ns-3 runs: over equal run lengths the ns-3
   comparison setting (`handoverlab.verify.ns3.COMPARISON_SETTING`, not a default) gives 0.5-1.3 times
-  ns-3's level depending on the set and passes the pre-registered checks on none of them, and
+  ns-3's level depending on the set and passes the pre-registered checks on 1 of them (V4), and
   the default link-monitoring model gives 0.17-0.32 (corrected in 2.6.0), so failure rates are best read
-  relative to each other.
+  relative to each other. The ns-3-like setting (2.7.0, `handoverlab.verify.ns3.NS3_LIKE_SETTING`, not a
+  default) imitates ns-3's failure detection; on V4 it is right at long time-to-trigger, gives far too few
+  failures at short time-to-trigger and fails the handover-rate check, so it is not validated.
 - The radio map of a large grid takes some time and memory to build (for the default 3 x 3 grid at
   100 m spacing, 76 sites and 0.2 million street pixels: about 17 s on a modest machine, see
   [performance.md](performance.md)). Use a larger `site_spacing_m`, a coarser `map_res_m` or fewer
@@ -871,5 +874,8 @@ intervals are wide; the report shows them next to every estimate.
   failing, rank 0.62) and 0.64 of ns-3's level on the fresh sets N3, V1 and V3, and the default
   link-monitoring model 0.18, 0.32 and 0.17. 2.5.0 had reported a pass on V1 (level 0.97, rank 0.88)
   from an analysis with unequal run lengths ([correction in 2.6.0](calibration.md#correction-in-260-equal-run-lengths)).
+  On the fourth fresh set, V4 (2.7.0), the comparison setting gives 0.73 and passes (1 of 4 fresh sets);
+  the defaults give 0.27
+  ([V4](calibration.md#v4-the-ns-3-like-setting-on-a-fresh-set)).
 - Tuning gates check the search, not the model: a study that passes every gate can still answer the
   wrong question if the scenario does not fit it.

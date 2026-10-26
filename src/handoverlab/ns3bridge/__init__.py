@@ -10,7 +10,7 @@ Quick start::
     # ... build and run the package with ns-3, bring back v1pkg/V1_results.zip ...
     ref = ns3bridge.import_results("v1pkg/V1_results.zip", "v1_ref.json")
     res = ns3bridge.compare(study, ref, comparison=True, workers=4)   # same run length as ns-3 (180 s, 60 s)
-    # setting="ns3-like": the ns-3-like setting (imitates ns-3 / 5G-LENA, not 3GPP; validation pending)
+    # setting="ns3-like": the ns-3-like setting (imitates ns-3 / 5G-LENA, not 3GPP; not validated)
     print(res["checks"])
 
 or ``handoverlab ns3 export|import|compare`` on the command line.  Only what the program

@@ -7,8 +7,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-25
+
 No change of defaults or results: every golden fingerprint is unchanged. The new option is off by default and
-imitates ns-3 / 5G-LENA, not 3GPP.
+imitates ns-3 / 5G-LENA, not 3GPP. Judged on a fresh, pre-registered ns-3 set (V4), it is **not validated**
+(see "Validation"); the absolute failure level of HandoverLab stays not calibrated.
 
 ### Added
 
@@ -29,10 +32,58 @@ imitates ns-3 / 5G-LENA, not 3GPP.
   It is used with the in-car loss of ns-3: `scenario_for(isd, v, car=True, ns3_like=True)`,
   `verify.ns3.compare(..., ns3_like=True)`, `handoverlab verify --ns3 --ns3-like`, and in the bridge as row N:
   `ns3bridge.compare(..., setting="ns3-like")` (`ns3bridge.SETTINGS`), `handoverlab ns3 compare --ns3-like`.
-- The values were chosen on seen ns-3 data only (N2, N3, V1, V3). In sample it passes F1-F4 on N3 and V3 (long
-  time-to-trigger) and fails the level on N2 and V1 (TTT 80-320 ms, far too few failures); an interferer load
-  of 1.0 gives the opposite pattern. Validation on the fresh, still unopened ns-3 set V4 is pending
-  ([calibration](docs/calibration.md#the-ns-3-like-setting-validation-on-v4-pending)).
+- The values were chosen on seen ns-3 data only (N2, N3, V1, V3); the interferer load 0.38 was chosen in
+  sample, after the in-sample rows were seen, between two candidates derived from the ns-3 control-channel
+  SINR (stated in [calibration](docs/calibration.md#the-ns-3-like-setting-270)). In sample it is right only at
+  long time-to-trigger: level 0.87 on N3 and 0.97 on V3, but 0.05 on V1 and 0.16 on N2 (TTT 80-320 ms, far
+  too few failures); an interferer load of 1.0 gives the opposite pattern. The setting was committed before
+  V4 was opened.
+
+### Validation
+
+- **V4, a fresh, pre-registered ns-3 set** (amendment N1 of the validation plan, fixed before the set was
+  opened): 40 ns-3 / 5G-LENA runs, site distance 200 / 400 m, 14 / 22 m/s, time-to-trigger 128 / 1280 ms,
+  seeds 701-705, equal run lengths on both sides (180 s, 60 s discarded); 897 ns-3 failures (29 in the
+  128 ms cells, 868 in the 1280 ms cells). Rows run through the ns-3 bridge with the same seeds; criteria F1
+  level in [0.67, 1.5], F2 rank correlation at least 0.8, F3 handover-rate ratio in [0.8, 1.25], F4 TTT sign
+  in at least 3 of 4 pairs:
+
+  | Row | F1 level | F2 order | F3 HO ratio | F4 TTT sign | Verdict | Level at TTT 128 ms | Level at TTT 1280 ms |
+  |---|---|---|---|---|---|---|---|
+  | R: defaults (default link monitoring, ideal execution) | 0.27, fails | 0.95 | 0.90 | 4 of 4 | fails F1 | 0.55 (16 / 29) | 0.26 (225 / 868) |
+  | C: `COMPARISON_SETTING` | 0.73 | 0.98 | 0.815 | 4 of 4 | passes F1-F4 | 1.83 (53 / 29) | 0.70 (605 / 868) |
+  | N: `NS3_LIKE_SETTING` | 1.03 | 0.93 | 0.759, fails | 4 of 4 | **not validated** (F3) | 0.03 (1 / 29) | 1.07 (924 / 868) |
+
+  The levels per TTT are reported next to the verdict, as registered, not part of it.
+- Row N, the ns-3-like setting: the overall level (1.03), the order and the TTT direction are right, but F3 is
+  0.759, below 0.8, so by the registered rule it is **not validated**. Counted with HandoverLab's failed
+  attempts (as ns-3's `ho_pm` counts them) F3 is 0.945; this was a side report announced in advance, not the
+  criterion. The option imitates ns-3's failure detection and matches ns-3's failure level at long
+  time-to-trigger (1.07 at 1280 ms), but gives far too few failures at short time-to-trigger (0.03 at 128 ms:
+  1 failure against 29). It is offered as an option, not as a validated reproduction of ns-3, and it is not a
+  default; the defaults stay those of 3GPP.
+- Row C, the comparison setting: passes F1-F4 on V4 (level 0.73, just inside 0.67), the first fresh set with
+  equal run lengths on which it passes; it passes 1 of the 4 fresh sets (N3, V1, V3, V4). Its level is too
+  high at 128 ms (1.83) and too low at 1280 ms (0.70). It stays documented as a setting that brings the level
+  closer (0.5-1.3 times ns-3's, depending on the set), not validated, not a default.
+- Row R, the defaults: fail the level, as on every fresh set (0.27).
+- The absolute failure level of HandoverLab stays **not calibrated**: compare failure rates between rules.
+- Open question, left for future work: why HandoverLab has too few failures at short time-to-trigger under
+  the ns-3-like detection. The likely cause, not checked, is fewer long periods below Qout before a neighbour
+  becomes 3 dB stronger.
+
+### Documentation
+
+- The V4 result added to `docs/calibration.md` (summary and a new section "V4: the ns-3-like setting on a
+  fresh set"), the [ns-3 bridge guide](docs/guides/ns3-bridge.md), `docs/verification.md`,
+  `docs/comparison.md`, `docs/standard-compliance.md`, the user guide, the guides for indoor / rural and the
+  upper mid-band, the README ("Checked against ns-3", the boundary table, What's new, roadmap), the 12
+  scenario cards (scenario pages regenerated), the docstrings of `handoverlab.verify.ns3` and
+  `handoverlab.ns3bridge`, and the help of `verify --ns3-like` and `ns3 compare --ns3-like` (command-line
+  reference regenerated; it now lists `--ns3-like`). Every statement that the V4 validation is pending, and
+  that the comparison setting passes on none of the fresh sets, is replaced by the result.
+- Version 2.7.0 in the README, the user guide, the documentation home page, the comparison page and the
+  citation metadata.
 
 ## [2.6.0] - 2026-10-25
 
@@ -1275,7 +1326,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/mjs19971997/handoverlab/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/mjs19971997/handoverlab/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/mjs19971997/handoverlab/compare/v2.4.2...v2.5.0
 [2.4.2]: https://github.com/mjs19971997/handoverlab/compare/v2.4.1...v2.4.2
