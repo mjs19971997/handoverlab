@@ -98,6 +98,10 @@ class ExtEngine(Engine):
         self.mask = (self.car[:, None] == np.arange(self.nc)[None, :]).astype(float)       # (M, carriers)
         self.lab_chi_c = self.chi_c * sc.traffic.label_load
         self.beams = bool(self.has_b.any())
+        # SS-SINR with the neighbours' SSBs of the same index (radio.beams.ssb_sinr "ssb", since 2.9.0)
+        b0 = self.bcfg[0]
+        self.ssb_int = bool(self.beams and b0 is not None and b0.ssb_sinr == "ssb")
+        self.ssb_ov = float(b0.ssb_overlap) if self.ssb_int else 0.0
         self.dt_ = P.step_s
         # RLM evaluation windows (per user: they depend on the serving cell's frequency range)
         self.rlm38 = P.rlm_eval == "ts38133"
@@ -195,6 +199,19 @@ class ExtEngine(Engine):
             g = g + ch.rg[i // ch.mp, users, ext.cell_site[cells], self.rb[users]]
         return np.exp((ch.site_db[i, users, ext.cell_site[cells]] + ext.p0[cells] + g) * LN10_10)
 
+    def _ssb_interference(self, i, ch, users, beams, ln, totc):
+        """Interference and noise [mW] on the SSS resource elements of SSB index ``beams`` (n,) at ``users`` (n,)
+        in step ``i`` (``radio.beams.ssb_sinr`` "ssb", since 2.9.0; one carrier): the share ``ssb_overlap`` meets
+        the other cells' SSBs of that index at full power through their beams of that index, the rest the
+        data-channel interference of the step."""
+        ext = self.ext
+        c = self.serv[users]
+        g = ch.bg[i // ch.mp][users[:, None], np.arange(self.M)[None, :], beams[:, None]]              # (n, M)
+        p = np.exp((ch.site_db[i][users[:, None], ext.cell_site[None, :]] + ext.p0[None, :] + g) * LN10_10)
+        p[np.arange(len(users)), c] = 0.0
+        data = totc[users, self.car[c]] - self.rc[c] * ln[users, c]
+        return self.ssb_ov * p.sum(1) + (1.0 - self.ssb_ov) * data + self.noise_c[c]
+
     # ------------------------------------------------------------------ UE receive beams (since 2.4.0)
     def _step_ln(self, i, ch):
         """Interference reference powers (U, C) of step ``i``: with UE receive beams through each UE's serving
@@ -266,6 +283,8 @@ class ExtEngine(Engine):
                 tl = self._tot(ln, rcx)
                 p = self._beam_power(i, ch, np.array([u]), np.array([cell]), np.array([self.sb[u]]))[0]
                 q = p / (tl[u, self.car[cell]] - rcx[cell] * ln[u, cell] + self.noise_c[cell])
+                if self.ssb_int:                              # SS-SINR of the joined beam's SSB (2.9.0)
+                    q = p / self._ssb_interference(i, ch, np.array([u]), np.array([self.sb[u]]), ln, tl)[0]
                 self.qo[u] = self.qi[u] = q
                 self.bfd_q[u] = q
             else:
@@ -397,6 +416,8 @@ class ExtEngine(Engine):
         ls = self._desired(0, ch, ln, self.serv)
         rcx = self.rc_lm if self.lm else self.rc
         s = ls / (totc[self.ar, self.car[self.serv]] - rcx[self.serv] * ls_ref + self.noise_c[self.serv])
+        if self.ssb_int:
+            s = ls / self._ssb_interference(0, ch, self.ar, self.sb, ln, totc)
         self.qo[:] = s
         self.qi[:] = s
         if self.rlm38:
@@ -467,6 +488,9 @@ class ExtEngine(Engine):
             else:
                 ilm = totc[ar, self.car[serv]] - self.rc[serv] * ls_ref + self.noise_c[serv]
                 sl = sinr
+            if self.ssb_int:                                    # SS-SINR of the serving beam's SSB (2.9.0)
+                ilm = self._ssb_interference(i, ch, ar, self.sb, ln, totc)
+                sl = ls / ilm
             ssb_q = sl                                          # quality of the serving beam's SSB (BFD-RS)
             if self.beams:
                 sl = self._rlm_quality(i, ch, serv, sl, ilm, con)
@@ -550,8 +574,9 @@ class ExtEngine(Engine):
             self.sb[u] = self.tci_b[u]
             self.bfi[u] = 0                                   # the BFD reference signal changed
             c = int(serv[u])
-            self.bfd_q[u] = self._beam_power(i, ch, np.array([u]), np.array([c]),
-                                             np.array([self.sb[u]]))[0] / ilm[u]
+            iu = (self._ssb_interference(i, ch, np.array([u]), np.array([self.sb[u]]), ln, totc)[0]
+                  if self.ssb_int else ilm[u])
+            self.bfd_q[u] = self._beam_power(i, ch, np.array([u]), np.array([c]), np.array([self.sb[u]]))[0] / iu
             self.C["beam_switch"] += int(counted)
             if self.trace_log is not None:
                 self.trace_event(t, u, "beam_switch", serv[u], serv[u], float(self.sb[u]))
@@ -586,7 +611,8 @@ class ExtEngine(Engine):
             ilm = totc[u, self.car[c]] - self.rc[c] * ln[u, c] + self.noise_c[c]
             if p / ilm >= self.qout:                          # response received on the new beam
                 self.sb[u] = beam
-                self.bfd_q[u] = p / ilm
+                self.bfd_q[u] = p / (self._ssb_interference(i, ch, np.array([u]), np.array([beam]), ln, totc)[0]
+                                     if self.ssb_int else ilm)
                 self._bfr_stop(u, t, ok=True)
                 continue
             self.bfr_n[u] += 1

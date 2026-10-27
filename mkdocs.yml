@@ -91,6 +91,7 @@ nav:
       - Standard compliance: standard-compliance.md
       - Radio calibration against 3GPP: calibration-3gpp.md
       - Failure-model calibration: calibration.md
+      - Comparison with real network data: real-data.md
       - Performance: performance.md
       - Comparison with other simulators: comparison.md
   - Project:

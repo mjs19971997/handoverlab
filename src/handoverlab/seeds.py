@@ -24,10 +24,13 @@ Purposes and the generators each one provides (in this order):
 ``ue_beams``  bearing of the UE panels of the optional UE receive beams (since 2.4.0)
 ``rlm``       background file arrivals of every cell for the optional dynamic
               interference on link monitoring (``protocol.rlm_interference``)
+``los``       lines of the map's LOS cells, redraws of the LOS state along the
+              users' paths of the optional Poisson-line LOS process
+              (``radio.los_process``; since 2.9.0)
 ============  ================================================================
 
 A further layer of the optional multi-carrier model (since 1.10.0) draws its
-``map`` and ``radio`` streams with ``sub`` = its layer number, so that its
+``map``, ``radio`` and ``los`` streams with ``sub`` = its layer number, so that its
 fields are independent of those of the first layer; ``sub = 0`` gives the
 streams of 1.x unchanged.
 """
@@ -39,7 +42,7 @@ import numpy as np
 
 _PURPOSE = {"world": 3, "map": 11, "radio": 29, "rule": 71, "penetration": 97, "traffic": 101, "beams": 113,
             "ntn": 127, "fading": 131, "harq": 137, "o2i": 139,
-            "ue_beams": 149, "rlm": 151}
+            "ue_beams": 149, "rlm": 151, "los": 157}
 _STRIDE = 1000003
 
 

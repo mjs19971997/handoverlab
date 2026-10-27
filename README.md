@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.8.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.9.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -306,6 +306,19 @@ To run your own study in both simulators, `handoverlab ns3 export|import|compare
 
 ## What's new
 
+- **2.9.0**: a comparison with real network data
+  ([real data](https://github.com/mjs19971997/handoverlab/blob/main/docs/real-data.md)): HandoverLab 2.8.0
+  against four public LTE/5G drive-test datasets with quantities and pass criteria registered before the
+  first number, and four registered re-tests. The default passes the NR SS-SINR distribution, the
+  preparation delay and the walking handover rate, but on the urban macro card it changes cell 4-10 times
+  too often per km and has a larger margin at the handover command. Two new options, off by default:
+  `radio.los_process: poisson_lines` gives the LOS state itself the correlation distance of TR 38.901
+  Table 7.6.3.1-2, and `radio.beams.ssb_sinr: ssb` takes the SS-SINR of beam cells over the SSS resource
+  elements with the neighbours' colliding SSBs (TS 38.215 5.1.5). Documented settings closer to deployed
+  networks (sector antennas of TR 38.901 Table 7.8-1, published A3 offsets): the best of them passes 5 of 10
+  judged rows instead of 2, within twice the default's failure rate; a sector setting with eight SSB beams
+  stays about 6 dB optimistic in SINR, cause open. Re-tests on data used before, nothing fitted, no change of
+  defaults or results.
 - **2.8.0**: an option for time-varying, load-dependent interference on radio-link monitoring,
   `protocol.rlm_interference: dynamic` (default `static`; keys `rlm_rs_type`, `rlm_ssb_overlap`,
   `rlm_bg_se`), built from the 3GPP texts: every neighbour's activity comes from FTP-style burst traffic
@@ -580,9 +593,11 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     change of results.
 31. 2.7.0: the ns-3-like option (not a default), judged on the fresh ns-3 set V4 and not
     validated (right at long time-to-trigger, far too few failures at short); no change of results.
-32. **2.8.0 (this release)**: dynamic, load-dependent interference on radio-link monitoring from the 3GPP
+32. 2.8.0: dynamic, load-dependent interference on radio-link monitoring from the 3GPP
     texts, a sensitivity option (not a default, not validated); no change of results.
-33. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
+33. **2.9.0 (this release)**: the comparison with real network data, the LOS-state process and SS-SINR
+    options (not defaults) and documented settings closer to deployed networks; no change of results.
+34. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
     time-to-trigger under the ns-3-like detection; field data on radio-link failures, which a link-monitoring
     interference model would need before it could become a default; the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain and hundreds of

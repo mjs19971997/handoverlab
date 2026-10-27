@@ -5,7 +5,8 @@
 
 * street grid: lookup of the place-tied radio map;
 * open area: path loss with a LOS state that is an AR(1) process along each
-  user's own path (nothing repeatable by place), plus the place-tied
+  user's own path (nothing repeatable by place; with ``los_process``
+  "poisson_lines" a variable redrawn at random points), plus the place-tied
   shadowing field if any;
 * plus, if ``place_share < 1``, a shadowing process along each user's path;
 * plus a time-varying component (moving blockers), an AR(1) process updated
@@ -90,6 +91,10 @@ class RadioSource:
         if self.open:
             self.r_l = np.exp(-self.V * dt / R.los_corr_m)
             self.zl = self.rng_l.standard_normal((self.U, self.M))
+        # redraws of the Poisson-line LOS process along the users' paths (since 2.9.0; a stream of its own)
+        self.rng_j = None
+        if self.open and getattr(R, "los_process", "gaussian") == "poisson_lines":
+            self.rng_j = streams(world.seed, "los", 2, sub)[1]
         # UMa C'(h_UT) with channel_detail "3gpp" (since 2.1.0), SMa heights and vegetation (since 2.3.0)
         self.los_kw = los_args(R)
         self.he_u = None
@@ -131,6 +136,25 @@ class RadioSource:
             out[:, u, :] = _ar1(rng.standard_normal((n, self.M)), r_u[u], z[u])
         return out
 
+    def _los_users(self, n):
+        """LOS variable (n, U, M) along each user's path, continuing ``zl``.
+
+        ``los_process`` "gaussian": the AR(1) process with the coefficient exp(-V dt / los_corr_m) per step;
+        "poisson_lines" (since 2.9.0): the variable is kept, or with the probability 1 - exp(-V dt / los_corr_m)
+        redrawn as a new independent N(0, 1) value (the 1D analogue of the Poisson line process of the map), so
+        that the LOS state itself has the correlation exp(-d / los_corr_m) over the distance d travelled.
+        """
+        if self.rng_j is None:
+            g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
+        else:
+            new = self.rng_j.random((n, self.U, self.M)) >= self.r_l[None, :, None]
+            w = self.rng_j.standard_normal((n, self.U, self.M))
+            last = np.where(new, np.arange(n)[:, None, None], -1)     # step of the latest redraw, -1: none yet
+            np.maximum.accumulate(last, axis=0, out=last)
+            g = np.where(last >= 0, np.take_along_axis(w, np.maximum(last, 0), axis=0), self.zl[None])
+        self.zl = g[-1].copy()
+        return g
+
     def _he(self, d2, n):
         """Effective environment heights (n * U, M) of the UMa links, or None (h_E = 1 m)."""
         if self.he_u is None:
@@ -147,8 +171,7 @@ class RadioSource:
         """
         R, rmap = self.R, self.rmap
         d2 = rmap.layout.distances(x, y, sites)
-        g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
-        self.zl = g[-1].copy()
+        g = self._los_users(n)
         z = ndtri(np.clip(p_los(d2, R.pathloss, **self.los_kw), 1e-9, 1.0 - 1e-9)) - g.reshape(d2.shape)
         u = rmap.lookup_field(x, y).astype(np.float64) if rmap.has_field else np.zeros_like(d2)
         if self.own:
@@ -209,8 +232,7 @@ class RadioSource:
                 if R.los_model == "los":                  # every link LOS (TR 37.885 Table 6.2.1-2; since 1.11.0)
                     los = np.ones(d2.shape, dtype=bool)
                 else:
-                    g = self._ar1_users(self.rng_l, self.r_l, self.zl, n)
-                    self.zl = g[-1].copy()
+                    g = self._los_users(n)
                     los = g.reshape(d2.shape) < ndtri(np.clip(p_los(d2, R.pathloss, **self.los_kw), 1e-9,
                                                               1.0 - 1e-9))
                 rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m,

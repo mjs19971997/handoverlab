@@ -582,6 +582,7 @@
   "radio.layers",
   "radio.los_corr_m",
   "radio.los_model",
+  "radio.los_process",
   "radio.map_file",
   "radio.map_res_m",
   "radio.map_sha256",

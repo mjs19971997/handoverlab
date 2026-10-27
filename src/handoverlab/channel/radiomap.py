@@ -7,9 +7,12 @@ For every map pixel in a street and every site the map stores
   block (unless ``building_los`` is false, since 2.3.0: sites above the
   rooftops), and (``clutter_los``) additionally the spatially consistent LOS state
   of TR 38.901 clause 7.6.3.3 -- a Gaussian random field with ``los_corr_m``
-  correlation compared with the LOS probability -- standing for obstacles in
-  the street (vehicles, trees, street furniture).  The state is a property of
-  the place, the same for every user who passes there ("place-tied blockage");
+  correlation compared with the LOS probability, or (``los_process``
+  "poisson_lines", since 2.9.0) a variable that is constant in the cells of a
+  Poisson line process, so that the state itself has that correlation --
+  standing for obstacles in the street (vehicles, trees, street furniture).
+  The state is a property of the place, the same for every user who passes
+  there ("place-tied blockage");
 * the path loss for that state, and a static, spatially correlated shadowing
   field shared by all users (share ``place_share`` of the shadowing variance).
 
@@ -54,6 +57,59 @@ def applicability_warning(layout: Layout, radio) -> None:
         warnings.warn("radio.pathloss %s: links up to %.0f m, beyond the %.0f m of the applicability range of "
                       "TR 38.901 Table 7.4.1-1; the formulas are used outside it" % (radio.pathloss, d, min(lim)),
                       UserWarning, stacklevel=3)
+
+
+_MIX1, _MIX2 = np.uint64(0xBF58476D1CE4E5B9), np.uint64(0x94D049BB133111EB)
+
+
+def _mix64(h: np.ndarray) -> np.ndarray:
+    """splitmix64 finaliser (a bijection of the 64-bit integers), in place."""
+    h ^= h >> np.uint64(30)
+    h *= _MIX1
+    h ^= h >> np.uint64(27)
+    h *= _MIX2
+    h ^= h >> np.uint64(31)
+    return h
+
+
+def poisson_line_field(rng, x, y, p, m, n_sites: int, d_corr: float) -> np.ndarray:
+    """Standard normal LOS variable of the point/site pairs ``(p, m)`` whose LOS state has the correlation
+    exp(-d / d_corr) (``radio.los_process: poisson_lines``, since 2.9.0).
+
+    Every site gets an isotropic Poisson line process over the disc around the bounding box of the points
+    (radius R, half the diagonal): a Poisson number of lines with mean pi R / d_corr, each with a uniform
+    direction in [0, pi) and a uniform signed distance in [-R, R] from the centre.  A segment of length d then
+    meets a Poisson number of lines with mean d / d_corr, so that its two ends lie in one cell of the lines
+    with the probability exp(-d / d_corr), the exponential function of TR 38.901 Eq. (7.4-5).  Every cell
+    gets its own uniform variable U: a random salt plus one random 64-bit key for each line on whose positive
+    side the cell lies (modulo 2^64; any two cells are independent), mixed by the splitmix64 finaliser.  The
+    value is ndtri(U), so that comparing it with ndtri(p_LOS) gives the LOS state of clause 7.6.3.3 with the
+    state itself correlated over d_corr.  The lines of every site are drawn, also of a site without pairs.
+    """
+    x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    p, m = np.asarray(p), np.asarray(m)
+    out = np.empty(len(p))
+    if not len(x):
+        return out
+    cx, cy = 0.5 * (x.min() + x.max()), 0.5 * (y.min() + y.max())
+    rad = 0.5 * float(np.hypot(x.max() - x.min(), y.max() - y.min())) + 1.0
+    order = np.argsort(m, kind="stable")                       # the pairs of one site at a time
+    bounds = np.searchsorted(m[order], np.arange(n_sites + 1))
+    for j in range(n_sites):
+        n = int(rng.poisson(np.pi * rad / d_corr))
+        theta = rng.uniform(0.0, np.pi, n)
+        off = rng.uniform(-rad, rad, n)
+        key = rng.integers(0, 2 ** 64, size=n + 1, dtype=np.uint64)   # one per line, the last the salt
+        k = order[bounds[j]:bounds[j + 1]]
+        if not len(k):
+            continue
+        dx, dy = x[p[k]] - cx, y[p[k]] - cy
+        h = np.full(len(k), key[n], dtype=np.uint64)
+        for i in range(n):                                     # one pass per line, wrap-around sums
+            np.add(h, key[i], out=h, where=dx * np.cos(theta[i]) + dy * np.sin(theta[i]) > off[i])
+        u = ((_mix64(h) >> np.uint64(11)).astype(np.float64) + 0.5) * 2.0 ** -53     # in (0, 1)
+        out[k] = ndtri(u)
+    return out
 
 
 class GaussianField:
@@ -264,7 +320,11 @@ class RadioMap:
             if radio.clutter_los:
                 # spatially consistent LOS state; only links that the buildings leave clear need it
                 ip, im = np.nonzero(los)
-                lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0, kernel).at_pairs(px, py, ip, im)
+                if getattr(radio, "los_process", "gaussian") == "poisson_lines":   # own stream (since 2.9.0)
+                    lat = poisson_line_field(streams(seed, "los", 2, sub)[0], px, py, ip, im, M, radio.los_corr_m)
+                else:
+                    lat = GaussianField(rng_los, layout, M, radio.los_corr_m, 5.0, 0.0,
+                                        kernel).at_pairs(px, py, ip, im)
                 dd = d2[ip, im]
                 thr = ndtri(np.clip(p_los(dd, radio.pathloss, **los_kw), 1e-9, 1.0 - 1e-9))
                 los[ip, im] = lat < thr

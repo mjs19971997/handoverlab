@@ -88,6 +88,100 @@ street grid the buildings still block hard; the soft state applies to the clutte
 links that the buildings leave clear. With `radio.place_share < 1` on the grid, the part of the
 shadowing that moves with the user takes the standard deviation of the dominant state.
 
+### LOS-state process (`radio.los_process`, since 2.9.0)
+
+TR 38.901 V19.5.0 clause 7.6.3.3 determines the LOS state by comparing a realisation of a spatially
+consistent random variable with the distance-dependent LOS probability (LOS if it is less), and gives
+the correlation distance for the LOS state in Table 7.6.3.1-2 (UMi, UMa and SMa 50 m, RMa 60 m,
+indoor 10 m); clause 7.4.4 says that the cluster-specific random variables of the spatial consistency procedure are
+correlated following the exponential function of Eq. (7.4-5); HandoverLab applies it to the LOS variable too. The text does not say whether the
+correlation distance belongs to the random variable or to the binary state. By default (`gaussian`)
+HandoverLab gives it to the variable: a Gaussian field with the correlation exp(-d / `los_corr_m`) is
+compared with the inverse normal of Pr_LOS. The binary state then decorrelates faster than the field
+(at d = `los_corr_m` and Pr_LOS = 1/2 its correlation is (2 / pi) arcsin(e^-1), about 0.24, instead of
+e^-1, about 0.37) and changes more often along a path.
+
+`radio.los_process: poisson_lines` (optional, off by default) gives the correlation
+exp(-d / `los_corr_m`) to the state itself:
+
+* street grid: every site gets an isotropic Poisson line process over the map (on average
+  pi R / `los_corr_m` lines through the disc of radius R that holds the map, with uniform directions and
+  offsets). Two points at distance d lie in one cell of the lines with the probability
+  exp(-d / `los_corr_m`), and every cell has its own independent uniform variable, which is compared with
+  Pr_LOS. As with the Gaussian field, it decides the links that the buildings leave clear;
+* open area, highway and indoor (the LOS state as a process along each user's path): the variable is kept
+  from one step to the next, or redrawn as a new independent value with the probability
+  1 - exp(-v dt / `los_corr_m`), the one-dimensional analogue.
+
+The LOS share still follows Pr_LOS, and the state still switches hard, now at the cell edges (or the
+redraws) only. With `soft_los` the variable G of Eq. (7.6-18) is constant within a cell: the soft state
+changes smoothly with Pr_LOS inside a cell and jumps at its edges. The option needs a LOS state drawn
+from the LOS probability, so it is refused with the NTN layout (its own LOS model), `radio.map_file`,
+`radio.los_model: los` and, on the street grid, `radio.clutter_los: false`. Its random numbers come
+from a stream of their own (`los`), so every other draw of a run is the one of `gaussian`; with the
+default every result of 2.8.0 is unchanged.
+
+### Settings closer to deployed networks (documented values, not defaults)
+
+These settings use existing keys only; none of them is a default. They were compared with measured data in
+[Comparison with real network data](real-data.md).
+
+**Sector antennas of TR 38.901 Table 7.8-1.** The cards with the antenna abstraction (an omni site with
+`bs_gain_db`) can be run with three sector antennas as in the large-scale calibration of TR 38.901
+(Table 7.8-1: 3 sectors per site at 30, 150 and 270 degrees, (M, N, P) = (10, 1, 1) elements of
+Table 7.3-1, electrical downtilt 102 degrees for UMa):
+
+```yaml
+radio:
+  beams: {sectors: 3, sector_az0_deg: 30, n_ssb: 1, panel: [10, 1], tilt_deg: 102}
+```
+
+Every site then has three cells; one SSB beam per cell is the sector beam, and the cell RSRP is measured per
+resource element (see [Beams and several carriers](#beams-and-several-carriers-since-1100)).
+
+With one wide SSB beam per sector, beam failure detection (on by default with `radio.beams`) has no other beam
+to recover to, and in the comparison with real data it raised the failure rate several times. Two
+configurations were tested against it (results in [Comparison with real network data](real-data.md)):
+
+* **Several SSB beams per sector.** At 4 GHz (SS/PBCH block Case C, unpaired spectrum) TS 38.213 clause 4.1
+  allows 8 SS/PBCH blocks per half frame, and TR 38.802 Table A.2.5-2 takes (M, N) = (8, 8) elements as the
+  4 GHz baseline for beam-management evaluations:
+
+    ```yaml
+    radio:
+      beams: {sectors: 3, sector_az0_deg: 30, n_ssb: 8, panel: [8, 8], tilt_deg: 102}
+    ```
+
+    The gNB moves the serving beam to the best reported SSB beam, beam failure detection watches the serving
+    beam's SSB (TS 38.213 clause 6 takes, without configured resources, the periodic CSI-RS of the PDCCH TCI
+    state; HandoverLab uses the serving SSB beam in its place) and recovery picks the
+    best candidate beam. HandoverLab models one polarisation and a vertical spacing of half a wavelength
+    (the table: two polarisations, 0.8 wavelength).
+* **No beam failure recovery** (`bfd: false` in `radio.beams`): TS 38.321 clause 5.17 says the MAC entity
+  "may be configured" with it; without it a weak link fails through radio link monitoring (T310) only.
+
+In that comparison the sector setting of Table 7.8-1 without beam failure recovery stayed within twice the
+default's failure rate (below it with the LOS-state process; walking users fail more often) and passed more
+rows; the 8-beam setting still failed about three times as often at
+15-25 km/h and gave a SINR distribution well above the measured one. With the SS-SINR model (`ssb_sinr: ssb`, see
+[Beams and several carriers](#beams-and-several-carriers-since-1100)) the Table 7.8-1 sectors without recovery
+and with `radio.los_process: poisson_lines` matched the most rows among the settings within twice the
+default's failure rate (1.2-1.4 times it at 15-50 km/h). The 8-beam setting stays about 6 dB optimistic in
+SINR; the cause is open (the SSB beam gain is suspected, not tested).
+
+**Event A3 settings as operators configure them.** TS 38.331 clause 5.5.4.4 enters Event A3 when
+Mn + Ofn + Ocn - Hys > Mp + Ofp + Ocp + Off. On one carrier (one measurement object, so Ofn = Ofp and they cancel) and without a cell individual
+offset (Ocn and Ocp are zero when not configured, same clause), the threshold is Off + Hys, so the rule
+`a3` takes `off_db` = a3-Offset + hysteresis. Published measured values:
+
+| Setting | `off_db` | `ttt_s` | Source |
+|---|---|---|---|
+| LTE | 4 (Off 3 + Hys 1) | not given (range 0.04-1.28) | Deng et al., ACM IMC 2018, section 4, Fig. 5 (dominant AT&T a3-Offset and hysteresis) |
+| NR | 8 (Off + Hys) | 0.64 | Ghoshal et al., arXiv:2511.03116 (preprint), section VII-A, Fig. 19a (most common tuple of two US operators) |
+
+The L3 filter coefficient keeps `protocol.l3_k` 4, the default of TS 38.331 (filterCoefficientRSRP
+DEFAULT fc4); neither study reports a measured value, and neither reports cell individual offsets.
+
 ### Beams and several carriers (since 1.10.0)
 
 Two optional models replace the antenna abstraction (`bs_gain_db`, `isolation`) and add carriers.
@@ -109,6 +203,17 @@ monitoring uses the serving beam (`rlm_rs: tci`) or the best N_RLM beams (`rlm_r
 in FR2). A cell interferes with the mean gain of its beams towards the user, scaled by its load.
 `am_db` (since 2.3.0, default `30`) is A_m of the element pattern, its front-to-back ratio; a larger
 value lowers the back lobe (the high-speed train guide uses it).
+
+`ssb_sinr` (since 2.9.0, default `data`): by default link monitoring and beam failure detection see the
+serving beam's power over that data-channel interference. `ssb` takes the SS-SINR of TS 38.215 clause 5.1.5,
+whose interference is measured on the resource elements carrying the SSS: a share `ssb_overlap` (default 1) of
+them meets the neighbours' SSBs of the serving beam's index, sent whatever the load and through each
+neighbour's beam of that index (TS 38.213 clause 4.1 gives every cell of a band the same candidate SS/PBCH
+block positions; aligned frames, the same transmitted SSBs and the same beam codebook in every cell are
+assumed); the rest sees the data-channel interference. With `ssb_overlap: 0` the result is that of `data`. One
+carrier with beams, the isotropic UE, `rlm_rs: tci` and no `protocol.lm_load` / `lm_load_per_ue` only. Beam
+failure detection then also uses the SS-SINR of the serving beam's SSB, which matches an SSB configured as the
+BFD reference signal.
 
 ```yaml
 scenario:
@@ -223,6 +328,7 @@ output: results/metrics.csv
 | | `clutter_los` | `true` | spatially consistent LOS state on top of the buildings |
 | | `building_los` | `true` | street grid: a link through a building block is NLOS; `false` (since 2.3.0): sites above the rooftops, the LOS state comes from the LOS probability alone (TR 37.885 clause 6.2.1, urban base-station-to-vehicle links); needs `clutter_los: true` |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
+| | `los_process` | `gaussian` | (2.9.0) `gaussian`: a Gaussian field with the correlation exp(-d / `los_corr_m`) compared with the LOS probability (TR 38.901 clause 7.6.3.3); `poisson_lines` (optional): the LOS state itself has that correlation (Poisson line cells on the street grid, random redraws along a user's path elsewhere); not with NTN, `map_file`, `los_model: los` or `clutter_los: false` (see below) |
 | | `breakpoint_c_mps` | `3.0e8` | speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1 notes 1 and 5; since 2.0.0, 1.x: 299792458) |
 | | `pl_min_distance_m` | `10` | smallest 2D distance the RMa, UMa and UMi formulas are evaluated at (their applicability range; since 2.0.0, 1.x: 0) |
 | | `env_height_m` | none | UMa and UMi: one effective environment height h_E for every link in the breakpoint distance (since 2.3.0; TR 37.885 clause 6.2.1: `0.25` for base-station-to-vehicle links); unset: TR 38.901 Table 7.4.1-1 note 1 |

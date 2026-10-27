@@ -7,6 +7,84 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-27
+
+No change of defaults or results: every golden fingerprint is unchanged. Two new options, off by default.
+
+### Added
+
+- SS-SINR of beam cells `radio.beams.ssb_sinr` (default `data`, today's model, in which link monitoring and
+  beam failure detection see the serving beam over the data-channel interference, each neighbour at its load
+  through the mean gain of its beams): `ssb` takes the SS-SINR of TS 38.215 clause 5.1.5, with a share
+  `radio.beams.ssb_overlap` (default 1) of the SSS resource elements meeting the neighbours' SSBs of the same
+  index at full power through their beams of that index (the same candidate SS/PBCH block positions of TS 38.213
+  clause 4.1, with aligned frames and the same transmitted SSBs assumed), the rest the data-channel
+  interference; link monitoring and beam failure detection, also when they restart after a handover, use it.
+  One carrier with beams, isotropic UE, `rlm_rs: tci`, no `protocol.lm_load` / `lm_load_per_ue`. With
+  `ssb_overlap: 0` it is bit for bit the default (tested). Not a default and not validated
+  ([user guide](docs/user_guide.md#beams-and-several-carriers-since-1100)).
+
+- LOS-state process `radio.los_process` (default `gaussian`, today's model): `poisson_lines` gives the binary
+  LOS state itself the correlation exp(-d / `los_corr_m`), with the correlation distance of TR 38.901
+  Table 7.6.3.1-2 for the LOS state (clause 7.6.3.3) and the exponential function of clause 7.4.4,
+  Eq. (7.4-5); by default only the compared Gaussian variable has it, and the state decorrelates faster
+  (about 0.24 instead of 0.37 at d = `los_corr_m` and Pr_LOS = 1/2). Street grid: a uniform variable per cell of an isotropic
+  Poisson line process per site; open area, highway and indoor: the variable redrawn along each user's path
+  with the probability 1 - exp(-v dt / `los_corr_m`) per step. Own random stream (`los`); refused with NTN,
+  `radio.map_file`, `radio.los_model: los` and `radio.clutter_los: false` on the street grid. Not a default
+  and not validated ([user guide](docs/user_guide.md#los-state-process-radiolos_process-since-290)).
+  Re-tested against the real data under a registered amendment ([real data](docs/real-data.md)): it halves
+  the excess of cell changes (2.1-6.5 times the measured rate instead of 4.3-10.3), cuts unnecessary
+  handovers, ping-pongs and failures, and lowers the margin at the command (5.4 dB instead of 6.9 dB, measured
+  1.4 dB), but the registered verdict is **no improvement**: it passes 2 of 10 judged rows like the default,
+  and two LTE SINR rows that the default passes fail.
+
+- Documentation page "Comparison with real network data" (`docs/real-data.md`): HandoverLab 2.8.0 against
+  four public LTE/5G datasets (Vienna 4G/5G drive test, the SIGCOMM'22 5G mobility artifact, DoNext Dortmund,
+  UCC 5G) and published numbers, with quantities, settings and pass criteria frozen before the first
+  comparison. Passes: NR SS-SINR distribution of the default model (within 3 dB on at least two of the three percentiles on every primary row; the upper tail is up to 6 dB higher), the
+  50 ms preparation delay, the SINR decorrelation distance on two of three datasets, the walking handover
+  rate. Fails: on `urban-macro-tr37885-4ghz` 4-10 times more serving-cell changes per km than measured, a
+  larger margin at the handover command, more very low SINR than in Vienna, received power 35-40 dB above
+  the phones' values (card link budget), the highway SINR mean, and the 40 ms execution time. The dynamic
+  link-monitoring option with aligned SSBs (`rlm_ssb_overlap` 1.0 or 0.5) gives an SS-SINR 4-8 dB below the default's
+  at the median (1-6 dB below the measured median) and fails the variant rule.
+- Measured handover durations as documented parameter values (not defaults): `protocol.exec_s` 0.035 s for
+  LTE handovers (checked on two further operators) and 0.066 s for 5G SA (one operator only, not checked),
+  `protocol.prep_s` 0.05 s inside the measured ranges.
+- An exploratory diagnosis of the excess cell changes: hard LOS/NLOS transitions of the spatially
+  consistent LOS state (TR 38.901 clause 7.6.3.3; about 25 dB per transition on this card), not a coding
+  error. `radio.los_process: poisson_lines` (above) addresses part of it; the remaining excess is open.
+- User guide section "Settings closer to deployed networks" (documented values with existing keys, not
+  defaults): the sector antennas of TR 38.901 Table 7.8-1 (`radio.beams` with 3 sectors at 30/150/270 degrees,
+  a (10, 1) panel of Table 7.3-1 elements, downtilt 102 degrees, one SSB beam per sector), and the rule `a3`
+  with `off_db` = a3-Offset + hysteresis (TS 38.331 clause 5.5.4.4) at published measured values: LTE 4 dB
+  (Deng et al., IMC 2018) and NR 8 dB with 640 ms (Ghoshal et al., arXiv:2511.03116, a preprint). New tests
+  check the sector setting.
+  Re-tested against the real data under a second registered amendment
+  ([real data](docs/real-data.md#re-test-with-sector-antennas-and-published-a3-settings)): the sector antennas
+  **improve** the judged rows (with the LOS-state process 6 of 10 instead of 2; cell changes per km now match
+  on Vienna LTE, Vienna NR and DoNext at 15-25 km/h), the published A3 settings alone do not, and the margin at the command
+  still fails (3.7 dB at best, measured 1.4 dB). Caveat: with one SSB beam per sector, beam failure detection
+  raises HandoverLab's failure rate 3-7 times, and part of the matching cell changes are re-establishments;
+  the setting is documented, not recommended, and nothing becomes a default.
+  A third registered amendment tested two standard configurations against these failures and added a
+  check that failures per km stay within twice the default's: 8 SSB beams per sector on an (8, 8) panel
+  (TS 38.213 clause 4.1, TR 38.802 Table A.2.5-2) gives **no improvement** (SINR well above the measurements,
+  still three times the failures at 15-25 km/h); the Table 7.8-1 sectors without beam failure recovery
+  (`radio.beams.bfd: false`, allowed by TS 38.321 clause 5.17) **improve**: with the LOS-state process 4 of 10
+  judged rows, the SINR rows kept, failures at 15-50 km/h below the default's (walking users fail more often),
+  margin at the command still too large (3.9 dB, measured 1.4 dB). Documented, not a default; tests cover
+  both settings.
+  A fourth registered amendment re-ran these settings with `radio.beams.ssb_sinr: ssb` (above): with one beam
+  per sector the SINR falls by about 2 dB as expected, with 8 narrow beams it does not fall (the neighbours'
+  SSBs of the same index rarely point at the user), so the 8-beam setting stays about 4-7 dB too high at the
+  10th percentile (about 6 dB optimistic); the cause is open, most likely the SSB beam gain (not tested: no
+  variant with wider SSB beams was run). Best setting among those within the failure check (a sensitivity
+  variant): Table 7.8-1 sectors, SS-SINR, no beam failure recovery, LOS-state process: 5 of 10 judged rows
+  (default 2), SINR rows kept, failures 1.4 and 1.2 times the default's at 15-50 km/h (walking users 2.1 failures per km against 0.03), margin at the command
+  still 3.8 dB (measured 1.4 dB). Re-tests on data used before; nothing becomes a default.
+
 ## [2.8.0] - 2026-10-26
 
 No change of defaults or results: every golden fingerprint is unchanged. The new option models time-varying,
@@ -1392,7 +1470,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.8.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/mjs19971997/handoverlab/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/mjs19971997/handoverlab/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/mjs19971997/handoverlab/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/mjs19971997/handoverlab/compare/v2.5.0...v2.6.0

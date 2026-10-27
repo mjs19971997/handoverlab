@@ -65,6 +65,9 @@ DEFAULT_SOURCES: Dict[str, str] = {
                     "3 dB beamwidth is used)",
     "ntn.los_model": "probability: the LOS probability of TR 38.811 Table 6.6.1-1",
     "radio.los_corr_m": "TR 38.901 Table 7.6.3.1-2 (LOS/NLOS state, UMi and UMa: 50 m)",
+    "radio.los_process": "gaussian: a Gaussian field with the correlation of TR 38.901 Eq. (7.4-5) compared with the "
+                         "LOS probability (clause 7.6.3.3); poisson_lines (optional): the LOS state itself has "
+                         "that correlation",
     "radio.time_var_db": "assumption (moving blockers)",
     "radio.time_var_tau_s": "assumption",
     "radio.l1_error_db": "assumption (error of one L1 RSRP sample)",
@@ -264,7 +267,8 @@ _KEYS_1_7 = ("layout.area_m", "layout.min_site_distance_m", "radio.soft_los", "r
              "radio.scs_khz", "radio.beams", "radio.layers", "protocol.meas_periods", "protocol.ssb_period_s",
              "protocol.gap_pattern", "protocol.fr2_power_class", "protocol.rlm_eval", "radio.map_file",
              "radio.map_sha256", "radio.channel_detail", "radio.o2i_model", "radio.o2i_d_in_max_m",
-             "radio.building_los", "radio.env_height_m", "radio.vegetation", "protocol.dc")
+             "radio.building_los", "radio.env_height_m", "radio.vegetation", "protocol.dc",
+             "radio.los_process")
 
 _GRID_GEOMETRY = ("layout.blocks", "layout.pitch_m", "layout.street_width_m")
 _HIGHWAY_KEYS = ("layout.lanes", "layout.lane_width_m", "layout.road_length_m", "layout.wrap", "layout.highway_sites")
@@ -272,7 +276,8 @@ _NTN_UNUSED_RADIO = ("radio.bs_gain_db", "radio.bs_height_m", "radio.ue_height_m
                      "radio.shadow_los_db", "radio.shadow_nlos_db", "radio.shadow_los_far_db", "radio.shadow_decorr_m",
                      "radio.shadow_site_corr", "radio.place_share", "radio.clutter_los", "radio.los_corr_m",
                      "radio.soft_los", "radio.soft_los_d_m", "radio.los_model", "radio.breakpoint_c_mps",
-                     "radio.pl_min_distance_m", "radio.map_res_m", "radio.penetration_db", "radio.penetration_sd_db")
+                     "radio.pl_min_distance_m", "radio.map_res_m", "radio.penetration_db", "radio.penetration_sd_db",
+                     "radio.los_process")
 
 
 def unused_keys(sc: Scenario) -> set:
@@ -295,7 +300,8 @@ def unused_keys(sc: Scenario) -> set:
         out.update(_NTN_UNUSED_RADIO)
         return out
     if R.los_model == "los" and L.kind != "street_grid":
-        out.update(("radio.shadow_nlos_db", "radio.los_corr_m", "radio.soft_los", "radio.soft_los_d_m"))
+        out.update(("radio.shadow_nlos_db", "radio.los_corr_m", "radio.soft_los", "radio.soft_los_d_m",
+                    "radio.los_process"))
     if R.beams is not None:                         # the beams replace the antenna abstraction of the first layer
         out.update(("radio.bs_gain_db", "radio.isolation"))
     if R.place_share <= 0.0:

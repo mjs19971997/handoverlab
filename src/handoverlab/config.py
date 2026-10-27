@@ -162,6 +162,16 @@ class BeamConfig:
     receive beam, the best one towards the serving cell, chosen again at every
     L1 instant; interference arrives through the same beam.  See
     :mod:`handoverlab.channel.antenna` and ``docs/guides/ue-beams.md``.
+
+    SSB SINR (since 2.9.0, off by default: ``ssb_sinr`` "data" keeps the model of 2.8.0, in which link
+    monitoring and beam failure detection see the serving beam's power over the data-channel interference of
+    the step, each neighbour at its load through the mean gain of its beams).  ``ssb_sinr`` "ssb": SS-SINR of
+    TS 38.215 clause 5.1.5, the interference measured on the resource elements carrying the SSS.  A share
+    ``ssb_overlap`` of them meets the neighbours' SSBs of the serving beam's index, sent whatever the load
+    and through each neighbour's beam of that index (1: TS 38.213 clause 4.1 gives every cell of a band the
+    same candidate SS/PBCH block positions; aligned frames, the same transmitted SSBs and the same beam codebook
+    in every cell are assumed); the rest sees the data-channel interference.  One carrier with beams, the
+    isotropic UE, ``rlm_rs`` "tci" and no ``protocol.lm_load`` / ``lm_load_per_ue`` only.
     """
     sectors: int = 3
     sector_az0_deg: float = 30.0
@@ -192,13 +202,18 @@ class BeamConfig:
     ue_tilt_deg: float = 90.0
     ue_orientation: str = "random"
     ue_rx: str = "best"
+    # SINR of the SSB for link monitoring and beam failure detection (since 2.9.0): "data" the data-channel
+    # interference of the step (the model of 2.8.0); "ssb" a share ssb_overlap of the SSS resource elements
+    # meets the neighbours' SSBs of the same index at full power through their beams of that index
+    ssb_sinr: str = "data"
+    ssb_overlap: float = 1.0
 
 
 #: keys of :class:`BeamConfig` added after 1.10.0 and their defaults, left out of :meth:`Scenario.to_dict` while
 #: they have them
 BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0, "ue_panels": 0, "ue_panel": [2, 4], "ue_beams": 4,
                                   "ue_beam_span_deg": 120.0, "ue_tilt_deg": 90.0, "ue_orientation": "random",
-                                  "ue_rx": "best"}
+                                  "ue_rx": "best", "ssb_sinr": "data", "ssb_overlap": 1.0}
 #: UE panel counts of TR 38.802 Table A.2.1-4 (one panel, Config 1, Config 2) and the bearing step of the panels
 UE_PANEL_STEP_DEG: Dict[int, float] = {1: 0.0, 2: 180.0, 4: 90.0}
 #: the UE receive-beam keys of :class:`BeamConfig` (since 2.4.0)
@@ -298,6 +313,12 @@ class RadioConfig:
     place_share: float = 1.0            # share of shadowing variance tied to place (1 = fully place-tied)
     clutter_los: bool = True            # spatially consistent LOS state on top of the buildings
     los_corr_m: float = 50.0
+    # spatially consistent LOS state (optional, since 2.9.0; TR 38.901 clause 7.6.3.3, Table 7.6.3.1-2):
+    # "gaussian" compares a Gaussian field with the correlation exp(-d / los_corr_m) with the LOS probability (the
+    # binary state then decorrelates faster than the field); "poisson_lines" gives the state itself the correlation
+    # exp(-d / los_corr_m): a uniform variable that is constant in the cells of an isotropic Poisson line process
+    # (map) or redrawn along the user's path at the rate 1 / los_corr_m per metre (open area, highway, indoor)
+    los_process: str = "gaussian"
     # optional soft LOS state (since 1.7.0; TR 38.901 clause 7.6.3.3, Eq. 7.6-18 and 7.6-19): the received
     # power mixes the LOS and NLOS powers with the weights LOS_soft^2 and 1 - LOS_soft^2, where
     # LOS_soft = 1/2 + arctan(sqrt(soft_los_d_m / lambda) (G + F(d))) / pi, instead of a hard switch
@@ -765,6 +786,14 @@ class Scenario:
                "both antenna heights")
         _check(R.vegetation in (0.0, 0.1, 0.2), "radio.vegetation",
                "must be 0, 0.1 or 0.2 (TR 38.901 Table 7.4.2-1: no, sparse or dense vegetation)")
+        _check(R.los_process in ("gaussian", "poisson_lines"), "radio.los_process",
+               "must be 'gaussian' or 'poisson_lines'")
+        if R.los_process == "poisson_lines":
+            _check(L.kind != "ntn" and not R.map_file and R.los_model == "probability"
+                   and (L.kind != "street_grid" or R.clutter_los), "radio.los_process",
+                   "'poisson_lines' needs a LOS state drawn from the LOS probability: not with layout.kind 'ntn' "
+                   "(own LOS model), radio.map_file, radio.los_model 'los' or, on the street grid, "
+                   "radio.clutter_los false")
         _check(R.building_los or (L.kind == "street_grid" and R.clutter_los), "radio.building_los",
                "false needs layout.kind 'street_grid' and radio.clutter_los true (the LOS state then comes from "
                "the LOS probability alone)")
@@ -899,6 +928,13 @@ class Scenario:
         _check(R.scs_khz is None or R.scs_khz in SCS_KHZ, "radio.scs_khz", "must be one of %s" % (SCS_KHZ,))
         if R.beams is not None:
             _check_beams(R.beams, R.carrier_ghz, "radio.beams")
+        bs = [R.beams] + [ly.beams for ly in R.layers or ()]
+        if any(b is not None and b.ssb_sinr == "ssb" for b in bs):
+            _check(R.beams is not None and not R.layers and R.beams.ue_panels == 0 and R.beams.rlm_rs == "tci"
+                   and self.protocol.lm_load is None and self.protocol.lm_load_per_ue == 0.0
+                   and self.protocol.dc is None, "radio.beams.ssb_sinr",
+                   "'ssb' needs one carrier with beams (radio.beams, no radio.layers or protocol.dc), the isotropic "
+                   "UE (ue_panels 0), rlm_rs 'tci' and no protocol.lm_load / lm_load_per_ue")
         names = set()
         for i, ly in enumerate(R.layers or ()):
             key = "radio.layers[%d]" % i
@@ -980,7 +1016,7 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                    "breakpoint_c_mps", "pl_min_distance_m", "channel_detail",
                                                    "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db",
                                                    "o2i_model", "o2i_d_in_max_m", "building_los", "env_height_m",
-                                                   "vegetation"),
+                                                   "vegetation", "los_process"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
                                                       "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db",
@@ -1081,6 +1117,8 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     _check(0.0 < b.ue_tilt_deg < 180.0, key + ".ue_tilt_deg", "must be between 0 and 180 degrees")
     _check(b.ue_orientation in ("random", "heading"), key + ".ue_orientation", "must be 'random' or 'heading'")
     _check(b.ue_rx in ("best", "sweep"), key + ".ue_rx", "must be 'best' or 'sweep'")
+    _check(b.ssb_sinr in ("data", "ssb"), key + ".ssb_sinr", "must be 'data' or 'ssb'")
+    _check(0.0 <= b.ssb_overlap <= 1.0, key + ".ssb_overlap", "must be in [0, 1]")
 
 
 # ---------------------------------------------------------------------------
