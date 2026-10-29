@@ -40,6 +40,9 @@ Values in **bold** differ from the HandoverLab defaults.
 | `radio.shadow_decorr_m` | **37** | TR 38.901 Table 7.5-6 Part-1 (UMa LOS: 37 m) |
 | `radio.shadow_site_corr` | none | unset: uncorrelated between sites, TR 38.901 clause 7.5 step 4 (radio.channel_detail simple: 0.5) |
 | `radio.place_share` | 1 | assumption (blockage tied to place) |
+| `radio.blockage` | none | off by default; 'a': blockage model A of TR 38.901 clause 7.6.4.1 (UMa and UMi only) |
+| `radio.blockage_mode` | portrait | TR 38.901 Table 7.6.4.1-1 (portrait self-blocking region); with blockage 'a' only |
+| `radio.blocker_speed_kmh` | 3 | assumption (pedestrian blockers; t_corr = d_corr / v, TR 38.901 Eq. 7.6-28); with blockage 'a' only |
 | `radio.los_model` | **los** | TR 37.885 clause 6.2.1 (LOS propagation type is used for V2B and B2R links in the highway scenario) |
 | `radio.breakpoint_c_mps` | 3e+08 | TR 38.901 Table 7.4.1-1 notes 1 and 5 (c = 3.0e8 m/s in the breakpoint distances) |
 | `radio.pl_min_distance_m` | 10 | TR 38.901 Table 7.4.1-1 (applicability range of RMa, UMa, UMi: 10 m <= d2D) |
@@ -107,6 +110,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.xn_delay_s` | 0.005 | assumption (Xn forwarding delay; with buffers) |
 | `protocol.discard_timer_s` | none | TS 38.331 PDCP-Config discardTimer (unset: infinity; with buffers) |
 | `protocol.sdu_bytes` | none | assumption (SDU size for the SDU counts; unset: packet_bytes or 1500 bytes) |
+| `protocol.meas_detail` | 2x | 2x: the chain up to 2.9.0; '3gpp': F_0 = M_1 (TS 38.331 5.5.3.2) and per-beam averaging over the period (TS 38.300 9.2.4); with meas_periods ts38133 only |
 | `protocol.rrc_detail` | 3gpp |  |
 | `protocol.ns3_oos_rx` | none | off by default (3GPP model); imitates ns-3 / 5G-LENA v5.1 (NrUePhy NumQoutEvalSf: 200 control receptions), not 3GPP |
 | `protocol.ns3_ins_rx` | 100 | ns-3 / 5G-LENA v5.1 (NrUePhy NumQinEvalSf: 100 control receptions); with ns3_oos_rx only |

@@ -62,6 +62,7 @@ from ..layout import make_layout
 from ..seeds import streams
 from .antenna import beam_azimuths_deg, beam_gain_db, ue_beam_gains_db, wrap_deg
 from .radiomap import RadioMap
+from .spread import LinkSpreads, diffuse_gain_lin
 
 LN10_10 = np.log(10.0) / 10.0
 NO_BEAM_DB = -400.0               # L1 value of a beam index that a cell does not have
@@ -264,8 +265,14 @@ class ExtendedRadio:
             out[sel] = np.take_along_axis(g, beams[sel][:, None], axis=-1)[:, 0]
         return out
 
-    def all_beam_gains_db(self, x, y) -> np.ndarray:
-        """Gains (P, C, B) of every beam of every cell towards the points (P,); NO_BEAM_DB where a cell has fewer."""
+    def all_beam_gains_db(self, x, y, los=None, users=None, spreads=None) -> np.ndarray:
+        """Gains (P, C, B) of every beam of every cell towards the points (P,); NO_BEAM_DB where a cell has fewer.
+
+        With ``spreads`` (one :class:`~handoverlab.channel.spread.LinkSpreads` or None per layer; since 2.10.0,
+        ``radio.beams.angular_spread`` "tr38901") the gains of those layers are the expected gains over the
+        power angular spectrum of each link, ``los`` (P, S) the LOS power weight of every point and site and
+        ``users`` (P,) the user of every point.
+        """
         x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
         P = len(x)
         out = np.full((P, self.n_cells, self.B), NO_BEAM_DB)
@@ -280,9 +287,42 @@ class ExtendedRadio:
             th, ph = self._angles(x[:, None], y[:, None], cc)
             b = L.beams
             # single precision: the gains are needed to a small fraction of a dB
-            out[:, cells, :L.n_beams] = beam_gain_db(th.astype(np.float32), ph.astype(np.float32), L.beam_az,
-                                                     b.tilt_deg, b.panel[0], b.panel[1], b.am_db)
+            g = beam_gain_db(th.astype(np.float32), ph.astype(np.float32), L.beam_az, b.tilt_deg, b.panel[0],
+                             b.panel[1], b.am_db)
+            sp = None if spreads is None else spreads[L.index]
+            if sp is not None:
+                g = self._spread_gain_db(L, sp, g, th, ph, x, y, cells, los, users)
+            out[:, cells, :L.n_beams] = g
         return out
+
+    def _spread_gain_db(self, L, sp, g, th, ph, x, y, cells, los, users):
+        """Expected beam gains (P, Lc, B) [dB] over the PAS of every link (``radio.beams.angular_spread``)."""
+        b = L.beams
+        site = self.cell_site[cells]
+        sp_ = self.cell_pos[cells]
+        dx, dy = x[:, None] - sp_[None, :, 0], y[:, None] - sp_[None, :, 1]
+        if self.base_layout.period_x:
+            dx, dy = self.base_layout.nearest_image(dx, dy)
+        d2 = np.maximum(np.hypot(dx, dy), 1.0)
+        w = los[:, site]                                                       # (P, Lc) LOS power weight
+        uu = np.broadcast_to(users[:, None], w.shape)
+        ls = np.broadcast_to(site[None, :] - self.site0[L.index], w.shape)     # site index within the layer
+        g0 = np.exp(g.astype(float) * LN10_10)
+        acc = np.zeros(g.shape)
+        for state in (True, False):
+            ws = w if state else 1.0 - w
+            k = np.nonzero(ws.ravel() > 0.0)[0]
+            if not len(k):
+                continue
+            ui, si, di = uu.ravel()[k], ls.ravel()[k], d2.ravel()[k]
+            asd, zsd, off = sp.spreads(ui, si, di, state)
+            dif = diffuse_gain_lin(th.ravel()[k], ph.ravel()[k], L.beam_az, b.tilt_deg, b.panel[0], b.panel[1],
+                                   b.am_db, asd, zsd, off).astype(float)
+            if state:
+                dif = sp.p_los * g0.reshape(-1, g.shape[-1])[k] + (1.0 - sp.p_los) * dif
+            a = acc.reshape(-1, g.shape[-1])
+            a[k] += ws.ravel()[k][:, None] * dif
+        return (10.0 * np.log10(np.maximum(acc, 1e-30))).astype(np.float32)
 
     def ue_gains_db(self, x, y, bearing) -> np.ndarray:
         """Gains (P, S, R) [dB] of the UE receive beams at the points (P,) towards every site, the first panel
@@ -373,6 +413,16 @@ class ExtendedSource:
         self.rng = streams(world.seed, "beams", 1)[0]
         self.err = sc.radio.l1_error_db
         self.beam_cfg = [L.beams for L in ext.layers]
+        # expected beam gains over the power angular spectrum (radio.beams.angular_spread, since 2.10.0; own stream)
+        self.spreads = [None] * len(ext.layers)
+        if any(b is not None and b.angular_spread == "tr38901" for b in self.beam_cfg):
+            rng_s = streams(world.seed, "spread", 1)[0]
+            for i, L in enumerate(ext.layers):
+                if L.beams is not None and L.beams.angular_spread == "tr38901":
+                    self.spreads[i] = LinkSpreads(rng_s, self.U, L.n_sites, L.radio.pathloss, L.radio.carrier_ghz,
+                                                  L.radio.ue_height_m, L.radio.bs_height_m)
+                    self.sources[i].keep_los = True
+        self.any_spread = any(sp is not None for sp in self.spreads)
         if ext.ue_rx:                                         # UE receive beams (since 2.4.0)
             # bearing of the first panel: once per UE, uniform in [0, 360) deg (TR 38.802 Table A.2.1-4), or the
             # direction of travel (per site, as layers may differ)
@@ -432,10 +482,19 @@ class ExtendedSource:
             nm = -(-n // mp)
             xm, ym = x[::mp], y[::mp]
             bg = np.empty((nm, U, C, B), dtype=np.float32)
+            los = None
+            if self.any_spread:                               # LOS power weights at the L1 instants (since 2.10.0)
+                los = np.concatenate([s.chunk_los[::mp] if s.keep_los else np.zeros((nm, U, s.M), np.float32)
+                                      for s in self.sources], axis=2)
             blk = 25
             for a in range(0, nm, blk):
                 b = min(nm, a + blk)
-                bg[a:b] = ext.all_beam_gains_db(xm[a:b].ravel(), ym[a:b].ravel()).reshape(b - a, U, C, B)
+                if los is None:
+                    bg[a:b] = ext.all_beam_gains_db(xm[a:b].ravel(), ym[a:b].ravel()).reshape(b - a, U, C, B)
+                else:
+                    bg[a:b] = ext.all_beam_gains_db(xm[a:b].ravel(), ym[a:b].ravel(),
+                                                    los[a:b].reshape((b - a) * U, -1), np.tile(np.arange(U), b - a),
+                                                    self.spreads).reshape(b - a, U, C, B)
             gm = ext.mean_gain_db(bg.astype(float))                                # (nm, U, C)
             lin = np.exp((gsite + np.repeat(gm, mp, axis=0)[:n]) * LN10_10)        # interference reference
             bl1 = bg + gsite[::mp][:, :, :, None]

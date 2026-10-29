@@ -251,6 +251,7 @@ setting therefore remains about 6 dB optimistic, and the cause is open.** The mo
 of the SSB beams themselves (8 beams on an (8, 8) panel give each SSB the full array gain of 64 elements,
 while the measured SS-SINR fits a wide sector beam), but no variant with wider SSB beams was run, so this is
 not tested. Which SSB beam widths the operators use is not public, and no beam width was fitted to the data.
+The next section tests the likely cause (2.10.0).
 
 Among the settings that pass the failure check, the best is the Table 7.8-1 sectors with the SS-SINR model,
 without beam failure recovery and with the LOS-state process (a sensitivity variant of the amendment; its
@@ -262,13 +263,101 @@ not matched: UCC (4.1 times the measured cell changes), DoNext at 30-50 km/h (2.
 Vienna, and the margin at the command (3.8 dB against 1.4 dB). This is a re-test on data used before; nothing
 becomes a default.
 
+## Re-test with the 2.10.0 options
+
+HandoverLab 2.10.0 adds three options and documents one use of existing keys, all built from the 3GPP texts and
+off by default: **a**, the angular spread of the departure power at the SSB beams
+(`radio.beams.angular_spread: tr38901`, TR 38.901 clause 7.5; see the
+[user guide](user_guide.md#angular-spread-at-the-beams-radiobeamsangular_spread-since-2100)); **b**, the
+L1 measurement periods of TS 38.133 with the L3 filter of TS 38.331 (`protocol.meas_periods: ts38133`; the new
+`protocol.meas_detail: 3gpp` fixes two deviations of that path found by an audit, see the
+[user guide](user_guide.md#measurement-detail-of-the-ts-38133-periods-protocolmeas_detail-since-2100));
+**c**, the in-vehicle penetration loss of TR 38.901 clause 7.4.3.2 (`radio.penetration_db: 9`,
+`penetration_sd_db: 5`) for the driving classes; **d**, blockage model A of TR 38.901 clause 7.6.4.1
+(`radio.blockage: a`, [user guide](user_guide.md#blockage-model-a-radioblockage-since-2100)) on the FR2 walking
+card. Before any number with them existed, further registered amendments fixed the variants, the rows, the
+verdict rule ("improves": more judged rows than the reference, the SINR guard holds -- all 3 primary NR rows
+and at least 6 of the 9 SINR rows -- and the failure check passes) and the rule for a combined proposal.
+References: the default (2 of 10) and, for "SLBQ + X", SLBQ, the best 2.9.0 setting (Table 7.8-1 sectors **S**,
+LOS-state process **L**, no beam failure recovery **B**, SS-SINR **Q**; 5 of 10). Card `urban-macro-tr37885-4ghz`
+with the 10 judged rows, except d: card `urban-grid-28ghz-beams`, walking, 3 rows (the SIGCOMM'22 FR2 SINR, its
+decorrelation distance and its low-SINR share).
+
+| Setting | Judged rows passed | SINR guard | Failures per km, 15-25 / 30-50 km/h | Ping-pong share, 15-25 / 30-50 km/h | Unnecessary-handover share, 15-25 / 30-50 km/h | Cell changes per km, 15-25 / 30-50 km/h | Verdict |
+|---|---|---|---|---|---|---|---|
+| Default (2.9.0) | 2 of 10 | holds | 1.48 / 1.70 (walking 0.03) | 0.077 / 0.108 | 0.40 / 0.49 | 36.2 / 25.0 | baseline |
+| SLBQ (best 2.9.0 setting) | 5 of 10 | holds | 2.12 / 1.99 (walking 2.14) | 0.009 / 0.018 | 0.12 / 0.19 | 8.3 / 7.3 | reference |
+| a. 8 SSB beams + Q + angular spread (MAQ) | 1 of 10 | fails | 11.14 / 7.39 | 0.056 / 0.089 | 0.29 / 0.37 | 21.8 / 16.5 | no improvement |
+| a. MAQ + LOS-state process (MAQL) | 4 of 10 | fails | 3.67 / 3.47 (check fails) | 0.011 / 0.029 | 0.19 / 0.25 | 12.6 / 11.1 | no improvement |
+| a. SLBQ + angular spread | 3 of 10 | fails | 3.12 / 2.86 (check fails) | 0.007 / 0.023 | 0.10 / 0.15 | 9.0 / 7.8 | no improvement |
+| b. TS 38.133 periods and L3 filter (T) | 1 of 10 | fails | 2.84 / 2.66 | 0.050 / 0.072 | 0.38 / 0.46 | 33.7 / 23.4 | no improvement |
+| b. SLBQ + T | 5 of 10 | holds | 3.09 / 2.77 (check fails) | 0.002 / 0.009 | 0.12 / 0.18 | 7.3 / 6.5 | no improvement |
+| c. Car loss 9 dB, sd 5 dB (C) | 2 of 10 (same rows) | holds | 1.48 / 1.70 | 0.077 / 0.108 | 0.40 / 0.49 | 36.2 / 25.0 | no change |
+| c. SLBQ + C | 5 of 10 (same rows) | holds | 2.13 / 2.01 | 0.009 / 0.018 | 0.12 / 0.19 | 8.3 / 7.3 | no change |
+| d. FR2 body blockage, without / with angular spread (FK / FAK), walking | 1 of 3 (card alone: 1 of 3) | - | 0.00 / 0.00 | 0.004 / 0.000 (card alone 0.001) | 0.23 / 0.16 (card alone 0.22) | 50.5 / 43.8 (card alone 47.6) | no improvement |
+| Combination: SLBQ + A3 offset 4 dB | 5 of 10 | holds | 2.69 / 2.34 | 0.005 / 0.018 | 0.10 / 0.17 | 7.0 / 6.3 | ties SLBQ, more failures |
+
+(Row d: the four KPI columns hold the walking values of FK / FAK, not the two speed classes.)
+
+Verdicts per option:
+
+- **a. Angular spread.** No improvement. The explicit clause 7.5 procedure gives a median loss of the best beam
+  of 5.85 dB for the (8, 8) panel in UMa NLOS (0.4 dB in LOS; the (10, 1) sector panel 3.8 dB in NLOS): the
+  missing angular spread is about the size of the 8-beam optimism of 2.9.0, its likely cause. The option lowers the median of the
+  primary NR SS-SINR rows by 5.2 dB (the registered "at least 3 dB" holds) and the DoNext SS-SINR rows pass,
+  but the failures rise 4-8 times with 8 beams, the Vienna NR row stays about 3 dB optimistic, and with the
+  SLBQ world it loses 2 rows and fails the failure check; the registered cause test is therefore "not
+  confirmed". It also fails its own model check: against a Monte Carlo of the explicit procedure the median
+  differences are -0.53 to +0.06 dB, but only 67-86 % of the points lie within 1.5 dB (90 % required).
+- **b. L1/L3 filtering.** No improvement. The audit found the default chain matching TS 38.331 5.5.3.2; the
+  two deviations of the `ts38133` path (F_0 = M_1, per-beam averaging before the consolidation) are fixed
+  behind `meas_detail: 3gpp`, which changes no number of these settings (the first acts inside the warm-up,
+  the second needs more than one SSB beam per cell), so the runs used the code before the fix. The ping-pong
+  share falls by about a third, the failures per km rise 1.6-1.9 times (inside the limit; with SLBQ the limit
+  is broken), and T loses the UCC low-SINR row and the guard.
+- **c. In-vehicle penetration loss.** Faithful (exactly the text, one draw per user on all links) and harmless:
+  C alone gives every KPI identical to the default, SLBQ + C differs from SLBQ by 0.02 failures per km or
+  less, and no judged row changes, because the network is interference-limited
+  and the loss is the same on every link of a user. The received power falls by about 8.7 dB (Vienna NR
+  SS-RSRP median 44.4 dB above the measured one becomes 35.7 dB; reported, not judged). Mean 20 dB
+  (metallized windows) at 30-50 km/h changes no row either.
+- **d. Blockage model A.** No improvement. The LOS ray follows the text, the diffuse power uses the expected
+  arrival spectrum, not per-cluster blocking. A per-link check works as intended: about 37 % of the LOS links lose more than 3 dB (median loss of those about 16 dB). The serving SINR moves only about 0.4 dB (-0.4 dB at the 10th and 50th percentiles),
+  because the user is served by an unblocked cell and the interferers are blocked as often. Failures stay at 0;
+  ping-pongs rise slightly. Landscape mode gives the same verdict.
+
+The registered selection rule finds no option that improves, and the cause test is not confirmed, so the
+combined candidates are SLBQ and SLBQ with the published LTE A3 offset (4 dB): both pass 5 of 10 rows, and
+SLBQ wins on the lower failure sum at 15-50 km/h (4.11 against 5.03 per km). **The proposal keeps the 2.9.0
+setting SLBQ; no 2.10.0 option joins it, and nothing becomes a default.** SLBQ has its own price: walking users
+fail 2.14 times per km instead of 0.03 (not in the registered check).
+
+Gaps that remain:
+
+- **Multi-beam SINR about 6 dB optimistic.** Likely cause: no angular spread in the beam gain (the explicit
+  TR 38.901 7.5 procedure gives a 5.85 dB median best-beam loss); the registered cause test was not confirmed
+  (the option lowers the SINR by about 5 dB but raises the failures). A faithful fix would need the beams
+  applied to the per-ray channel of clause 7.5, not to an expected gain.
+- **FR2 about 6 dB optimistic** against the SIGCOMM'22 walking data (median serving SINR 21.2 dB against
+  15.2 dB; 20.8 dB with blockage, 19.0 dB with blockage and angular spread).
+- The margin at the handover command (SLBQ 3.8 dB against 1.4 dB measured) and the UCC cell-change rate.
+- Open limits, not changed: the CHO / LTM report time-to-trigger and the condEventA3 leaving condition of
+  `cho_d2` (evaluated at measurement instants; no separate hysteresis), and the indoor-user deviations of
+  the O2I model (outdoor shadowing instead of the O2I values of Table 7.5-6, the LOS probability at the total
+  instead of the outdoor distance, one shadowing field shared with outdoor users, no Table 7.4.3-3 model below
+  6 GHz, no spatially consistent indoor distance).
+
+**No hold-out.** Every dataset was used before (the earlier sections); the selection uses the same data as the
+verdicts. These are re-tests of model changes, not independent validations, and nothing was fitted.
+
 ## Limits
 
 - Real deployments differ from the card: sectorised irregular sites (nearest-site distance about 400-600 m),
   0.8-3.7 GHz on several carriers, unknown load, unknown operator settings (offsets, time-to-trigger,
   filters), phones inside cars. Cell-change counts in the data include inter-frequency changes.
 - The card's link budget (omni 26.1 dBi, 6 dBi vehicle antenna, no car penetration loss) explains the high
-  received power; the per-RE level should not be read as realistic.
+  received power; the per-RE level should not be read as realistic. The car loss of TR 38.901 clause 7.4.3.2
+  lowers it by about 8.7 dB (previous section).
 - Phones report chipset-defined SINR (for LTE not standardised), integer and clipped, with an unknown
   averaging window. 5G in the data is NSA; HandoverLab models one NR layer.
 - No radio link failures are labelled in public data; the failure level of HandoverLab remains not

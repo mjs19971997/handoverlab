@@ -207,13 +207,18 @@ class BeamConfig:
     # meets the neighbours' SSBs of the same index at full power through their beams of that index
     ssb_sinr: str = "data"
     ssb_overlap: float = 1.0
+    # beam gains over the power angular spectrum of TR 38.901 (since 2.10.0): "none" the gain in the geometric
+    # direction (the model up to 2.9.0); "tr38901" the expected gain over the PAS of each link (wrapped Gaussian ASD,
+    # Laplacian ZSD with the ZOD offset, the LOS ray; see handoverlab.channel.spread); UMa and UMi only
+    angular_spread: str = "none"
 
 
 #: keys of :class:`BeamConfig` added after 1.10.0 and their defaults, left out of :meth:`Scenario.to_dict` while
 #: they have them
 BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0, "ue_panels": 0, "ue_panel": [2, 4], "ue_beams": 4,
                                   "ue_beam_span_deg": 120.0, "ue_tilt_deg": 90.0, "ue_orientation": "random",
-                                  "ue_rx": "best", "ssb_sinr": "data", "ssb_overlap": 1.0}
+                                  "ue_rx": "best", "ssb_sinr": "data", "ssb_overlap": 1.0,
+                                  "angular_spread": "none"}
 #: UE panel counts of TR 38.802 Table A.2.1-4 (one panel, Config 1, Config 2) and the bearing step of the panels
 UE_PANEL_STEP_DEG: Dict[int, float] = {1: 0.0, 2: 180.0, 4: 90.0}
 #: the UE receive-beam keys of :class:`BeamConfig` (since 2.4.0)
@@ -319,6 +324,13 @@ class RadioConfig:
     # exp(-d / los_corr_m): a uniform variable that is constant in the cells of an isotropic Poisson line process
     # (map) or redrawn along the user's path at the rate 1 / los_corr_m per metre (open area, highway, indoor)
     los_process: str = "gaussian"
+    # blockage model A of TR 38.901 clause 7.6.4.1 (optional, since 2.10.0; see handoverlab.channel.blockage): None
+    # off; "a" one self-blocking region (blockage_mode "portrait" or "landscape", Table 7.6.4.1-1) and four
+    # non-self-blocking regions around the user (Table 7.6.4.1-2) acting on the expected arrival power angular
+    # spectrum of every link; blockers move at blocker_speed_kmh (t_corr = d_corr / v, Eq. 7.6-28)
+    blockage: Optional[str] = None
+    blockage_mode: str = "portrait"
+    blocker_speed_kmh: float = 3.0
     # optional soft LOS state (since 1.7.0; TR 38.901 clause 7.6.3.3, Eq. 7.6-18 and 7.6-19): the received
     # power mixes the LOS and NLOS powers with the weights LOS_soft^2 and 1 - LOS_soft^2, where
     # LOS_soft = 1/2 + arctan(sqrt(soft_los_d_m / lambda) (G + F(d))) / pi, instead of a hard switch
@@ -480,6 +492,10 @@ class ProtocolConfig:
     # without gaps (Tables 9.2.5.2-1/-2), inter-frequency within the gaps of pattern gap_pattern (Tables 9.1.2-1,
     # 9.3.5-1/-2) -- and the L3 filter is adapted to that input rate (TS 38.331 5.5.3.2); "sample": every L1 period
     meas_periods: str = "sample"
+    # meas_detail (since 2.10.0) for meas_periods "ts38133": "2x" the chain up to 2.9.0; "3gpp" the first period result
+    # starts the L3 filter (F_0 = M_1, TS 38.331 5.5.3.2) and with beams every beam is averaged over the period
+    # before the cell quality is derived (TS 38.300 9.2.4, TS 38.331 5.5.3.3)
+    meas_detail: str = "2x"
     ssb_period_s: float = 0.02          # SSB and SMTC periodicity (T_SSB)
     gap_pattern: int = 0                # gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms)
     fr2_power_class: int = 3            # FR2 UE power class (sets M_meas of TS 38.133 9.2.5.1 and 9.3.4)
@@ -788,6 +804,14 @@ class Scenario:
                "must be 0, 0.1 or 0.2 (TR 38.901 Table 7.4.2-1: no, sparse or dense vegetation)")
         _check(R.los_process in ("gaussian", "poisson_lines"), "radio.los_process",
                "must be 'gaussian' or 'poisson_lines'")
+        _check(R.blockage in (None, "a"), "radio.blockage", "must be null or 'a'")
+        _check(R.blockage_mode in ("portrait", "landscape"), "radio.blockage_mode", "must be 'portrait' or 'landscape'")
+        _check(R.blocker_speed_kmh >= 0, "radio.blocker_speed_kmh", "must be >= 0")
+        if R.blockage is not None:
+            _check(R.pathloss in ("uma", "umi_street_canyon") and L.kind != "ntn" and not R.map_file
+                   and not R.fast_fading and not R.layers, "radio.blockage",
+                   "'a' needs radio.pathloss uma or umi_street_canyon (Table 7.6.4.1-2 row and Table 7.5-6), one "
+                   "carrier and no radio.map_file, fast fading or layout.kind 'ntn'")
         if R.los_process == "poisson_lines":
             _check(L.kind != "ntn" and not R.map_file and R.los_model == "probability"
                    and (L.kind != "street_grid" or R.clutter_los), "radio.los_process",
@@ -826,6 +850,7 @@ class Scenario:
         _check(P.cmd_during_t310 in ("lost", "receive"), "protocol.cmd_during_t310", "must be 'lost' or 'receive'")
         _check(P.t304_s is None or P.t304_s > 0, "protocol.t304_s", "must be positive or null")
         _check(P.meas_periods in ("sample", "ts38133"), "protocol.meas_periods", "must be 'sample' or 'ts38133'")
+        _check(P.meas_detail in ("2x", "3gpp"), "protocol.meas_detail", "must be '2x' or '3gpp'")
         _check(P.rlm_eval in ("fixed", "ts38133"), "protocol.rlm_eval", "must be 'fixed' or 'ts38133'")
         _check(P.rrc_detail in ("3gpp", "simple"), "protocol.rrc_detail", "must be '3gpp' or 'simple'")
         if P.ns3_oos_rx is not None:
@@ -935,6 +960,13 @@ class Scenario:
                    and self.protocol.dc is None, "radio.beams.ssb_sinr",
                    "'ssb' needs one carrier with beams (radio.beams, no radio.layers or protocol.dc), the isotropic "
                    "UE (ue_panels 0), rlm_rs 'tci' and no protocol.lm_load / lm_load_per_ue")
+        lys = [(R.beams, R.pathloss)] + [(ly.beams, getattr(ly, "pathloss", None) or R.pathloss)
+                                         for ly in R.layers or ()]
+        for b, pl in lys:
+            if b is not None and b.angular_spread == "tr38901":
+                _check(pl in ("uma", "umi_street_canyon") and not R.map_file and self.layout.kind != "ntn",
+                       "radio.beams.angular_spread", "'tr38901' needs radio.pathloss uma or umi_street_canyon "
+                       "(TR 38.901 Tables 7.5-6 to 7.5-8), no radio.map_file and no layout.kind 'ntn'")
         names = set()
         for i, ly in enumerate(R.layers or ()):
             key = "radio.layers[%d]" % i
@@ -1016,7 +1048,8 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                    "breakpoint_c_mps", "pl_min_distance_m", "channel_detail",
                                                    "energy_ntrx", "fast_fading", "delay_spread_ns", "fading_k_db",
                                                    "o2i_model", "o2i_d_in_max_m", "building_los", "env_height_m",
-                                                   "vegetation", "los_process"),
+                                                   "vegetation", "los_process", "blockage", "blockage_mode",
+                                                   "blocker_speed_kmh"),
                                          "protocol": ("cmd_during_t310", "t304_s", "meas_periods", "ssb_period_s",
                                                       "gap_pattern", "fr2_power_class", "rlm_eval", "rrc_detail",
                                                       "scheduler", "harq_max_tx", "harq_rtt_slots", "l2s_loss_db",
@@ -1024,7 +1057,7 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                       "discard_timer_s", "sdu_bytes", "dc", "ns3_oos_rx",
                                                       "ns3_ins_rx", "ns3_ctrl_hz", "ns3_ctrl_per_ue_hz",
                                                       "rlm_interference", "rlm_rs_type", "rlm_ssb_overlap",
-                                                      "rlm_bg_se")}
+                                                      "rlm_bg_se", "meas_detail")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")
@@ -1119,6 +1152,7 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     _check(b.ue_rx in ("best", "sweep"), key + ".ue_rx", "must be 'best' or 'sweep'")
     _check(b.ssb_sinr in ("data", "ssb"), key + ".ssb_sinr", "must be 'data' or 'ssb'")
     _check(0.0 <= b.ssb_overlap <= 1.0, key + ".ssb_overlap", "must be in [0, 1]")
+    _check(b.angular_spread in ("none", "tr38901"), key + ".angular_spread", "must be 'none' or 'tr38901'")
 
 
 # ---------------------------------------------------------------------------

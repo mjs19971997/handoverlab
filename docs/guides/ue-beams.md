@@ -92,6 +92,7 @@ A run with UE beams took 1.3-2 times as long as without (the `sweep` variant lon
 ## 6. What is not modelled
 
 Polarisation (one polarisation per panel), the handheld model of TR 38.901 Table 7.3-2 with antennas at
-the device corners, hand and body blockage, UE rotation other than `heading`, multipath arrival angles,
+the device corners, hand blockage, body blockage except the option `radio.blockage: a` (TR 38.901 blockage
+model A, since 2.10.0; model B is not modelled), UE rotation other than `heading`, multipath arrival angles,
 UE transmit beams, failures of the receive beam itself, and UE beams together with `protocol.dc`.
 Radio-map and dashboard plots do not show the UE gains.

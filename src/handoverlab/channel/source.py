@@ -114,6 +114,15 @@ class RadioSource:
             fd = self.V * (R.carrier_ghz * 1e9 / C0)                # maximum Doppler shift per user [Hz]
             self.fading = TdlFading(streams(world.seed, "fading", 1, sub)[0], self.U, self.M, R.fast_fading,
                                     R.delay_spread_ns * 1e-9, np.concatenate([f_rlm, f_data]), dt, fd, R.fading_k_db)
+        # keep the LOS power weight of every chunk in ``chunk_los`` (n, U, M), set by the beam model (since 2.10.0)
+        self.keep_los = False
+        self.blockage = None                            # blockage model A (radio.blockage, since 2.10.0; own stream)
+        if getattr(R, "blockage", None) == "a":
+            from .blockage import BlockageA
+            self.H = world.heading
+            self.blockage = BlockageA(streams(world.seed, "blockage", 1)[0], self.U, R, self.V, dt,
+                                      getattr(world, "indoor", None))
+        self.chunk_los = None
         self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
         indoor = getattr(world, "indoor", None)         # users inside buildings (since 2.3.0)
         pen = None
@@ -182,7 +191,10 @@ class RadioSource:
         he = self._he(d2, n)
         g_l = -path_loss(d2, True, *args, **radio_kwargs(R), h_e=he) + los_shadow_sd(d2, R) * u
         g_n = -path_loss(d2, False, *args, **radio_kwargs(R), h_e=he) + R.shadow_nlos_db * u
-        return mix_db(soft_los_power_weight(z, R.carrier_ghz, R.soft_los_d_m), g_l, g_n).reshape(shape)
+        w = soft_los_power_weight(z, R.carrier_ghz, R.soft_los_d_m)
+        if self.keep_los or self.blockage is not None:
+            self._los_w = w.reshape(shape)
+        return mix_db(w, g_l, g_n).reshape(shape)
 
     def chunks(self) -> Iterator[Chunk]:
         """Yield :class:`Chunk` objects covering the whole run in order."""
@@ -219,6 +231,7 @@ class RadioSource:
             y = self.Y[k0:k1].ravel()
             shape = (n, self.U, self.M)
             sig = None
+            self._los_w = None
             if not rmap.is_grid and R.soft_los and R.los_model != "los":
                 rs = self._soft_open(x, y, sites, n, shape)
             elif rmap.is_grid:
@@ -238,13 +251,25 @@ class RadioSource:
                 rs = -path_loss(d2, los, R.pathloss, R.carrier_ghz, R.bs_height_m, R.ue_height_m,
                                 **radio_kwargs(R), h_e=self._he(d2, n)).reshape(shape)
                 sig = np.where(los, los_shadow_sd(d2, R), R.shadow_nlos_db).reshape(shape)
+                if self.keep_los or self.blockage is not None:
+                    self._los_w = los.reshape(shape)
                 if rmap.has_field:
                     rs += rmap.lookup_field(x, y).astype(np.float64).reshape(shape) * sig
             if self.own and sig is not None:
                 o = self._ar1_users(self.rng_o, self.r_o, self.zo, n)
                 self.zo = o[-1].copy()
                 rs += np.sqrt(1.0 - R.place_share) * sig * o
+            if self.keep_los or self.blockage is not None:      # LOS power weight of every link (since 2.10.0)
+                if self._los_w is None:                   # street grid: the LOS state of the map
+                    self._los_w = rmap.los_at(x, y).reshape(shape)
+                self.chunk_los = np.asarray(self._los_w, dtype=np.float32)
             nm = -(-n // self.mp)
+            if self.blockage is not None:                 # once per L1 period, held (blockers move centimetres)
+                sl = slice(0, n, self.mp)
+                bl = self.blockage.factor_db(self.X[k0:k1][sl], self.Y[k0:k1][sl], self.H[k0:k1][sl], sites,
+                                             self.chunk_los[sl].astype(float), nm, self.mp,
+                                             rmap.layout)
+                rs += np.repeat(bl, self.mp, axis=0)[:n]
             if R.time_var_db > 0:
                 zt = _ar1(self.rng_t.standard_normal((nm, self.U, self.M)), self.r_t, self.zt)
                 self.zt = zt[-1].copy()

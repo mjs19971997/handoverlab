@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.8.0. It explains the ideas behind a run, the built-in
+This guide covers version 2.10.0. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -121,6 +121,37 @@ from the LOS probability, so it is refused with the NTN layout (its own LOS mode
 from a stream of their own (`los`), so every other draw of a run is the one of `gaussian`; with the
 default every result of 2.8.0 is unchanged.
 
+### Blockage model A (`radio.blockage`, since 2.10.0)
+
+`radio.blockage: a` (optional, off by default) adds blockage model A of TR 38.901 V19.5.0 clause 7.6.4.1:
+
+* one self-blocking region in the UT local coordinate system (Eq. 7.6-20, Table 7.6.4.1-1): `blockage_mode`
+  `portrait` (phi' 260 deg, width 120 deg, theta' 100 deg, height 80 deg) or `landscape` (40, 160, 110, 75 deg);
+  power arriving inside it loses 30 dB. The local system is the global one turned by the user's heading (phi' =
+  0 along the direction of travel, no tilt), an assumption;
+* K_block = 4 non-self-blocking regions around the user (Eq. 7.6-21, Table 7.6.4.1-2 for UMi and UMa: centre
+  uniform in [0, 360] deg, width uniform in [5, 15] deg, theta_k = 90 deg, y_k = 5 deg, r = 10 m), attenuating by
+  the knife-edge terms of Eq. 7.6-22 to 7.6-27 with the signs of Table 7.6.4.1-3;
+* blocker centres and widths consistent in space and time, R(dx, dt) = exp(-(|dx| / d_corr + |dt| / t_corr))
+  (Eq. 7.6-28), d_corr 10 m (indoor users 5 m, Table 7.6.4.1-4) and t_corr = d_corr / v with v =
+  `blocker_speed_kmh` (3 km/h, pedestrians; the clause leaves v open).
+
+The clause attenuates every cluster; HandoverLab has no clusters. The LOS ray (K_R / (K_R + 1) of the power at
+the median K of 9 dB) is attenuated exactly at its arrival direction; the diffuse power over the expected
+arrival spectrum of the link (wrapped Gaussian of the median ASA, Laplacian of the median ZSA, Table 7.5-6
+Part-1), the small regions combined as if they did not overlap. This is an approximation of the per-cluster
+model. The factor acts on all beams of a site and is updated once per L1 period. UMa and UMi street canyon
+only, one carrier, not with `radio.map_file`, `radio.fast_fading` or the NTN layout; own random stream
+(`blockage`), so every other draw of a run is unchanged. Limits: the arrival spreads are the table medians
+without the scaling of the diffuse part of LOS links; users of an `indoor: true` group get the outdoor
+spreads and the outdoor arrival zenith. Memory: the model works on arrays of users x sites x 64 values per
+L1 instant, so on large FR2 cards run fewer runs in parallel.
+
+In the comparison with real data (FR2 walking card, [real data](real-data.md#re-test-with-the-2100-options))
+about 37 % of the LOS links lose more than 3 dB (median loss of those about 16 dB), as intended, but the serving SINR moves only about 0.4 dB: the
+user is served by an unblocked cell and the interferers are blocked as often. It passes 1 of 3 rows like the
+card without it, with no failures; the FR2 SINR stays about 6 dB above the measurements.
+
 ### Settings closer to deployed networks (documented values, not defaults)
 
 These settings use existing keys only; none of them is a default. They were compared with measured data in
@@ -167,7 +198,27 @@ rows; the 8-beam setting still failed about three times as often at
 [Beams and several carriers](#beams-and-several-carriers-since-1100)) the Table 7.8-1 sectors without recovery
 and with `radio.los_process: poisson_lines` matched the most rows among the settings within twice the
 default's failure rate (1.2-1.4 times it at 15-50 km/h). The 8-beam setting stays about 6 dB optimistic in
-SINR; the cause is open (the SSB beam gain is suspected, not tested).
+SINR. Likely cause: no angular spread in the beam gain (the explicit TR 38.901 7.5 procedure gives a 5.85 dB
+median best-beam loss; see
+[Angular spread at the beams](#angular-spread-at-the-beams-radiobeamsangular_spread-since-2100)); the
+registered cause test was not confirmed: the option lowers the SINR by about 5 dB, but raises the failures
+4-8 times, so the gap stays open.
+
+**In-vehicle penetration loss** (documented in 2.10.0; keys since 1.2.0). TR 38.901 V19.5.0 clause 7.4.3.2,
+Eq. (7.4-4): PL = PL_b + N(mu, sigma_P^2) with mu = 9 dB and sigma_P = 5 dB, "UT-specifically generated";
+optionally mu = 20 dB for metallized car windows; applicable for at least 0.6-60 GHz:
+
+```yaml
+radio:
+  penetration_db: 9         # 20 for metallized windows
+  penetration_sd_db: 5
+```
+
+HandoverLab draws the loss once per user and applies it to all its links, steps and carriers (not to users
+of an `indoor: true` speed group, which get the building loss instead). Every non-indoor user gets it, so
+walking users outdoors need a run of their own. In the comparison with real data it changed no judged row and
+no failure or handover count (the network is interference-limited and the loss is the same on every link of
+a user); it lowers the received power by about 8.7 dB, towards the drive-test values (reported, not judged).
 
 **Event A3 settings as operators configure them.** TS 38.331 clause 5.5.4.4 enters Event A3 when
 Mn + Ofn + Ocn - Hys > Mp + Ofp + Ocp + Off. On one carrier (one measurement object, so Ofn = Ofp and they cancel) and without a cell individual
@@ -236,6 +287,72 @@ per resource element, so that cells of different bandwidths compare correctly. W
 `a3a5` hands over with Event A3 within a carrier and Event A5 towards another one. The scenario
 cards `urban-grid-28ghz-beams` and `dense-urban-2layer` (ITU-R M.2412 two-layer dense urban) use
 these models; see also the guide [Beams and several carriers](guides/beams-layers.md).
+
+### Angular spread at the beams (`radio.beams.angular_spread`, since 2.10.0)
+
+By default a beam's gain towards a user is the gain of the TR 38.901 clause 7.3 pattern in the one geometric
+direction from the cell to the user. In the channel of TR 38.901 V19.5.0 clause 7.5 the power leaves the site
+over clusters and rays (steps 5-7), and every ray is weighted by the field pattern in its own departure
+direction (step 11), so a narrow beam loses part of its peak gain when the angular spread is wider than the
+beam. `angular_spread: tr38901` (in `radio.beams`, off by default) takes every beam gain towards a user --
+serving, measured and interfering beams, and so the beam-mean interference gain and the SS-SINR of
+`ssb_sinr: ssb` -- as the expected gain over the departure power angular spectrum of the link:
+
+* NLOS: wrapped Gaussian in azimuth with rms ASD, Laplacian in zenith with rms ZSD (step 7, Table 7.5-6 note 5)
+  around the geometric zenith plus the ZOD offset mu_offset,ZOD (Eq. 7.5-19; Tables 7.5-7 for UMa and 7.5-8 for
+  UMi - Street Canyon);
+* LOS: a LOS ray in the geometric direction with K_R / (K_R + 1) of the power (Eq. 7.5-7, 7.5-8) at the median
+  K of 9 dB (Table 7.5-6 Part-1), plus the diffuse part with the spreads ASD / sqrt(1 - P_LOS) and
+  ZSD / sqrt(1 - P_LOS), P_LOS = K_R / (K_R + 1), so that the rms of the whole spectrum is the table's value;
+* ASD and ZSD of every user-site link drawn once per LOS state from the log-normals of Table 7.5-6 Part-1 and
+  Tables 7.5-7 / 7.5-8, limited to 104 and 52 degrees (step 4); their cross-correlations and spatial
+  consistency are not modelled. The LOS state is the one of the path loss (with `soft_los` its power weight
+  mixes the two gains).
+
+The expectation uses 16 x 16 quadrature nodes and is separable: the zenith nodes act on the vertical array
+factor, the azimuth nodes on the element times the horizontal array factor. UMa and UMi street canyon only
+(the tables), not with `radio.map_file` or the NTN layout; own random stream (`spread`), so every other draw of
+a run is unchanged. Limit: layers with `cosited: true` draw their own ASD and ZSD, where TR 38.901 clause 7.6.5
+keeps the large-scale parameters of a link the same on all frequencies.
+
+```yaml
+radio:
+  beams: {sectors: 3, sector_az0_deg: 30, n_ssb: 8, panel: [8, 8], tilt_deg: 102, angular_spread: tr38901}
+```
+
+It is an approximation. Against a Monte Carlo of the explicit clause 7.5 procedure (UMa, 4 GHz, the (8, 8) and
+(10, 1) panels) the median differences are -0.53 to +0.06 dB, but only 67-86 % of the points lie within
+1.5 dB, where the registered check asked for 90 % (the weak beams far below the peak differ most). The explicit
+procedure gives a median loss of the best beam of 5.85 dB for the (8, 8) panel in UMa NLOS (0.4 dB in LOS), the
+size of the multi-beam optimism of 2.9.0. In the comparison with real data
+([real data](real-data.md#re-test-with-the-2100-options)) the option with 8 SSB beams lowers the median of the
+primary NR SS-SINR rows by 5.2 dB, but the failures per km rise 4-8 times (11.1 and 7.4 per km at 15-25 and
+30-50 km/h, default 1.5 and 1.7); it passes 1 of 10 judged rows (4 with the LOS-state process, which still
+fails the failure check), and with the Table 7.8-1 sectors it costs two rows. Not a default: a faithful model
+would apply the beams to the per-ray channel, not to an expected gain.
+
+### Measurement detail of the TS 38.133 periods (`protocol.meas_detail`, since 2.10.0)
+
+With `protocol.meas_periods: ts38133` every cell's L1 result is the average over its measurement period.
+`protocol.meas_detail` (default `2x`, the chain up to 2.9.0) set to `3gpp` follows the text at two points:
+
+* the first period result of a cell starts its L3 filter, F_0 = M_1 (TS 38.331 clause 5.5.3.2: "F0 is set to
+  M1 when the first measurement result from the physical layer is received"); with `2x` it enters with the
+  filter coefficient on top of the first raw L1 sample. Before the first period ends, the first raw sample
+  stands in as with `2x`;
+* with `radio.beams`, every beam is averaged in linear power over the period, and the cell quality of TS 38.331
+  clause 5.5.3.3 is derived from these averages when the period ends: the order of the measurement model of
+  TS 38.300 clause 9.2.4 (beam-specific layer 1 filtering, beam consolidation, layer 3 filtering). With `2x`
+  the cell quality of every 40 ms sample is averaged instead, which biases it upwards where beams are of
+  similar strength.
+
+Without `meas_periods: ts38133` the key has no effect: the default chain (`sample`) already follows both
+clauses. In the comparison with real data `meas_periods: ts38133` was run with `2x`; for those settings the two
+points change no number (the first acts inside the warm-up, the second needs more than one SSB beam per cell),
+so `3gpp` itself was not run on the data. `ts38133` cut the ping-pongs by about a third, raised the failures
+per km 1.6-1.9 times (2.84 and 2.66 per km against 1.48 and 1.70) and passed 1 of 10 judged rows (default 2);
+no improvement. The CHO and LTM report time-to-trigger (`ttt_prep_s`) and the condEventA3 leaving condition of
+`cho_d2` are still evaluated as before (at measurement instants; no separate hysteresis), open limits.
 
 ### Sites from a file
 
@@ -329,6 +446,7 @@ output: results/metrics.csv
 | | `building_los` | `true` | street grid: a link through a building block is NLOS; `false` (since 2.3.0): sites above the rooftops, the LOS state comes from the LOS probability alone (TR 37.885 clause 6.2.1, urban base-station-to-vehicle links); needs `clutter_los: true` |
 | | `los_corr_m` | `50` | correlation distance of the LOS state |
 | | `los_process` | `gaussian` | (2.9.0) `gaussian`: a Gaussian field with the correlation exp(-d / `los_corr_m`) compared with the LOS probability (TR 38.901 clause 7.6.3.3); `poisson_lines` (optional): the LOS state itself has that correlation (Poisson line cells on the street grid, random redraws along a user's path elsewhere); not with NTN, `map_file`, `los_model: los` or `clutter_los: false` (see below) |
+| | `blockage`, `blockage_mode`, `blocker_speed_kmh` | none, `portrait`, `3` | (2.10.0) optional: `a` -- blockage model A of TR 38.901 clause 7.6.4.1 (self-blocking region of Table 7.6.4.1-1 in `portrait` or `landscape` mode, 4 non-self-blocking regions of Table 7.6.4.1-2, Eq. 7.6-28 with t_corr = d_corr / v at the blockers' speed); the LOS ray exactly, the diffuse power over the expected arrival spectrum; UMa and UMi only, one carrier, not with `map_file`, `fast_fading` or NTN (see [Blockage model A](#blockage-model-a-radioblockage-since-2100)) |
 | | `breakpoint_c_mps` | `3.0e8` | speed of light in the breakpoint distances (TR 38.901 Table 7.4.1-1 notes 1 and 5; since 2.0.0, 1.x: 299792458) |
 | | `pl_min_distance_m` | `10` | smallest 2D distance the RMa, UMa and UMi formulas are evaluated at (their applicability range; since 2.0.0, 1.x: 0) |
 | | `env_height_m` | none | UMa and UMi: one effective environment height h_E for every link in the breakpoint distance (since 2.3.0; TR 37.885 clause 6.2.1: `0.25` for base-station-to-vehicle links); unset: TR 38.901 Table 7.4.1-1 note 1 |
@@ -341,11 +459,11 @@ output: results/metrics.csv
 | | `l1_error_db` | `1` | error of one L1 RSRP sample |
 | | `energy_p0_w`, `energy_slope`, `energy_ntrx` | `56`, `2.6`, `2` | cell power for the energy metrics (1.5.0; `energy_ntrx` since 2.1.0): EARTH model of a micro base station, Auer et al. 2011 Eq. 1 and Table 2 |
 | | `fast_fading`, `delay_spread_ns`, `fading_k_db` | `null`, `100`, `null` | (2.2.0) TDL fast fading of TR 38.901 clause 7.7.2 (`tdl-a` .. `tdl-e`), its RMS delay spread and an optional K-factor; radio-link monitoring and the rate then use effective SINRs ([guide](guides/fading.md)) |
-| | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car); since 2.3.0 not for indoor users |
+| | `penetration_db`, `penetration_sd_db` | `0`, `0` | optional (1.2.0): penetration loss of each user on all its links, drawn once per user (TR 38.901 clause 7.4.3.2: `9`, `5` for a user in a standard car, mean `20` with metallized windows; documented in 2.10.0, see [Settings closer to deployed networks](#settings-closer-to-deployed-networks-documented-values-not-defaults)); since 2.3.0 not for indoor users |
 | | `o2i_model`, `o2i_d_in_max_m` | `low`, none | (2.3.0) O2I building penetration loss of the users of an `indoor: true` speed group (TR 38.901 clause 7.4.3.1): `low`, `high`, `low_a` (SMa) or `mixed` (half low, half high); upper end of the uniform variables of d2D-in (unset: 25 m UMa/UMi, 10 m RMa, SMa 10 m residential / 25 m commercial) ([guide](guides/suburban-o2i.md)) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
-| | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)) |
+| | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)); `beams.angular_spread` (2.10.0, default `none`): `tr38901` the expected beam gains over the departure power angular spectrum of TR 38.901 clause 7.5, UMa and UMi only (see [Angular spread at the beams](#angular-spread-at-the-beams-radiobeamsangular_spread-since-2100)) |
 | | `layers` | none | optional (1.10.0): further carriers with their own cells, e.g. a 28 GHz small-cell layer under a 3.5 GHz macro layer; since 1.11.0 a layer may set its own `shadow_los_db`, `shadow_nlos_db`, `shadow_decorr_m` and `los_corr_m` |
 | `protocol` | `step_s` | `0.01` | simulation step |
 | | `l1_period_s` | `0.04` | L1 sample period (multiple of `step_s`) |
@@ -368,6 +486,7 @@ output: results/metrics.csv
 | | `cmd_during_t310` | `receive` | (1.9.0; default since 2.0.0, 1.x: `lost`) a handover or cell switch command that reaches the UE while T310 runs is received at the first step with link-monitoring SINR >= Qout and stops T310 (TS 38.331 5.3.5.5.2); since 2.0.0 a CHO or LTM candidate configuration is received the same way, without stopping T310 (5.3.5.13) |
 | | `t304_s` | `1.0` | T304 (1.9.0; default since 2.0.0, 1.x: none): the execution fails only when T304 expires; the UE joins at the first step with target SINR >= Qout (TS 38.331 5.3.5.8.3) |
 | | `meas_periods` | `sample` | `ts38133` (1.10.0): every cell's L1 result is the average over its measurement period of TS 38.133 (intra-frequency Tables 9.2.5.2-1/-2, inter-frequency within gaps Tables 9.3.5-1/-2) and enters the L3 filter once per period |
+| | `meas_detail` | `2x` | (2.10.0) with `meas_periods: ts38133`: `2x` the chain up to 2.9.0; `3gpp` -- the first period result starts the L3 filter (F_0 = M_1, TS 38.331 5.5.3.2) and with beams every beam is averaged over the period before the cell quality is derived (TS 38.300 9.2.4, TS 38.331 5.5.3.3); no effect with `sample` (see [Measurement detail](#measurement-detail-of-the-ts-38133-periods-protocolmeas_detail-since-2100)) |
 | | `ssb_period_s` | `0.02` | SSB and SMTC periodicity T_SSB used by the TS 38.133 formulas (1.10.0) |
 | | `gap_pattern` | `0` | measurement gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms) (1.10.0) |
 | | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.1 and 9.3.4 (1.10.0) |

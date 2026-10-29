@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.9.0** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.10.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -193,9 +193,9 @@ the clause-by-clause detail is in [standard compliance](https://github.com/mjs19
 | Part | Modelled | Abstracted | Not modelled |
 |---|---|---|---|
 | Layouts | `street_grid` (TR 37.885 urban grid), `open_area`, `highway` (TR 37.885 / TR 36.885, wrap-around), `indoor` (TR 38.901 office), `ntn` (one LEO satellite, TR 38.821); explicit site lists | sites on the pavement with small cells (urban cards); the TR 37.885 urban macro grid without wrap-around (`urban-macro-tr37885-4ghz`) | several satellites |
-| Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, SMa, InH), LOS from buildings, spatially consistent LOS and shadowing, car and O2I building penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step with a slow time-varying component; indoor users keep the LOS state and shadowing of their position; optional TDL fast fading with effective SINRs (clause 7.7.2, since 2.2.0) | CDL and the full fast-fading model of clause 7.5, MIMO |
+| Channel | TR 38.901 path loss and LOS (UMi, UMa, RMa, SMa, InH), LOS from buildings, spatially consistent LOS and shadowing, car and O2I building penetration loss, radio maps from a file (clause 8), TR 38.811 for the satellite | received power per site and step with a slow time-varying component; indoor users keep the LOS state and shadowing of their position; optional TDL fast fading with effective SINRs (clause 7.7.2, since 2.2.0); options (2.10.0): beam gains over the expected angular spectrum of clause 7.5 and blockage model A (clause 7.6.4.1) on the expected arrival spectrum, not per cluster | CDL and the full fast-fading model of clause 7.5, MIMO |
 | Beams and carriers | SSB beams per sector, cell quality from beams, beam failure detection and recovery, several carriers with gaps and Event A5; dual connectivity (NR-DC: SN addition, PSCell change, SN release, SCG failure; option since 2.3.0) | the TR 38.901 antenna element and DFT beams; isotropic UE unless UE receive panels are set (option since 2.4.0); the SCG as one PSCell with a full-buffer share | UE transmit beams and polarisation, conditional PSCell change, fast MCG recovery |
-| Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, a train at 350 km/h (TR 38.854), random waypoints, pedestrians | constant speed per user | handheld rotation and body blockage |
+| Mobility | street-following vehicles (60 km/h, two lanes), highway lanes at 70/140 km/h, a train at 350 km/h (TR 38.854), random waypoints, pedestrians | constant speed per user | handheld rotation; body blockage only as the option `radio.blockage: a` (TR 38.901 blockage model A, 2.10.0), model B not modelled |
 | Traffic and load | constant rates per 5QI, full buffer, periodic, FTP model 3; cell load drives interference; options: a slot scheduler (`protocol.scheduler`: round robin or proportional fair) with the MCS, TBS and HARQ of TS 38.214 (since 2.2.0), and user-plane buffers at handover (`protocol.buffers`: simplified PDCP / RLC in AM or UM with Xn data forwarding, since 2.3.0) | by default the rate from the SINR (Shannon-type mapping) without a scheduler; with the scheduler the channel is held for the 10 ms step and the MCS is chosen from the SINR of one measurement interval earlier (no CSI reports); buffers: downlink only, one bearer per user, the interruption quantised to the measurement interval; both options need the base engine (no beams, layers, NTN or TS 38.133 periods) | uplink data, CSI-based link adaptation, PDCP reordering and status reports at the UE, TCP and applications |
 | Measurements | L1 samples with error, TS 38.331 L3 filter, TS 38.133 measurement periods and gaps (option) | wideband RSRP; SS-RSRP per resource element with beams/carriers | RSRQ, CSI reporting |
 | Procedures | baseline (A3), CHO, DAPS, LTM, conditional LTM, CHO with D1/D2 for satellites, A3/A5 between carriers; rules `a3`, `a3a5`, `a3_mro`, `a3_bandit`, `dqn`, `a3_pred`, `cho`, `cho_d2`, `daps`, `ltm`, `cltm` | fixed preparation, command and execution delays; re-establishment always succeeds after a fixed outage | condEventT1, RACH-less NTN handover, Xn signalling in detail |
@@ -306,6 +306,20 @@ To run your own study in both simulators, `handoverlab ns3 export|import|compare
 
 ## What's new
 
+- **2.10.0**: four realism options from the 3GPP texts, all off by default, re-tested against the real
+  data ([real data](https://github.com/mjs19971997/handoverlab/blob/main/docs/real-data.md#re-test-with-the-2100-options)):
+  `radio.beams.angular_spread: tr38901` takes the beam gains over the departure power angular spectrum of
+  TR 38.901 clause 7.5 (wrapped-Gaussian ASD, Laplacian ZSD with the ZOD offset of Tables 7.5-6 to 7.5-8, a
+  LOS ray with K = 9 dB); `protocol.meas_detail: 3gpp` gives the TS 38.133 measurement periods F_0 = M_1
+  (TS 38.331 5.5.3.2) and per-beam averaging before the cell quality (TS 38.300 9.2.4); the in-vehicle
+  penetration loss of TR 38.901 7.4.3.2 is documented with the existing `radio.penetration_db` 9 /
+  `penetration_sd_db` 5; `radio.blockage: a` adds blockage model A of TR 38.901 7.6.4.1. None improves the
+  judged rows: the angular spread lowers the 8-beam SINR by about 5 dB (the likely cause of its 6 dB optimism; the registered cause test was not confirmed) but
+  raises the failures 4-8 times, and fails its own check against the explicit procedure; the TS 38.133 periods
+  cut ping-pongs but raise failures 1.6-1.9 times; the car loss changes no row (received power 8.7 dB lower);
+  blockage costs about 37 % of the LOS links more than 3 dB (median about 16 dB) but moves the FR2 SINR by about 0.4 dB. Remaining
+  gaps: multi-beam SINR about 6 dB optimistic (a faithful fix needs beams on the per-ray channel) and FR2
+  about 6 dB optimistic. Re-tests on data used before, no hold-out; no change of defaults or results.
 - **2.9.0**: a comparison with real network data
   ([real data](https://github.com/mjs19971997/handoverlab/blob/main/docs/real-data.md)): HandoverLab 2.8.0
   against four public LTE/5G drive-test datasets with quantities and pass criteria registered before the
@@ -595,9 +609,12 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
     validated (right at long time-to-trigger, far too few failures at short); no change of results.
 32. 2.8.0: dynamic, load-dependent interference on radio-link monitoring from the 3GPP
     texts, a sensitivity option (not a default, not validated); no change of results.
-33. **2.9.0 (this release)**: the comparison with real network data, the LOS-state process and SS-SINR
+33. 2.9.0: the comparison with real network data, the LOS-state process and SS-SINR
     options (not defaults) and documented settings closer to deployed networks; no change of results.
-34. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
+34. **2.10.0 (this release)**: angular spread at the beams, TS 38.133 measurement detail, in-vehicle
+    penetration loss and blockage model A from the 3GPP texts (not defaults), re-tested against the real
+    data: none improves it; no change of results.
+35. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
     time-to-trigger under the ns-3-like detection; field data on radio-link failures, which a link-monitoring
     interference model would need before it could become a default; the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain and hundreds of

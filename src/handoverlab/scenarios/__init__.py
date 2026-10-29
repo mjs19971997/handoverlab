@@ -68,6 +68,10 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "radio.los_process": "gaussian: a Gaussian field with the correlation of TR 38.901 Eq. (7.4-5) compared with the "
                          "LOS probability (clause 7.6.3.3); poisson_lines (optional): the LOS state itself has "
                          "that correlation",
+    "radio.blockage": "off by default; 'a': blockage model A of TR 38.901 clause 7.6.4.1 (UMa and UMi only)",
+    "radio.blockage_mode": "TR 38.901 Table 7.6.4.1-1 (portrait self-blocking region); with blockage 'a' only",
+    "radio.blocker_speed_kmh": "assumption (pedestrian blockers; t_corr = d_corr / v, TR 38.901 Eq. 7.6-28); with "
+                               "blockage 'a' only",
     "radio.time_var_db": "assumption (moving blockers)",
     "radio.time_var_tau_s": "assumption",
     "radio.l1_error_db": "assumption (error of one L1 RSRP sample)",
@@ -165,6 +169,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "radio.breakpoint_c_mps": "TR 38.901 Table 7.4.1-1 notes 1 and 5 (c = 3.0e8 m/s in the breakpoint distances)",
     "radio.pl_min_distance_m": "TR 38.901 Table 7.4.1-1 (applicability range of RMa, UMa, UMi: 10 m <= d2D)",
     "protocol.meas_periods": "sample: one L1 sample per L1 period (the model of 1.x)",
+    "protocol.meas_detail": "2x: the chain up to 2.9.0; '3gpp': F_0 = M_1 (TS 38.331 5.5.3.2) and per-beam averaging "
+                            "over the period (TS 38.300 9.2.4); with meas_periods ts38133 only",
     "protocol.ssb_period_s": "assumption (20 ms SSB and SMTC periodicity)",
     "protocol.gap_pattern": "TS 38.133 Table 9.1.2-1 (gap pattern 0: MGL 6 ms, MGRP 40 ms)",
     "protocol.fr2_power_class": "assumption (FR2 power class 3, handheld UE)",

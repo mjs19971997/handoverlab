@@ -7,6 +7,61 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-28
+
+No change of defaults or results: every golden fingerprint is unchanged. Three new options and one documented
+use of existing keys, all off by default. None of them improved the registered real-data rows
+([real data](docs/real-data.md#re-test-with-the-2100-options)).
+
+### Added
+
+- Angular spread at the beams `radio.beams.angular_spread` (default `none`, the gain in the geometric
+  direction): `tr38901` takes every beam gain towards a user (serving, measured, interfering, and so the SS-SINR)
+  as the expected gain over the departure power angular spectrum of TR 38.901 V19.5.0 clause 7.5: wrapped
+  Gaussian in azimuth with rms ASD, Laplacian in zenith with rms ZSD (step 7, Table 7.5-6 note 5), the ZOD
+  offset of NLOS links (Eq. 7.5-19, Tables 7.5-7 / 7.5-8), in LOS a LOS ray with K_R / (K_R + 1) of the power at
+  the median K of 9 dB (Eq. 7.5-7, 7.5-8, Table 7.5-6 Part-1). ASD and ZSD per user-site link and LOS state
+  from the log-normals of the tables (limited to 104 / 52 degrees, step 4), no cross-correlation or spatial
+  consistency. UMa and UMi street canyon only, not with `radio.map_file` or NTN; own random stream (`spread`).
+  An approximation: against a Monte Carlo of the explicit clause 7.5 procedure 67-86 % of the points are
+  within 1.5 dB, where the registered check asked for 90 %. On the real data it lowers the primary NR SS-SINR
+  median by 5.2 dB (8 SSB beams), but failures per km rise 4-8 times; **no improvement**
+  ([user guide](docs/user_guide.md#angular-spread-at-the-beams-radiobeamsangular_spread-since-2100)).
+- Measurement detail `protocol.meas_detail` (default `2x`, the chain up to 2.9.0), for
+  `protocol.meas_periods: ts38133`: `3gpp` starts the L3 filter of each cell with its first period result,
+  F_0 = M_1 (TS 38.331 clause 5.5.3.2), and with beams averages every beam over the period before the cell
+  quality is derived (TS 38.300 clause 9.2.4, TS 38.331 clause 5.5.3.3). It fixes the two deviations of the
+  `ts38133` path found by an audit; the default `sample` chain already follows the text. The real-data
+  re-test ran `meas_periods: ts38133` (where the two fixes do not change a number): fewer ping-pongs (by about a
+  third), failures per km 1.6-1.9 times the default's, 1 of 10 judged rows; **no improvement**
+  ([user guide](docs/user_guide.md#measurement-detail-of-the-ts-38133-periods-protocolmeas_detail-since-2100)).
+- Blockage model A of TR 38.901 clause 7.6.4.1, `radio.blockage: a` (default none) with
+  `radio.blockage_mode` (`portrait`, `landscape`) and `radio.blocker_speed_kmh` (3): the self-blocking region of
+  Table 7.6.4.1-1 (30 dB), 4 non-self-blocking regions of Table 7.6.4.1-2 with the knife-edge terms of
+  Eq. 7.6-22 to 7.6-27 and the signs of Table 7.6.4.1-3, blocker centres and widths correlated by Eq. 7.6-28
+  with d_corr 10 m (O2I 5 m) of Table 7.6.4.1-4 and t_corr = d_corr / v. The LOS ray is attenuated exactly; the
+  diffuse power over the expected arrival spectrum of the link, not per cluster (an approximation). UMa and UMi
+  street canyon, one carrier, no map file, fast fading or NTN; own random stream (`blockage`). About 37 % of
+  the LOS links lose more than 3 dB (median loss of those about 16 dB), but the FR2 SINR moves only about 0.4 dB; **no improvement**
+  ([user guide](docs/user_guide.md#blockage-model-a-radioblockage-since-2100)).
+- Seed purposes `spread` and `blockage` (`handoverlab.seeds`).
+
+### Documentation
+
+- In-vehicle penetration loss of TR 38.901 clause 7.4.3.2 with the existing keys (since 1.2.0)
+  `radio.penetration_db: 9`, `radio.penetration_sd_db: 5` (N(9, 5^2) dB per user; metallized windows: mean
+  20 dB), audited against the text. On the real data it changes no judged row (the loss is the same on every
+  link of a user) and lowers the received power by about 8.7 dB
+  ([user guide](docs/user_guide.md#settings-closer-to-deployed-networks-documented-values-not-defaults)).
+- Real-data page, section "Re-test with the 2.10.0 options": the 2.9.0 default and its best setting against
+  each option and the registered combination (the 2.9.0 setting stays the best), the verdicts, and the gaps
+  that remain: multi-beam SINR about 6 dB optimistic (likely cause: no angular spread in the beam gain, the explicit
+  clause 7.5 procedure giving a 5.85 dB median best-beam loss; the registered cause test was not confirmed,
+  as the option lowers the SINR by about 5 dB but raises the failures; a faithful fix would need the beams
+  on the per-ray channel) and FR2 about 6 dB optimistic against the SIGCOMM'22 data. Every
+  dataset was used before: no hold-out.
+- Standard-compliance rows for the four items; user-guide sections and configuration rows.
+
 ## [2.9.0] - 2026-10-27
 
 No change of defaults or results: every golden fingerprint is unchanged. Two new options, off by default.
@@ -1470,7 +1525,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.9.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/mjs19971997/handoverlab/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/mjs19971997/handoverlab/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/mjs19971997/handoverlab/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/mjs19971997/handoverlab/compare/v2.6.0...v2.7.0

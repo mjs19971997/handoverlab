@@ -132,6 +132,11 @@ class ExtEngine(Engine):
             self.macc = np.zeros((U, M))
             self.mcnt = np.zeros((U, M), dtype=int)
             self.t_intra, self.t_inter = t_intra, t_inter
+            # meas_detail "3gpp" (since 2.10.0): F_0 = M_1, the first period result (TS 38.331 5.5.3.2), and with
+            # beams the per-beam averaging over the period before the consolidation (TS 38.300 9.2.4)
+            self.m3g = P.meas_detail == "3gpp"
+            self.mfresh = np.ones((U, M), dtype=bool)
+            self.bacc = None
         # beams
         if self.beams:
             self.sb = np.zeros(U, dtype=int)                   # serving beam (TCI state)
@@ -702,13 +707,27 @@ class ExtEngine(Engine):
         sample = ch.l1[j]
         self.macc += np.exp(sample * LN10_10)
         self.mcnt += 1
+        bm = self.m3g and self.beams
+        if bm:                                            # per-beam linear sums (meas_detail "3gpp")
+            lb = np.exp(ch.bl1[j] * LN10_10)
+            self.bacc = lb if self.bacc is None else self.bacc + lb
         inter = self.car[None, :] != self.car[self.serv][:, None]
         period = np.where(inter, self.p_inter[None, :], self.p_intra[None, :])
         due = self.mcnt >= period
         meas = self.l3.value
         if due.any():
-            m = 10.0 * np.log10(self.macc[due] / self.mcnt[due])
+            if bm:
+                from ..channel.extended import cell_quality
+                cq = cell_quality(10.0 * np.log10(np.maximum(self.bacc / self.mcnt[:, :, None], 1e-300)), self.ext,
+                                  [L.beams for L in self.ext.layers])
+                m = cq[due]
+                self.bacc[due] = 0.0
+            else:
+                m = 10.0 * np.log10(self.macc[due] / self.mcnt[due])
             a = np.where(inter, self.a_inter[None, :], self.a_intra[None, :])[due]
+            if self.m3g:
+                a = np.where(self.mfresh[due], 1.0, a)        # F_0 = M_1
+                self.mfresh[due] = False
             meas[due] += a * (m - meas[due])
             self.macc[due] = 0.0
             self.mcnt[due] = 0
