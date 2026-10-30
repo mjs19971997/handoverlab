@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.10.0. It explains the ideas behind a run, the built-in
+This guide covers version 2.10.1. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -144,8 +144,9 @@ model. The factor acts on all beams of a site and is updated once per L1 period.
 only, one carrier, not with `radio.map_file`, `radio.fast_fading` or the NTN layout; own random stream
 (`blockage`), so every other draw of a run is unchanged. Limits: the arrival spreads are the table medians
 without the scaling of the diffuse part of LOS links; users of an `indoor: true` group get the outdoor
-spreads and the outdoor arrival zenith. Memory: the model works on arrays of users x sites x 64 values per
-L1 instant, so on large FR2 cards run fewer runs in parallel.
+spreads and the outdoor arrival zenith. Memory: since 2.10.1 the model works on blocks of at most 20 000 links
+x 64 values (on the FR2 card about 0.6 GB while the run steps instead of 2.1 GB, and a process peak of 0.87 GB set
+by the world build; see [performance](performance.md)).
 
 In the comparison with real data (FR2 walking card, [real data](real-data.md#re-test-with-the-2100-options))
 about 37 % of the LOS links lose more than 3 dB (median loss of those about 16 dB), as intended, but the serving SINR moves only about 0.4 dB: the

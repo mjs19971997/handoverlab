@@ -7,6 +7,30 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-10-30
+
+No change of defaults or results: every golden fingerprint is unchanged, and runs with `radio.blockage: a` give
+the same fingerprints and metrics as with 2.10.0.
+
+### Changed
+
+- Blockage model A (`radio.blockage: a`) needs less memory and time. `BlockageA.factor_db` evaluates each LOS state
+  only for the links with a positive weight in it (the others added exactly 0) and works in blocks of at most
+  `BLOCK_LINKS` (20 000) links instead of on whole (instants x users x sites x 16 x 4) arrays per chunk. Measured on
+  the FR2 card `urban-grid-28ghz-beams` (40 users, 76 sites, 8 s runs, one process, median of 3; see
+  [performance](docs/performance.md#changes-in-2101-blockage-model-a-in-blocks)): one call of `factor_db` on a
+  full chunk allocates 132 MB instead of 1744 MB, the run phase needs 0.58 GB instead of 2.12 GB, and the radio
+  samples take 2.0 times less time with blockage (1.9 times in landscape mode) and 1.4 times less with blockage and
+  angular spread at the beams. Seven such runs in parallel need about 6 GB instead of about 15 GB (estimated from the process peaks).
+- Not reached: the target registered before the work, a process peak of at most 0.8 GB, failed. The peak fell from
+  2.12 GB to 0.87 GB; what remains is set by the world build (the radio map), which this version does not change.
+
+### Tests
+
+- `tests/test_blockage.py` compares the new function with the 2.10.0 function, kept in the test file, with `==`:
+  random inputs (both modes, LOS weights none / 0 / 1 / fractional, several block sizes) and whole runs on three
+  cards (with and without beams and angular spread, wrap-around, all-LOS links).
+
 ## [2.10.0] - 2026-10-28
 
 No change of defaults or results: every golden fingerprint is unchanged. Three new options and one documented
@@ -1525,7 +1549,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.10.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.10.1...HEAD
+[2.10.1]: https://github.com/mjs19971997/handoverlab/compare/v2.10.0...v2.10.1
 [2.10.0]: https://github.com/mjs19971997/handoverlab/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/mjs19971997/handoverlab/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/mjs19971997/handoverlab/compare/v2.7.0...v2.8.0

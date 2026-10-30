@@ -38,6 +38,9 @@ X_RANGE, THETA_K, Y_K, R_M = (5.0, 15.0), 90.0, 5.0, 10.0
 #: Table 7.6.4.1-4: d_corr [m] (UMi / UMa LOS and NLOS; O2I 5 m)
 D_CORR_M, D_CORR_O2I_M = 10.0, 5.0
 BLOCKAGE_PATHLOSS = ("uma", "umi_street_canyon")
+#: links per block of :meth:`BlockageA.factor_db` (since 2.10.1): its largest arrays are (links, 16, K) float64,
+#: about 10 MB each, instead of (instants, users, sites, 16, K) for a whole chunk; the values do not depend on it
+BLOCK_LINKS = 20000
 
 
 def _lg_arrival(pathloss: str, los: bool, fc: float):
@@ -106,7 +109,11 @@ class BlockageA:
 
     def factor_db(self, x, y, heading, sites, los_w, n: int, mult: int = 1, layout=None):
         """Blockage gain [dB] (n, U, M) <= 0 of every link at ``n`` instants ``mult`` steps apart; ``x``, ``y``,
-        ``heading`` (n, U) [m, rad], ``sites`` (M, 2), ``los_w`` (n, U, M) LOS power weight or None (all NLOS)."""
+        ``heading`` (n, U) [m, rad], ``sites`` (M, 2), ``los_w`` (n, U, M) LOS power weight in [0, 1] or None (all
+        NLOS).
+
+        Since 2.10.1 each LOS state is evaluated only for the links with a positive weight in it (the others add
+        exactly 0), in blocks of at most ``BLOCK_LINKS`` links; every value is the same as before."""
         g = self._advance(n, mult)
         u = ndtr(g)
         phi_k = 360.0 * u[:, 0]                                         # (n, U, K)
@@ -119,44 +126,56 @@ class BlockageA:
         d2 = np.maximum(np.hypot(dx, dy), 1.0)
         az = np.degrees(np.arctan2(dy, dx))                             # arrival azimuth (towards the site), GCS
         ze = 90.0 - np.degrees(np.arctan2(self.h_bs - self.h_ut, d2))  # arrival zenith of the LOS direction
-        hd = np.degrees(heading)[..., None]
+        hd = np.degrees(heading)                                        # (n, U)
         p_sb, x_sb, t_sb, y_sb = SELF_REGION[self.mode]
         keep = 1.0 - 10.0 ** (-SELF_LOSS_DB / 10.0)
 
-        def terms(a_az, a_ze):
-            """Self-blocking indicators and non-self (F_A, F_Z) terms at directions (n, U, M, ...)."""
-            i_a = np.abs(_wrap(a_az - hd[..., None] - p_sb)) < 0.5 * x_sb
+        def terms(a_az, a_ze, hdl, phl, xkl):
+            """Self-blocking indicators and non-self (F_A, F_Z) terms at directions (L, ...) of L links with the
+            heading ``hdl`` (L,) and the blockers ``phl``, ``xkl`` (L, K) of their user and instant."""
+            i_a = np.abs(_wrap(a_az - hdl[:, None] - p_sb)) < 0.5 * x_sb
             i_z = np.abs(a_ze - t_sb) < 0.5 * y_sb
-            da = _wrap(a_az[..., None] - phi_k[:, :, None, None, :])                       # (..., K)
-            fa = _edge_terms(da, 0.5 * x_k[:, :, None, None, :], x_k[:, :, None, None, :], self.kr)
+            da = _wrap(a_az[..., None] - phl[:, None, :])                                  # (L, ..., K)
+            fa = _edge_terms(da, 0.5 * xkl[:, None, :], xkl[:, None, :], self.kr)
             fz = _edge_terms(a_ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
             return i_a, i_z, fa, fz
 
-        # LOS ray: the exact product over the regions at the LOS direction
-        i_a, i_z, fa, fz = terms(az[..., None], ze[..., None])
-        f_los = (1.0 - keep * (i_a & i_z)[..., 0]) * np.prod((1.0 - fa[..., 0, :] * fz[..., 0, None]) ** 2, -1)
         out = np.zeros(az.shape)
+        o, azf, zef = out.reshape(-1), az.reshape(-1), ze.reshape(-1)
+        wf = None if los_w is None else np.broadcast_to(np.asarray(los_w), az.shape).reshape(-1)
         for state in (True, False):
-            asa, zsa = self.spreads[state]
-            a_n = az[..., None] + asa * U_AZ                            # (n, U, M, N_AZ)
-            z_n = np.clip(ze[..., None] + zsa * U_ZE, 0.0, 180.0)       # (n, U, M, N_ZE)
-            ia, _, fa_n, _ = terms(a_n, ze[..., None])
-            _, iz, _, fz_n = terms(az[..., None], z_n)
-            pa, pz = ia.mean(-1), iz.mean(-1)                           # P(azimuth in), P(zenith in)
-            ea, ea2 = fa_n.mean(-2), (fa_n ** 2).mean(-2)               # (n, U, M, K)
-            eza, eza2 = (ia[..., None] * fa_n).mean(-2), (ia[..., None] * fa_n ** 2).mean(-2)
-            ez, ez2 = fz_n.mean(-1), (fz_n ** 2).mean(-1)              # (n, U, M): one theta_k for all k
-            ezz, ezz2 = (iz * fz_n).mean(-1), (iz * fz_n ** 2).mean(-1)
-            # E[s] - sum_k E[s (1 - f_k)], s = 1 - keep I_a I_z, 1 - f_k = 2 F_A F_Z - F_A^2 F_Z^2
-            e_s = 1.0 - keep * pa * pz
-            e_nk = 2.0 * ea * ez[..., None] - ea2 * ez2[..., None]
-            e_snk = e_nk - keep * (2.0 * eza * ezz[..., None] - eza2 * ezz2[..., None])
-            f_dif = np.maximum(e_s - e_snk.sum(-1), 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3)
-            if state:
-                f = self.p_los * f_los + (1.0 - self.p_los) * f_dif
-                wl = np.zeros(az.shape) if los_w is None else los_w
-                out += wl * f
+            if wf is None:                                              # all NLOS: weight 0 in LOS, 1 in NLOS
+                if state:
+                    continue
+                k_all = np.arange(o.size)
             else:
-                wl = np.ones(az.shape) if los_w is None else 1.0 - los_w
-                out += wl * f_dif
+                k_all = np.flatnonzero(wf > 0.0 if state else wf < 1.0)
+            asa, zsa = self.spreads[state]
+            for b0 in range(0, len(k_all), BLOCK_LINKS):
+                k = k_all[b0:b0 + BLOCK_LINKS]
+                i, uu, _ = np.unravel_index(k, az.shape)
+                azl, zel = azf[k], zef[k]
+                hdl, phl, xkl = hd[i, uu], phi_k[i, uu], x_k[i, uu]
+                a_n = azl[:, None] + asa * U_AZ                         # (L, N_AZ)
+                z_n = np.clip(zel[:, None] + zsa * U_ZE, 0.0, 180.0)    # (L, N_ZE)
+                ia, _, fa_n, _ = terms(a_n, zel[:, None], hdl, phl, xkl)
+                _, iz, _, fz_n = terms(azl[:, None], z_n, hdl, phl, xkl)
+                pa, pz = ia.mean(-1), iz.mean(-1)                       # P(azimuth in), P(zenith in)
+                ea, ea2 = fa_n.mean(-2), (fa_n ** 2).mean(-2)           # (L, K)
+                eza, eza2 = (ia[..., None] * fa_n).mean(-2), (ia[..., None] * fa_n ** 2).mean(-2)
+                ez, ez2 = fz_n.mean(-1), (fz_n ** 2).mean(-1)          # (L,): one theta_k for all k
+                ezz, ezz2 = (iz * fz_n).mean(-1), (iz * fz_n ** 2).mean(-1)
+                # E[s] - sum_k E[s (1 - f_k)], s = 1 - keep I_a I_z, 1 - f_k = 2 F_A F_Z - F_A^2 F_Z^2
+                e_s = 1.0 - keep * pa * pz
+                e_nk = 2.0 * ea * ez[..., None] - ea2 * ez2[..., None]
+                e_snk = e_nk - keep * (2.0 * eza * ezz[..., None] - eza2 * ezz2[..., None])
+                f_dif = np.maximum(e_s - e_snk.sum(-1), 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3)
+                if state:
+                    # LOS ray: the exact product over the regions at the LOS direction
+                    i_a, i_z, fa, fz = terms(azl[:, None], zel[:, None], hdl, phl, xkl)
+                    f_los = (1.0 - keep * (i_a & i_z)[..., 0]) * np.prod((1.0 - fa[..., 0, :] * fz[..., 0, None])
+                                                                         ** 2, -1)
+                    o[k] += wf[k] * (self.p_los * f_los + (1.0 - self.p_los) * f_dif)
+                else:
+                    o[k] += (1.0 if wf is None else 1.0 - wf[k]) * f_dif
         return 10.0 * np.log10(np.maximum(out, 1e-12))

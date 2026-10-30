@@ -190,6 +190,40 @@ Fast fading and the user-plane buffers were profiled too and left as they are: t
 one BLAS matrix product per step (already compiled; a loop would not reproduce its summation
 order), and the buffers take well under a second per run.
 
+## Changes in 2.10.1: blockage model A in blocks
+
+A profile of the 2.10.0 real-data runs put 91 % of the radio time of the FR2 card with `radio.blockage: a` in
+`BlockageA.factor_db`, which held about eleven float64 arrays of (instants x users x sites x 16 nodes x 4 blockers)
+at once, 156 MB each for one chunk (100 L1 instants, 40 users, 76 sites): a process needed about 2.1 GB, and seven
+such runs in parallel did not fit in 16 GB. It also evaluated both LOS states for every link, although a link of
+the street grid is either LOS or NLOS (2 % of the links are LOS). Version 2.10.1 changes two things:
+
+- each LOS state is evaluated only for the links with a positive weight in it; for the others the old code added
+  exactly 0;
+- the links are processed in blocks of at most `BLOCK_LINKS` (20 000), so the largest arrays are about 10 MB.
+
+The values are the same element by element (the blocker processes still draw all instants of a chunk first, in the
+same order): `tests/test_blockage.py` compares the function with the 2.10.0 function, kept in the test file, with
+`==` on random inputs and on whole runs, and the fingerprints and metrics of every measured pair below are equal.
+
+Card `urban-grid-28ghz-beams` (40 users, 76 sites), walking speed, 8 s with 2 s warm-up (two chunks of 400 steps),
+seed 3201 of the real-data runs, rule A3; card `urban-macro-tr37885-4ghz` default, 16 s, as a reference. One fresh
+process per run, one at a time, 2.10.0 and 2.10.1 function alternating, median of three; the world build is not
+timed; machine load 1-10 % throughout (NumPy 2.4.6, the same modest virtual machine):
+
+| Case | Radio samples 2.10.0 | 2.10.1 | Ratio | Run-phase memory 2.10.0 | 2.10.1 |
+|---|---|---|---|---|---|
+| Blockage A, portrait | 97.0 s | 47.9 s | 2.03 | 2.12 GB | 0.58 GB |
+| Blockage A, landscape | 95.6 s | 49.6 s | 1.93 | 2.12 GB | 0.56 GB |
+| Blockage A with 8 SSB beams and angular spread | 150.9 s | 105.2 s | 1.44 | 2.12 GB | 0.58 GB |
+| Reference (no blockage) | 0.77 s | 0.78 s | 1.0 | 0.23 GB | 0.21 GB |
+
+One call of `factor_db` on a full chunk takes 19.9 s instead of 42.8 s and allocates 132 MB instead of 1744 MB.
+The peak of the whole process fell from 2.12 GB to 0.87 GB; what remains is set by the world build (the radio map of the 76 sites), which this
+version does not change; the target registered before the work was 0.8 GB for the whole process, so that target
+was missed. Seven FR2 runs in parallel need about 6 GB instead of about 15 GB (estimated as 7 x 0.87 GB and 7 x 2.12 GB). With angular spread the remaining
+time is mostly the beam gains over the angular spectrum, which this version does not change.
+
 ## Next steps
 
 - Compiled kernels for the measurement instants (A3 entry times, the prepared set of conditional
