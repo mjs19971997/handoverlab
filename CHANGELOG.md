@@ -7,6 +7,57 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-11-04
+
+No change of defaults or results: every golden fingerprint is unchanged, runs with `radio.blockage: a` give the
+same fingerprints and metrics as with 2.10.1, and variants on a shared radio stream give those of their own runs.
+
+### Added
+
+- Shared radio samples for scenario variants that differ only in engine settings. `radio_key(scenario)` hashes
+  everything that fixes the world and the radio samples (the scenario without its name, without the `protocol`
+  keys other than `step_s` and `l1_period_s`, and without the beam keys that only the engine reads: SS-SINR,
+  beam reports and switching, beam failure detection and recovery, RLM reference signals). `run_shared` runs
+  several worlds with the same radio key and seed on one radio stream, each with its own world and engines;
+  `simulate_variants` groups a list of scenarios that way; `handoverlab study --share-radio` (and
+  `run_study(..., share_radio=True)`) runs the jobs of one seed whose conditions differ only in such settings in
+  one worker. Every engine gives the fingerprint, metrics and event log of its own separate run, bit for bit; a
+  test reads the code of the world and the radio sources and fails if it reads an engine-only key. On a
+  shortened version of the 2.10.0 real-data round (variant pairs MA/MAQ, MAQL/MAQLB, T/T0; one process) the
+  three pairs took 41 % less time (46 % and 38 % for the beam pairs with angular spread, 5 % without beams);
+  applied to that round, about a quarter of its process time. Off by default in studies; job IDs and records
+  are unchanged (a shared record adds `radio_shared`). See
+  [many cores](docs/guides/many-cores.md#variants-that-differ-only-in-engine-settings-one-radio-stream) and
+  [performance](docs/performance.md#changes-in-2110-shared-radio-samples-for-engine-only-variants).
+
+### Changed
+
+- Blockage model A (`radio.blockage: a`) is faster again. `_edge_terms` evaluates the knife-edge terms of
+  Eq. 7.6-23 only for the offsets inside the attenuation zone (|d| < x_k; about 5 % of them on the FR2 card), with
+  the same NumPy calls on the compact array; outside the zone the value is exactly 0.0 as before. `factor_db` no
+  longer computes the azimuth terms of the zenith nodes or the zenith terms of the azimuth nodes, which it did not
+  use. Measured on the FR2 card `urban-grid-28ghz-beams` (40 users, 76 sites, 8 s runs, one process, median of 3;
+  see [performance](docs/performance.md#changes-in-2110-edge-terms-only-inside-the-attenuation-zone)): the radio
+  samples take 1.6 times less time with blockage (1.7 times in landscape mode) and 1.2 times less with blockage
+  and angular spread at the beams; one call of `factor_db` on a full chunk takes 11.0 s instead of 20.7 s and
+  allocates 73 MB instead of 132 MB.
+
+### Fixed
+
+- The `publish` workflow no longer fails when a GitHub release is published for a version that the tag push has
+  already uploaded (it failed for 2.10.1 although `skip-existing` was set): the files that PyPI lists for the
+  version are set aside before the upload, and the upload runs only when a file is left.
+
+### Tests
+
+- `tests/test_shared_radio.py` compares each engine of shared runs with its own separate run in the same process
+  (`==` on fingerprints, metrics, event logs and traces): one carrier, beams with SS-SINR and beam failure
+  options, angular spread, several carriers, dual connectivity, `simulate_variants` and studies with one and two
+  workers.
+- `tests/test_blockage.py` keeps the 2.10.1 function next to the 2.10.0 one and compares the new function with both
+  with `==` on random inputs and whole runs, and compares the new edge terms with the old ones on random offsets
+  and on the zone and region edges.
+
 ## [2.10.1] - 2026-10-30
 
 No change of defaults or results: every golden fingerprint is unchanged, and runs with `radio.blockage: a` give
@@ -1549,7 +1600,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.10.1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.11.0...HEAD
+[2.11.0]: https://github.com/mjs19971997/handoverlab/compare/v2.10.1...v2.11.0
 [2.10.1]: https://github.com/mjs19971997/handoverlab/compare/v2.10.0...v2.10.1
 [2.10.0]: https://github.com/mjs19971997/handoverlab/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/mjs19971997/handoverlab/compare/v2.8.0...v2.9.0

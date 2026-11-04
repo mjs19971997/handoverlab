@@ -12,7 +12,7 @@ received-power-level radio model from TR 38.901 (TR 38.811 for the satellite) (o
 and several carriers), an L3-filtered measurement chain, a radio-link failure model, and an
 outcome label for every handover attempt.
 
-> **Status: 2.10.1** (`python -m pip install handoverlab`). The public surface (configuration and
+> **Status: 2.11.0** (`python -m pip install handoverlab`). The public surface (configuration and
 > result formats with a schema version, the rule interface, metric names, commands and the
 > documented Python names) follows the [stability policy](https://github.com/mjs19971997/handoverlab/blob/main/docs/stability.md): within 2.x it only grows,
 > and anything removed is deprecated first. 2.0.0 makes the 3GPP values the defaults (the protocol profile,
@@ -306,6 +306,10 @@ To run your own study in both simulators, `handoverlab ns3 export|import|compare
 
 ## What's new
 
+- **2.11.0**: variants that differ only in engine settings (SS-SINR, beam failure detection, protocol
+  timers and filters) can share one radio stream: each keeps the results of its own run bit for bit, and a
+  round like the 2.10.0 real-data one takes about a quarter less time ([how to](https://github.com/mjs19971997/handoverlab/blob/main/docs/guides/many-cores.md#variants-that-differ-only-in-engine-settings-one-radio-stream)); blockage
+  model A is again 1.6 times faster on the FR2 card, with the same results ([performance](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md#changes-in-2110-edge-terms-only-inside-the-attenuation-zone)).
 - **2.10.1**: blockage model A (`radio.blockage: a`) needs 0.6 GB instead of 2.1 GB while a run on the FR2 card
   steps (0.87 GB at the world build, which is unchanged), and its radio samples take half the time (1.4 times less with angular spread), with the same results bit for bit ([performance](https://github.com/mjs19971997/handoverlab/blob/main/docs/performance.md#changes-in-2101-blockage-model-a-in-blocks)).
 - **2.10.0**: four realism options from the 3GPP texts, all off by default, re-tested against the real
@@ -616,9 +620,11 @@ the pages are plain Markdown in [docs/](https://github.com/mjs19971997/handoverl
 34. 2.10.0: angular spread at the beams, TS 38.133 measurement detail, in-vehicle
     penetration loss and blockage model A from the 3GPP texts (not defaults), re-tested against the real
     data: none improves it; no change of results.
-35. **2.10.1 (this release)**: blockage model A in blocks of links: half the radio time and about a quarter
+35. 2.10.1: blockage model A in blocks of links: half the radio time and about a quarter
     of the memory while the run steps on the FR2 card; no change of results.
-36. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
+36. **2.11.0 (this release)**: shared radio samples for variants that differ only in engine settings,
+    and blockage model A 1.6 times faster; no change of results.
+37. Later (planned, not done), staying a handover simulator: why HandoverLab has too few failures at short
     time-to-trigger under the ns-3-like detection; field data on radio-link failures, which a link-monitoring
     interference model would need before it could become a default; the effect of a handover on what the user
     sees (simple TCP and application models on top of the buffers), MIMO as an SINR gain and hundreds of

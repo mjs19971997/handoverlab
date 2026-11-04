@@ -253,6 +253,32 @@ remaining time is the beam gains over the angular spectrum. A first series of th
 loaded the machine (world build 20-50 s instead of 17 s), gave about the same ratio for one `factor_db` call (1.92)
 but scattered whole-run times, so only the series on the quiet machine is reported.
 
+## Changes in 2.11.0: shared radio samples for engine-only variants
+
+In runs with beams, angular spread or blockage the radio samples take most of the time. Variants that differ
+only in settings that the protocol engine alone reads have the same world and the same radio samples on a seed; `run_shared`, `simulate_variants` and
+`handoverlab study --share-radio` compute those samples once and feed them to the engines of every variant
+([how to](guides/many-cores.md#variants-that-differ-only-in-engine-settings-one-radio-stream)). Each variant
+keeps its own world and engines, so its results are those of a separate run, bit for bit; only the radio part
+is saved, not the world build.
+
+Measured on a shortened version of the 2.10.0 real-data round: card `urban-macro-tr37885-4ghz` with the
+round's speed class D20 (15-25 km/h), seed 3201, rule A3 3 dB / 256 ms, runs of 24 s instead of 120 s, one
+process; each pair once separately and once on one radio stream, one after the other. The VM was shared with
+other jobs, so the times are inflated; the ratios count.
+
+| Variant pair (difference) | Separate | One radio stream | Ratio |
+|---|---|---|---|
+| 8 SSB beams + angular spread, with / without SS-SINR (`ssb_sinr`) | 940 s | 505 s | 0.54 |
+| the same + LOS-state process, with / without beam failure detection (`bfd`) | 1019 s | 635 s | 0.62 |
+| no beams, L3 filter k = 4 / 0 (`protocol.l3_k`) | 54 s | 51 s | 0.95 |
+| all three pairs | 2013 s | 1191 s | 0.59 |
+
+Fingerprints, metrics, event logs, traces and the recorded time series of all six variants were the same in
+both ways. In that round these pairs used about 2050 of its 3430 process-minutes; with the measured ratios
+about 830 process-minutes (a quarter of the round) would have been saved. Without beams the world build
+dominates and sharing saves little.
+
 ## Next steps
 
 - Compiled kernels for the measurement instants (A3 entry times, the prepared set of conditional
