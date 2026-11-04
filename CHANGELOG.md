@@ -7,6 +7,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+No change of defaults or results: the new option is off by default and every golden fingerprint is unchanged.
+
+### Added
+
+- `radio.beams.angular_spread: per_ray` (UMa and UMi - Street Canyon): the SSB beam gains are the power-weighted
+  (incoherent) sums over the rays of an explicit TR 38.901 V19.5.0 clause 7.5 realisation per user-site link,
+  shared by the co-sited sectors: LSPs of Step 4 (K, ASD, ZSD; ASA and ZSA with blockage model A) with the
+  Table 7.5-6 cross-correlations among them, cluster powers of Steps 5-6 (Eq. 7.5-1 to 7.5-8, clusters below
+  -25 dB removed), departure angles of Step 7 (Eq. 7.5-9 to 7.5-20) and the ray coupling of Step 8 (sub-clusters
+  of Table 7.5-5 for the two strongest clusters), the element of Table 7.3-1 and the DFT beams of
+  `channel.antenna` per ray, the LOS ray with K_R / (K_R + 1). The realisation evolves along each user's track:
+  every random number comes from standard normals at knots spaced by the correlation distances of Table 7.5-6 and
+  Table 7.6.3.1-2, mixed so that each instant is an exact clause 7.5 draw; cluster signs and ray coupling are
+  fixed per run (clause 7.6.3.1). Normals come from a counter-based hash of the new random-stream purpose
+  `perray`, so no other stream changes and the values do not depend on chunks, blocks or `--share-radio`.
+  With `radio.blockage: a` each cluster is attenuated at its arrival angles (clause 7.6.4.1 Step c) and the site
+  gains get no blockage factor. O2I links of indoor users use the O2I parameters. A user-cell pair whose upper
+  bound is more than `radio.beams.per_ray_prune_db` (default 40 dB; null: no pruning) below the user's strongest
+  cell keeps the geometric gain. With `run.backend: numba` the ray and pair loops are compiled
+  (`handoverlab.channel._perray_kernels`) and give the same values bit for bit as the NumPy path; exp, cos and
+  sin stay in NumPy (single precision). Not combined with UE receive beams (`ue_panels` must be 0).
+
 ## [2.11.1] - 2026-11-04
 
 No change of defaults or results: every golden fingerprint is unchanged, the NumPy path of blockage model A does

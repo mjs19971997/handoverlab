@@ -31,6 +31,9 @@ Purposes and the generators each one provides (in this order):
               beam gains (``radio.beams.angular_spread``; since 2.10.0)
 ``blockage``  blocker centres and widths of the optional blockage model
               (``radio.blockage``; since 2.10.0)
+``perray``    key of the counter-based normals of the clusters and rays of the
+              optional per-ray beam gains (``radio.beams.angular_spread``
+              "per_ray")
 ============  ================================================================
 
 A further layer of the optional multi-carrier model (since 1.10.0) draws its
@@ -46,7 +49,7 @@ import numpy as np
 
 _PURPOSE = {"world": 3, "map": 11, "radio": 29, "rule": 71, "penetration": 97, "traffic": 101, "beams": 113,
             "ntn": 127, "fading": 131, "harq": 137, "o2i": 139,
-            "ue_beams": 149, "rlm": 151, "los": 157, "spread": 163, "blockage": 167}
+            "ue_beams": 149, "rlm": 151, "los": 157, "spread": 163, "blockage": 167, "perray": 173}
 _STRIDE = 1000003
 
 

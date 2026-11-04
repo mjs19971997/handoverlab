@@ -123,6 +123,10 @@ class RadioSource:
             self.blockage = BlockageA(streams(world.seed, "blockage", 1)[0], self.U, R, self.V, dt,
                                       getattr(world, "indoor", None), getattr(sc.run, "backend", "numpy"))
         self.chunk_los = None
+        # per-ray beam gains (radio.beams.angular_spread "per_ray"): the blocker state of every chunk at the L1
+        # instants goes to ``chunk_blk`` and the site gains get no blockage factor (each cluster is attenuated)
+        self.per_ray = False
+        self.chunk_blk = None
         self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
         indoor = getattr(world, "indoor", None)         # users inside buildings (since 2.3.0)
         pen = None
@@ -264,7 +268,9 @@ class RadioSource:
                     self._los_w = rmap.los_at(x, y).reshape(shape)
                 self.chunk_los = np.asarray(self._los_w, dtype=np.float32)
             nm = -(-n // self.mp)
-            if self.blockage is not None:                 # once per L1 period, held (blockers move centimetres)
+            if self.blockage is not None and self.per_ray:
+                self.chunk_blk = self.blockage.state(nm, self.mp)
+            elif self.blockage is not None:               # once per L1 period, held (blockers move centimetres)
                 sl = slice(0, n, self.mp)
                 bl = self.blockage.factor_db(self.X[k0:k1][sl], self.Y[k0:k1][sl], self.H[k0:k1][sl], sites,
                                              self.chunk_los[sl].astype(float), nm, self.mp,

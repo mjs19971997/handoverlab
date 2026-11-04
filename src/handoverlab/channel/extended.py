@@ -62,6 +62,7 @@ from ..layout import make_layout
 from ..seeds import streams
 from .antenna import beam_azimuths_deg, beam_gain_db, ue_beam_gains_db, wrap_deg
 from .radiomap import RadioMap
+from .perray import PerRay
 from .spread import LinkSpreads, diffuse_gain_lin
 
 LN10_10 = np.log(10.0) / 10.0
@@ -265,13 +266,16 @@ class ExtendedRadio:
             out[sel] = np.take_along_axis(g, beams[sel][:, None], axis=-1)[:, 0]
         return out
 
-    def all_beam_gains_db(self, x, y, los=None, users=None, spreads=None) -> np.ndarray:
+    def all_beam_gains_db(self, x, y, los=None, users=None, spreads=None, perray=None, ctx=None) -> np.ndarray:
         """Gains (P, C, B) of every beam of every cell towards the points (P,); NO_BEAM_DB where a cell has fewer.
 
         With ``spreads`` (one :class:`~handoverlab.channel.spread.LinkSpreads` or None per layer; since 2.10.0,
         ``radio.beams.angular_spread`` "tr38901") the gains of those layers are the expected gains over the
         power angular spectrum of each link, ``los`` (P, S) the LOS power weight of every point and site and
-        ``users`` (P,) the user of every point.
+        ``users`` (P,) the user of every point.  With ``perray`` (one :class:`~handoverlab.channel.perray.PerRay`
+        or None per layer; ``angular_spread`` "per_ray") the gains of those layers are the per-ray gains; ``ctx``
+        then holds per point the travelled distance ``s`` (P,), the site gains ``site_db`` (P, S) [dB], the
+        ``heading`` (P,) [rad] and per layer the blocker state ``blk`` (or None).
         """
         x, y = np.asarray(x, dtype=float), np.asarray(y, dtype=float)
         P = len(x)
@@ -292,8 +296,23 @@ class ExtendedRadio:
             sp = None if spreads is None else spreads[L.index]
             if sp is not None:
                 g = self._spread_gain_db(L, sp, g, th, ph, x, y, cells, los, users)
+            pr = None if perray is None else perray[L.index]
+            if pr is not None:
+                g = self._perray_gain_db(L, pr, g, x, y, los, users, ctx)
             out[:, cells, :L.n_beams] = g
         return out
+
+    def _perray_gain_db(self, L, pr, g, x, y, los, users, ctx):
+        """Per-ray beam gains (P, Lc, B) [dB] of layer ``L`` (``radio.beams.angular_spread`` "per_ray")."""
+        sites = np.arange(self.site0[L.index], self.site0[L.index] + L.n_sites)
+        sp = self.site_pos[sites]
+        dx, dy = x[:, None] - sp[None, :, 0], y[:, None] - sp[None, :, 1]                 # site -> user
+        if self.base_layout.period_x:
+            dx, dy = self.base_layout.nearest_image(dx, dy)
+        c0 = int(np.searchsorted(self.cell_layer, L.index))
+        cells = np.arange(c0, c0 + L.n_cells)
+        gs = ctx["site_db"][:, self.cell_site[cells]] + self.p0[cells]                   # (P, Lc) without antenna
+        return pr.gains_db(dx, dy, g, gs, los[:, sites], users, ctx["s"], ctx["heading"], ctx["blk"][L.index])
 
     def _spread_gain_db(self, L, sp, g, th, ph, x, y, cells, los, users):
         """Expected beam gains (P, Lc, B) [dB] over the PAS of every link (``radio.beams.angular_spread``)."""
@@ -423,6 +442,19 @@ class ExtendedSource:
                                                   L.radio.ue_height_m, L.radio.bs_height_m)
                     self.sources[i].keep_los = True
         self.any_spread = any(sp is not None for sp in self.spreads)
+        # per-ray beam gains (radio.beams.angular_spread "per_ray"; counter-based draws of purpose "perray")
+        self.perray = [None] * len(ext.layers)
+        for i, L in enumerate(ext.layers):
+            if L.beams is not None and L.beams.angular_spread == "per_ray":
+                src = self.sources[i]
+                src.keep_los = True
+                src.per_ray = True
+                self.perray[i] = PerRay(world.seed, L, L.radio.ue_height_m, getattr(world, "indoor", None),
+                                        getattr(sc.run, "backend", "numpy"), src.blockage, ext.site0[i])
+        self.any_perray = any(pr is not None for pr in self.perray)
+        if self.any_perray:
+            self.dist_per_step = np.asarray(world.speed, dtype=float) * dt          # (U,) metres per step
+            self.heading = world.heading
         if ext.ue_rx:                                         # UE receive beams (since 2.4.0)
             # bearing of the first panel: once per UE, uniform in [0, 360) deg (TR 38.802 Table A.2.1-4), or the
             # direction of travel (per site, as layers may differ)
@@ -483,7 +515,7 @@ class ExtendedSource:
             xm, ym = x[::mp], y[::mp]
             bg = np.empty((nm, U, C, B), dtype=np.float32)
             los = None
-            if self.any_spread:                               # LOS power weights at the L1 instants (since 2.10.0)
+            if self.any_spread or self.any_perray:            # LOS power weights at the L1 instants (since 2.10.0)
                 los = np.concatenate([s.chunk_los[::mp] if s.keep_los else np.zeros((nm, U, s.M), np.float32)
                                       for s in self.sources], axis=2)
             blk = 25
@@ -492,9 +524,18 @@ class ExtendedSource:
                 if los is None:
                     bg[a:b] = ext.all_beam_gains_db(xm[a:b].ravel(), ym[a:b].ravel()).reshape(b - a, U, C, B)
                 else:
+                    ctx = None
+                    if self.any_perray:                       # per-ray gains: distance, site gains, blockers
+                        steps = k0 + mp * np.arange(a, b)
+                        ctx = dict(s=(steps[:, None] * self.dist_per_step[None, :]).ravel(),
+                                   site_db=site_db[::mp][a:b].reshape((b - a) * U, -1),
+                                   heading=self.heading[steps].ravel(),
+                                   blk=[None if s.chunk_blk is None or not s.per_ray else
+                                        tuple(v[a:b].reshape((b - a) * U, -1) for v in s.chunk_blk)
+                                        for s in self.sources])
                     bg[a:b] = ext.all_beam_gains_db(xm[a:b].ravel(), ym[a:b].ravel(),
                                                     los[a:b].reshape((b - a) * U, -1), np.tile(np.arange(U), b - a),
-                                                    self.spreads).reshape(b - a, U, C, B)
+                                                    self.spreads, self.perray, ctx).reshape(b - a, U, C, B)
             gm = ext.mean_gain_db(bg.astype(float))                                # (nm, U, C)
             lin = np.exp((gsite + np.repeat(gm, mp, axis=0)[:n]) * LN10_10)        # interference reference
             bl1 = bg + gsite[::mp][:, :, :, None]

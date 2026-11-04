@@ -205,6 +205,25 @@ class BlockageA:
                     o[k] += (1.0 if wf is None else 1.0 - wf[k]) * f_dif
         return 10.0 * np.log10(np.maximum(out, 1e-12))
 
+    def state(self, n: int, mult: int = 1):
+        """Blocker centres and widths (phi_k, x_k) (n, U, K) [deg] at the next ``n`` instants ``mult`` steps apart
+        (the same draws as :meth:`factor_db`; used by the per-ray beam gains, which attenuate each cluster)."""
+        u = ndtr(self._advance(n, mult))
+        return 360.0 * u[:, 0], X_RANGE[0] + (X_RANGE[1] - X_RANGE[0]) * u[:, 1]
+
+    def direction_factor(self, az, ze, hd, phi_k, x_k):
+        """Power factor (L, n) <= 1 of arrival directions (azimuth ``az`` in the GCS, zenith ``ze``; (L, n) [deg])
+        of L links with the user heading ``hd`` (L,) [deg] and the blockers ``phi_k``, ``x_k`` (L, K): 30 dB inside
+        the self-blocking region times the knife-edge factors (1 - F_A F_Z)^2 of the non-self-blocking regions
+        (clause 7.6.4.1 Step c, the product over the regions as for the LOS ray of :meth:`factor_db`)."""
+        p_sb, x_sb, t_sb, y_sb = SELF_REGION[self.mode]
+        keep = 1.0 - 10.0 ** (-SELF_LOSS_DB / 10.0)
+        i_a = np.abs(_wrap(az - hd[:, None] - p_sb)) < 0.5 * x_sb
+        i_z = np.abs(ze - t_sb) < 0.5 * y_sb
+        fa = _edge_terms(_wrap(az[..., None] - phi_k[:, None, :]), 0.5 * x_k[:, None, :], x_k[:, None, :], self.kr)
+        fz = _edge_terms(ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
+        return (1.0 - keep * (i_a & i_z)) * np.prod((1.0 - fa * fz[..., None]) ** 2, -1)
+
     def _f_dif_compiled(self, azl, zel, hdl, phl, xkl, asa, zsa, keep):
         """Diffuse factor (L,) of a block of links by the compiled loops of :mod:`._blockage_kernels`, with the
         edge terms of the in-zone offsets by :func:`_edge_in` on the compact arrays; the same values as the NumPy

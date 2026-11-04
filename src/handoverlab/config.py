@@ -211,6 +211,10 @@ class BeamConfig:
     # direction (the model up to 2.9.0); "tr38901" the expected gain over the PAS of each link (wrapped Gaussian ASD,
     # Laplacian ZSD with the ZOD offset, the LOS ray; see handoverlab.channel.spread); UMa and UMi only
     angular_spread: str = "none"
+    # "per_ray": the power-weighted gain over the rays of an explicit TR 38.901 clause 7.5 realisation per user-site
+    # link (see handoverlab.channel.perray); a user-cell pair more than per_ray_prune_db below the user's strongest
+    # cell (upper bound: site gain + peak panel gain) keeps the geometric gain (None: no pruning)
+    per_ray_prune_db: Optional[float] = 40.0
 
 
 #: keys of :class:`BeamConfig` added after 1.10.0 and their defaults, left out of :meth:`Scenario.to_dict` while
@@ -218,7 +222,7 @@ class BeamConfig:
 BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0, "ue_panels": 0, "ue_panel": [2, 4], "ue_beams": 4,
                                   "ue_beam_span_deg": 120.0, "ue_tilt_deg": 90.0, "ue_orientation": "random",
                                   "ue_rx": "best", "ssb_sinr": "data", "ssb_overlap": 1.0,
-                                  "angular_spread": "none"}
+                                  "angular_spread": "none", "per_ray_prune_db": 40.0}
 #: UE panel counts of TR 38.802 Table A.2.1-4 (one panel, Config 1, Config 2) and the bearing step of the panels
 UE_PANEL_STEP_DEG: Dict[int, float] = {1: 0.0, 2: 180.0, 4: 90.0}
 #: the UE receive-beam keys of :class:`BeamConfig` (since 2.4.0)
@@ -964,10 +968,15 @@ class Scenario:
         lys = [(R.beams, R.pathloss)] + [(ly.beams, getattr(ly, "pathloss", None) or R.pathloss)
                                          for ly in R.layers or ()]
         for b, pl in lys:
-            if b is not None and b.angular_spread == "tr38901":
+            if b is not None and b.angular_spread in ("tr38901", "per_ray"):
                 _check(pl in ("uma", "umi_street_canyon") and not R.map_file and self.layout.kind != "ntn",
-                       "radio.beams.angular_spread", "'tr38901' needs radio.pathloss uma or umi_street_canyon "
-                       "(TR 38.901 Tables 7.5-6 to 7.5-8), no radio.map_file and no layout.kind 'ntn'")
+                       "radio.beams.angular_spread", "'%s' needs radio.pathloss uma or umi_street_canyon "
+                       "(TR 38.901 Tables 7.5-6 to 7.5-8), no radio.map_file and no layout.kind 'ntn'"
+                       % b.angular_spread)
+            if b is not None and b.angular_spread == "per_ray":
+                _check(b.ue_panels == 0, "radio.beams.angular_spread",
+                       "'per_ray' needs the isotropic UE (ue_panels 0): UE receive beams are not combined with "
+                       "the rays")
         names = set()
         for i, ly in enumerate(R.layers or ()):
             key = "radio.layers[%d]" % i
@@ -1153,7 +1162,11 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     _check(b.ue_rx in ("best", "sweep"), key + ".ue_rx", "must be 'best' or 'sweep'")
     _check(b.ssb_sinr in ("data", "ssb"), key + ".ssb_sinr", "must be 'data' or 'ssb'")
     _check(0.0 <= b.ssb_overlap <= 1.0, key + ".ssb_overlap", "must be in [0, 1]")
-    _check(b.angular_spread in ("none", "tr38901"), key + ".angular_spread", "must be 'none' or 'tr38901'")
+    _check(b.angular_spread in ("none", "tr38901", "per_ray"), key + ".angular_spread",
+           "must be 'none', 'tr38901' or 'per_ray'")
+    _check(b.per_ray_prune_db is None or (isinstance(b.per_ray_prune_db, (int, float))
+                                          and b.per_ray_prune_db > 0.0), key + ".per_ray_prune_db",
+           "must be positive or null (no pruning)")
 
 
 # ---------------------------------------------------------------------------
