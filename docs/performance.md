@@ -224,6 +224,35 @@ version does not change; the target registered before the work was 0.8 GB for th
 was missed. Seven FR2 runs in parallel need about 6 GB instead of about 15 GB (estimated as 7 x 0.87 GB and 7 x 2.12 GB). With angular spread the remaining
 time is mostly the beam gains over the angular spectrum, which this version does not change.
 
+## Changes in 2.11.0: edge terms only inside the attenuation zone
+
+In 2.10.1 `factor_db` still evaluated the knife-edge terms of Eq. 7.6-23 (cosine, square root, arctangent) for
+every offset between a direction and a blocker, and set them to zero outside the attenuation zone |d| < x_k
+afterwards; in the FR2 card only about 5 % of the offsets lie inside a zone. It also computed the azimuth terms
+for the zenith nodes and the zenith terms for the azimuth nodes, and did not use them. Version 2.11.0 evaluates
+the terms only for the offsets inside the zone, with the same NumPy calls on the compact array (outside the zone
+the value is 0.0 as before), and computes each term only where it is used.
+
+The values are again the same element by element: `tests/test_blockage.py` keeps the 2.10.1 function (and the
+2.10.0 one) and compares with `==` on random inputs, on the edge terms alone (zone and region edges included) and
+on whole runs; the fingerprints and metrics of every measured pair below are equal.
+
+Same cases and method as for 2.10.1 (card `urban-grid-28ghz-beams`, 8 s with 2 s warm-up, seed 3201, rule A3;
+one fresh process per run, one at a time, 2.10.1 and 2.11.0 function alternating, median of three, world build not
+timed); machine load 0-24 % throughout (NumPy 2.4.6, the same virtual machine):
+
+| Case | Radio samples 2.10.1 | 2.11.0 | Ratio |
+|---|---|---|---|
+| Blockage A, portrait | 51.3 s | 31.8 s | 1.61 |
+| Blockage A, landscape | 51.1 s | 29.8 s | 1.71 |
+| Blockage A with 8 SSB beams and angular spread | 107.0 s | 89.4 s | 1.20 |
+
+One call of `factor_db` on a full chunk takes 11.0 s instead of 20.7 s and allocates 73 MB instead of 132 MB;
+the peak of the process (0.87 GB, set by the world build) does not change. With angular spread most of the
+remaining time is the beam gains over the angular spectrum. A first series of the same runs, made while other jobs
+loaded the machine (world build 20-50 s instead of 17 s), gave about the same ratio for one `factor_db` call (1.92)
+but scattered whole-run times, so only the series on the quiet machine is reported.
+
 ## Next steps
 
 - Compiled kernels for the measurement instants (A3 entry times, the prepared set of conditional

@@ -63,7 +63,14 @@ def _wrap(a):
 def _edge_terms(d, half, full, kr):
     """F_1 + F_2 of Eq. 7.6-23 for angle offsets ``d`` from a region's centre (degrees, any shape), the region
     of width 2 ``half`` and the attenuation zone |d| < ``full``; zero outside the zone.  ``kr`` = pi r / lambda.
-    Signs of Table 7.6.4.1-3: (+, +) inside, (-, +) above the region, (+, -) below it."""
+    Signs of Table 7.6.4.1-3: (+, +) inside, (-, +) above the region, (+, -) below it.
+
+    Since 2.11.0 the terms are evaluated only for the offsets inside the zone (about 5 % of them in a blockage
+    run), by the same NumPy calls on the compact array; outside it the value is 0.0 as before."""
+    d, half, full = np.broadcast_arrays(d, half, full)
+    out = np.zeros(d.shape)
+    m = np.abs(d) < full
+    d, half = d[m], half[m]
     a1 = np.radians(d - half)
     a2 = np.radians(d + half)
     s1 = np.where(d > half, -1.0, 1.0)
@@ -72,7 +79,8 @@ def _edge_terms(d, half, full, kr):
     def f(a, s):
         v = np.sqrt(np.maximum(kr * (1.0 / np.cos(a) - 1.0), 0.0))
         return np.arctan(s * 0.5 * math.pi * v) / math.pi
-    return np.where(np.abs(d) < full, f(a1, s1) + f(a2, s2), 0.0)
+    out[m] = f(a1, s1) + f(a2, s2)
+    return out
 
 
 class BlockageA:
@@ -113,7 +121,8 @@ class BlockageA:
         NLOS).
 
         Since 2.10.1 each LOS state is evaluated only for the links with a positive weight in it (the others add
-        exactly 0), in blocks of at most ``BLOCK_LINKS`` links; every value is the same as before."""
+        exactly 0), in blocks of at most ``BLOCK_LINKS`` links; since 2.11.0 the azimuth and zenith terms are
+        computed only where they are used; every value is the same as before."""
         g = self._advance(n, mult)
         u = ndtr(g)
         phi_k = 360.0 * u[:, 0]                                         # (n, U, K)
@@ -130,15 +139,16 @@ class BlockageA:
         p_sb, x_sb, t_sb, y_sb = SELF_REGION[self.mode]
         keep = 1.0 - 10.0 ** (-SELF_LOSS_DB / 10.0)
 
-        def terms(a_az, a_ze, hdl, phl, xkl):
-            """Self-blocking indicators and non-self (F_A, F_Z) terms at directions (L, ...) of L links with the
+        def az_terms(a_az, hdl, phl, xkl):
+            """Self-blocking azimuth indicator and non-self F_A terms at azimuths (L, ...) of L links with the
             heading ``hdl`` (L,) and the blockers ``phl``, ``xkl`` (L, K) of their user and instant."""
             i_a = np.abs(_wrap(a_az - hdl[:, None] - p_sb)) < 0.5 * x_sb
-            i_z = np.abs(a_ze - t_sb) < 0.5 * y_sb
             da = _wrap(a_az[..., None] - phl[:, None, :])                                  # (L, ..., K)
-            fa = _edge_terms(da, 0.5 * xkl[:, None, :], xkl[:, None, :], self.kr)
-            fz = _edge_terms(a_ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
-            return i_a, i_z, fa, fz
+            return i_a, _edge_terms(da, 0.5 * xkl[:, None, :], xkl[:, None, :], self.kr)
+
+        def ze_terms(a_ze):
+            """Self-blocking zenith indicator and non-self F_Z term (one theta_k for all k) at zeniths (L, ...)."""
+            return np.abs(a_ze - t_sb) < 0.5 * y_sb, _edge_terms(a_ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
 
         out = np.zeros(az.shape)
         o, azf, zef = out.reshape(-1), az.reshape(-1), ze.reshape(-1)
@@ -158,8 +168,8 @@ class BlockageA:
                 hdl, phl, xkl = hd[i, uu], phi_k[i, uu], x_k[i, uu]
                 a_n = azl[:, None] + asa * U_AZ                         # (L, N_AZ)
                 z_n = np.clip(zel[:, None] + zsa * U_ZE, 0.0, 180.0)    # (L, N_ZE)
-                ia, _, fa_n, _ = terms(a_n, zel[:, None], hdl, phl, xkl)
-                _, iz, _, fz_n = terms(azl[:, None], z_n, hdl, phl, xkl)
+                ia, fa_n = az_terms(a_n, hdl, phl, xkl)
+                iz, fz_n = ze_terms(z_n)
                 pa, pz = ia.mean(-1), iz.mean(-1)                       # P(azimuth in), P(zenith in)
                 ea, ea2 = fa_n.mean(-2), (fa_n ** 2).mean(-2)           # (L, K)
                 eza, eza2 = (ia[..., None] * fa_n).mean(-2), (ia[..., None] * fa_n ** 2).mean(-2)
@@ -172,7 +182,8 @@ class BlockageA:
                 f_dif = np.maximum(e_s - e_snk.sum(-1), 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3)
                 if state:
                     # LOS ray: the exact product over the regions at the LOS direction
-                    i_a, i_z, fa, fz = terms(azl[:, None], zel[:, None], hdl, phl, xkl)
+                    i_a, fa = az_terms(azl[:, None], hdl, phl, xkl)
+                    i_z, fz = ze_terms(zel[:, None])
                     f_los = (1.0 - keep * (i_a & i_z)[..., 0]) * np.prod((1.0 - fa[..., 0, :] * fz[..., 0, None])
                                                                          ** 2, -1)
                     o[k] += wf[k] * (self.p_los * f_los + (1.0 - self.p_los) * f_dif)

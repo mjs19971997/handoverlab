@@ -4,7 +4,8 @@ name: publish
 # It runs when a version tag (v*) is pushed and when a GitHub release is published (see
 # docs/RELEASING.md); a push to a branch or a pull request publishes nothing. The tag must match
 # the package version. A release made later from an already uploaded tag skips the files that are
-# on PyPI already. PyPI trusts this workflow file (publish.yml) in the environment "pypi".
+# on PyPI already (checked before the upload). PyPI trusts this workflow file (publish.yml) in the
+# environment "pypi".
 
 on:
   push:
@@ -59,6 +60,43 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      # The tag push has normally uploaded this version already; the upload of the rebuilt files
+      # then failed on the release event (2.10.1) although skip-existing was set. Files that PyPI
+      # lists for this version are therefore set aside first, and the upload step runs only when a
+      # file is left.
+      - name: Leave out the files that are on PyPI already
+        id: todo
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, urllib.error, urllib.request
+          version = os.environ["TAG"].removeprefix("v")
+          url = f"https://pypi.org/pypi/handoverlab/{version}/json"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as r:
+                  on_pypi = {f["filename"] for f in json.load(r)["urls"]}
+          except urllib.error.HTTPError as e:
+              if e.code != 404:
+                  print(f"::warning::PyPI answered {e.code}; uploading every file (skip-existing)")
+              on_pypi = set()
+          except urllib.error.URLError as e:
+              print(f"::warning::PyPI not reached ({e.reason}); uploading every file (skip-existing)")
+              on_pypi = set()
+          aside = pathlib.Path("dist-on-pypi")
+          aside.mkdir(exist_ok=True)
+          left = []
+          for p in sorted(pathlib.Path("dist").iterdir()):
+              if p.name in on_pypi:
+                  print(f"{p.name} is on PyPI already; not uploaded again")
+                  p.rename(aside / p.name)
+              else:
+                  left.append(p.name)
+          print("to upload:", ", ".join(left) or "nothing")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"upload={'true' if left else 'false'}\n")
+          PY
+      - if: steps.todo.outputs.upload == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true

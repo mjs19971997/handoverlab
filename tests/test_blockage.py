@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Blockage model A of TR 38.901 clause 7.6.4.1 (radio.blockage "a", since 2.10.0): defaults untouched, the
-knife-edge terms, the self-blocking region, and validation; since 2.10.1 the same values as the 2.10.0 function."""
+knife-edge terms, the self-blocking region, and validation; since 2.10.1 the same values as the 2.10.0 function,
+since 2.11.0 also the same values as the 2.10.1 function."""
 import copy
 import json
 import math
@@ -87,6 +88,19 @@ def test_validation():
 
 # ---- since 2.10.1: blocks of links and per-state evaluation give the same values as the 2.10.0 function ----
 
+def _edge_terms_210(d, half, full, kr):
+    """_edge_terms of 2.10.0 and 2.10.1 (every offset evaluated, then masked), kept as the reference."""
+    a1 = np.radians(d - half)
+    a2 = np.radians(d + half)
+    s1 = np.where(d > half, -1.0, 1.0)
+    s2 = np.where(d < -half, -1.0, 1.0)
+
+    def f(a, s):
+        v = np.sqrt(np.maximum(kr * (1.0 / np.cos(a) - 1.0), 0.0))
+        return np.arctan(s * 0.5 * math.pi * v) / math.pi
+    return np.where(np.abs(d) < full, f(a1, s1) + f(a2, s2), 0.0)
+
+
 def _factor_db_210(self, x, y, heading, sites, los_w, n, mult=1, layout=None):
     """BlockageA.factor_db of 2.10.0 (whole chunk, both LOS states for every link), kept as the reference."""
     g = self._advance(n, mult)
@@ -109,8 +123,8 @@ def _factor_db_210(self, x, y, heading, sites, los_w, n, mult=1, layout=None):
         i_a = np.abs(_wrap(a_az - hd[..., None] - p_sb)) < 0.5 * x_sb
         i_z = np.abs(a_ze - t_sb) < 0.5 * y_sb
         da = _wrap(a_az[..., None] - phi_k[:, :, None, None, :])
-        fa = _edge_terms(da, 0.5 * x_k[:, :, None, None, :], x_k[:, :, None, None, :], self.kr)
-        fz = _edge_terms(a_ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
+        fa = _edge_terms_210(da, 0.5 * x_k[:, :, None, None, :], x_k[:, :, None, None, :], self.kr)
+        fz = _edge_terms_210(a_ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
         return i_a, i_z, fa, fz
 
     i_a, i_z, fa, fz = terms(az[..., None], ze[..., None])
@@ -138,6 +152,72 @@ def _factor_db_210(self, x, y, heading, sites, los_w, n, mult=1, layout=None):
         else:
             wl = np.ones(az.shape) if los_w is None else 1.0 - los_w
             out += wl * f_dif
+    return 10.0 * np.log10(np.maximum(out, 1e-12))
+
+
+def _factor_db_2101(self, x, y, heading, sites, los_w, n, mult=1, layout=None):
+    """BlockageA.factor_db of 2.10.1 (blocks of links, per LOS state, every edge term evaluated), kept as the
+    reference."""
+    g = self._advance(n, mult)
+    u = ndtr(g)
+    phi_k = 360.0 * u[:, 0]
+    x_k = X_RANGE[0] + (X_RANGE[1] - X_RANGE[0]) * u[:, 1]
+    dx = x[..., None] - sites[None, None, :, 0]
+    dy = y[..., None] - sites[None, None, :, 1]
+    if layout is not None and layout.period_x:
+        dx, dy = layout.nearest_image(dx, dy)
+    dx, dy = -dx, -dy
+    d2 = np.maximum(np.hypot(dx, dy), 1.0)
+    az = np.degrees(np.arctan2(dy, dx))
+    ze = 90.0 - np.degrees(np.arctan2(self.h_bs - self.h_ut, d2))
+    hd = np.degrees(heading)
+    p_sb, x_sb, t_sb, y_sb = SELF_REGION[self.mode]
+    keep = 1.0 - 10.0 ** (-SELF_LOSS_DB / 10.0)
+
+    def terms(a_az, a_ze, hdl, phl, xkl):
+        i_a = np.abs(_wrap(a_az - hdl[:, None] - p_sb)) < 0.5 * x_sb
+        i_z = np.abs(a_ze - t_sb) < 0.5 * y_sb
+        da = _wrap(a_az[..., None] - phl[:, None, :])
+        fa = _edge_terms_210(da, 0.5 * xkl[:, None, :], xkl[:, None, :], self.kr)
+        fz = _edge_terms_210(a_ze - THETA_K, 0.5 * Y_K, Y_K, self.kr)
+        return i_a, i_z, fa, fz
+
+    out = np.zeros(az.shape)
+    o, azf, zef = out.reshape(-1), az.reshape(-1), ze.reshape(-1)
+    wf = None if los_w is None else np.broadcast_to(np.asarray(los_w), az.shape).reshape(-1)
+    for state in (True, False):
+        if wf is None:
+            if state:
+                continue
+            k_all = np.arange(o.size)
+        else:
+            k_all = np.flatnonzero(wf > 0.0 if state else wf < 1.0)
+        asa, zsa = self.spreads[state]
+        for b0 in range(0, len(k_all), blockage.BLOCK_LINKS):
+            k = k_all[b0:b0 + blockage.BLOCK_LINKS]
+            i, uu, _ = np.unravel_index(k, az.shape)
+            azl, zel = azf[k], zef[k]
+            hdl, phl, xkl = hd[i, uu], phi_k[i, uu], x_k[i, uu]
+            a_n = azl[:, None] + asa * U_AZ
+            z_n = np.clip(zel[:, None] + zsa * U_ZE, 0.0, 180.0)
+            ia, _, fa_n, _ = terms(a_n, zel[:, None], hdl, phl, xkl)
+            _, iz, _, fz_n = terms(azl[:, None], z_n, hdl, phl, xkl)
+            pa, pz = ia.mean(-1), iz.mean(-1)
+            ea, ea2 = fa_n.mean(-2), (fa_n ** 2).mean(-2)
+            eza, eza2 = (ia[..., None] * fa_n).mean(-2), (ia[..., None] * fa_n ** 2).mean(-2)
+            ez, ez2 = fz_n.mean(-1), (fz_n ** 2).mean(-1)
+            ezz, ezz2 = (iz * fz_n).mean(-1), (iz * fz_n ** 2).mean(-1)
+            e_s = 1.0 - keep * pa * pz
+            e_nk = 2.0 * ea * ez[..., None] - ea2 * ez2[..., None]
+            e_snk = e_nk - keep * (2.0 * eza * ezz[..., None] - eza2 * ezz2[..., None])
+            f_dif = np.maximum(e_s - e_snk.sum(-1), 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3)
+            if state:
+                i_a, i_z, fa, fz = terms(azl[:, None], zel[:, None], hdl, phl, xkl)
+                f_los = (1.0 - keep * (i_a & i_z)[..., 0]) * np.prod((1.0 - fa[..., 0, :] * fz[..., 0, None])
+                                                                     ** 2, -1)
+                o[k] += wf[k] * (self.p_los * f_los + (1.0 - self.p_los) * f_dif)
+            else:
+                o[k] += (1.0 if wf is None else 1.0 - wf[k]) * f_dif
     return 10.0 * np.log10(np.maximum(out, 1e-12))
 
 
@@ -169,12 +249,14 @@ def test_factor_db_equals_the_210_function(monkeypatch, block, kind, mode, pathl
         h = rng.uniform(-math.pi, math.pi, (n, U))
         sites = rng.uniform(-400.0, 400.0, (M, 2))
         w = _weights(kind, rng, (n, U, M))
-        ref_b, new_b = copy.deepcopy(b), copy.deepcopy(b)
-        ref = _factor_db_210(ref_b, x, y, h, sites, w, n, mult)
+        new_b = copy.deepcopy(b)
         new = new_b.factor_db(x, y, h, sites, w, n, mult)
-        assert np.array_equal(new, ref)
-        assert np.array_equal(new_b.g, ref_b.g)          # the blocker processes advance alike
-        assert new_b.rng.bit_generator.state == ref_b.rng.bit_generator.state
+        for fn in (_factor_db_210, _factor_db_2101):
+            ref_b = copy.deepcopy(b)
+            ref = fn(ref_b, x, y, h, sites, w, n, mult)
+            assert np.array_equal(new, ref)
+            assert np.array_equal(new_b.g, ref_b.g)      # the blocker processes advance alike
+            assert new_b.rng.bit_generator.state == ref_b.rng.bit_generator.state
 
 
 @pytest.mark.parametrize("card,radio", [
@@ -193,5 +275,33 @@ def test_runs_equal_the_210_function(monkeypatch, card, radio):
         return [(r.fingerprint, json.dumps(r.metrics, sort_keys=True))
                 for r in hl.run_world(hl.build_world(sc, 7), RULES)]
     new = runs()
-    monkeypatch.setattr(BlockageA, "factor_db", _factor_db_210)
-    assert new == runs()
+    for fn in (_factor_db_2101, _factor_db_210):
+        monkeypatch.setattr(BlockageA, "factor_db", fn)
+        assert new == runs()
+
+
+# ---- since 2.11.0: the edge terms are evaluated only inside the attenuation zone, as in 2.10.1 ----
+
+@pytest.mark.parametrize("fc", [3.5, 28.0, 60.0])
+def test_edge_terms_equal_the_2101_function(fc):
+    kr = math.pi * 10.0 / (299792458.0 / (fc * 1e9))
+    rng = np.random.default_rng(int(fc * 10))
+    # azimuth use: offsets (L, N, K) wrapped to [-180, 180), widths (L, 1, K) in [5, 15] deg
+    for L, N, K in ((1, 1, 1), (7, 16, 4), (300, 16, 4)):
+        xk = rng.uniform(5.0, 15.0, (L, 1, K))
+        d = _wrap(rng.uniform(-400.0, 400.0, (L, N, K)))
+        d[:, :, :1] = rng.uniform(-16.0, 16.0, (L, N, 1))          # many offsets in or near the zone
+        new, ref = _edge_terms(d, 0.5 * xk, xk, kr), _edge_terms_210(d, 0.5 * xk, xk, kr)
+        assert new.shape == ref.shape and new.dtype == ref.dtype
+        assert np.array_equal(new, ref)
+    # zenith use: scalar half and full, offsets of any shape
+    for shape in ((), (1,), (5, 1), (40, 16)):
+        d = rng.uniform(-12.0, 12.0, shape)
+        new, ref = _edge_terms(d, 0.5 * Y_K, Y_K, kr), _edge_terms_210(d, 0.5 * Y_K, Y_K, kr)
+        assert np.shape(new) == np.shape(ref) and np.array_equal(new, ref)
+    # the region edges (+-half), the zone edges (+-full), the centre (both zero signs), and no offset in the zone
+    d = np.array([-10.0, -5.0, -0.0, 0.0, 5.0, 10.0, -10.0 + 1e-12, 10.0 - 1e-12, 180.0, -180.0])
+    new, ref = _edge_terms(d, 5.0, 10.0, kr), _edge_terms_210(d, 5.0, 10.0, kr)
+    assert np.array_equal(new, ref) and np.array_equal(np.signbit(new), np.signbit(ref))
+    d = np.full((3, 4), 50.0)
+    assert np.array_equal(_edge_terms(d, 5.0, 10.0, kr), _edge_terms_210(d, 5.0, 10.0, kr))
