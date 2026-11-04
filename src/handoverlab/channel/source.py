@@ -121,7 +121,7 @@ class RadioSource:
             from .blockage import BlockageA
             self.H = world.heading
             self.blockage = BlockageA(streams(world.seed, "blockage", 1)[0], self.U, R, self.V, dt,
-                                      getattr(world, "indoor", None))
+                                      getattr(world, "indoor", None), getattr(sc.run, "backend", "numpy"))
         self.chunk_los = None
         self.pen = 0.0                                  # per-user penetration gain [dB] (for raw_chunks)
         indoor = getattr(world, "indoor", None)         # users inside buildings (since 2.3.0)

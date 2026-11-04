@@ -279,6 +279,44 @@ both ways. In that round these pairs used about 2050 of its 3430 process-minutes
 about 830 process-minutes (a quarter of the round) would have been saved. Without beams the world build
 dominates and sharing saves little.
 
+## Changes in 2.11.1: compiled loops for blockage model A
+
+After 2.11.0 most of the time of `factor_db` was element-wise work on the (links x 16 nodes x 4 blockers) offsets:
+the wrap to [-180, 180) (a float remainder, slow on this machine), the zone test and the means over the nodes.
+With `run.backend: numba` (`pip install handoverlab[fast]`) version 2.11.1 does that work in two compiled loops
+(`handoverlab.channel._blockage_kernels`) per block of links: the first computes the nodes, the self-blocking
+indicators, the wrap and the zone test and writes the offsets inside a zone in the order of the NumPy path; the
+knife-edge terms of those offsets (cosine, arctangent) are computed by the NumPy function of the reference on the
+compact arrays; the second loop computes the means over the nodes and the products of the diffuse factor. As for
+the step and slot kernels, the loops use only basic arithmetic and comparisons in the order of NumPy: the wrap
+follows NumPy's remainder (for |v| < 720 the exact differences v - 360 and v + 360 replace `fmod`), the means over
+the azimuth nodes are sums from 0 node by node, the means over the zenith nodes NumPy's pairwise sums, as NumPy
+reduces those axes. The NumPy path is unchanged and stays the default and the reference; without Numba it runs as
+before.
+
+The values are the same bit for bit: `tests/test_blockage.py` compares the compiled loops, and the same loops run
+as plain Python (also with NumPy 2.0.2), with the NumPy path in the same process with `==` on random inputs, on the
+zone, region and wrap edges, on the wrap alone and on whole runs; the fingerprints and metrics of every measured
+pair below are equal (and equal to those of the 2.11.0 measurement).
+
+Same cases and method as for 2.11.0 (card `urban-grid-28ghz-beams`, 8 s with 2 s warm-up, seed 3201, rule A3; one
+fresh process per run, one at a time, `run.backend: numpy` and `numba` alternating, median of three, world build
+not timed; the Numba loops were compiled and cached by a short run before the series). Machine load mostly below
+20 %, with short peaks up to 60 % (NumPy 2.4.6, Numba, the same virtual machine):
+
+| Case | Radio samples `numpy` | `numba` | Ratio |
+|---|---|---|---|
+| Blockage A, portrait | 27.6 s | 15.3 s | 1.80 |
+| Blockage A, landscape | 27.5 s | 15.2 s | 1.80 |
+| Blockage A with 8 SSB beams and angular spread | 79.6 s | 66.3 s | 1.20 |
+
+One call of `factor_db` on a full chunk takes 2.9 s instead of 9.9 s (3.4 times less) and allocates 56 MB instead
+of 73 MB; the peak of the process (0.89 GB, set by the world build) does not change. Most of what is left in a
+call is the cosine and arctangent of the in-zone offsets, which stay in NumPy. With angular spread the remaining
+time is mostly the beam gains over the angular spectrum. Across the three versions on this machine (different
+sessions, so only an estimate): the radio samples of the portrait case took 97.0 s with 2.10.0, 15.3 s now with
+`run.backend: numba` (about 6 times less), those with angular spread 150.9 s and 66.3 s (about 2.3 times less).
+
 ## Next steps
 
 - Compiled kernels for the measurement instants (A3 entry times, the prepared set of conditional

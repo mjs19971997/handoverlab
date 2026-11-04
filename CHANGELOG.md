@@ -7,6 +7,36 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-11-04
+
+No change of defaults or results: every golden fingerprint is unchanged, the NumPy path of blockage model A does
+the same operations as in 2.11.0, and runs with `radio.blockage: a` and `run.backend: numba` give the same fingerprints and
+metrics as with `run.backend: numpy`.
+
+### Changed
+
+- Blockage model A (`radio.blockage: a`) has compiled loops for `run.backend: numba`
+  (`handoverlab.channel._blockage_kernels`, needs `pip install handoverlab[fast]`). For each block of links one loop
+  does the quadrature nodes, the self-blocking indicators, the wrap and the zone test |d| < x_k and writes the
+  in-zone offsets in the order of the NumPy path; the knife-edge terms of those offsets (cosine, arctangent) stay in
+  NumPy on the compact arrays; a second loop does the means over the nodes and the products of the diffuse factor.
+  The loops use only basic arithmetic and comparisons in the order of the NumPy path (NumPy's remainder for the
+  wrap, node-by-node sums for the azimuth means, NumPy's pairwise sums for the zenith means), so the values are the
+  same bit for bit. Without Numba, or with `run.backend: numpy` (the default), the NumPy path runs as before.
+  Measured on the FR2 card `urban-grid-28ghz-beams` (40 users, 76 sites, 8 s runs, one process, median of 3; see
+  [performance](docs/performance.md#changes-in-2111-compiled-loops-for-blockage-model-a)): with
+  `run.backend: numba` the radio samples take 1.8 times less time than with `numpy` with blockage (portrait and
+  landscape) and 1.2 times less with blockage and angular spread at the beams; one call of `factor_db` on a full
+  chunk takes 2.9 s instead of 9.9 s and allocates 56 MB instead of 73 MB.
+
+### Tests
+
+- `tests/test_blockage.py` compares the compiled loops, and the same loops as plain Python without Numba, with the
+  NumPy path in the same process with `==`: `factor_db` on random inputs (LOS weights 0, 1 and fractional, portrait
+  and landscape, several block sizes), the diffuse factor on the zone, region and wrap edges, the wrap on its own
+  against NumPy's remainder, and fingerprint and every metric of whole runs (portrait, landscape, angular spread at
+  the beams, FR1, wrap-around).
+
 ## [2.11.0] - 2026-11-04
 
 No change of defaults or results: every golden fingerprint is unchanged, runs with `radio.blockage: a` give the
@@ -1600,7 +1630,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.11.0...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.11.1...HEAD
+[2.11.1]: https://github.com/mjs19971997/handoverlab/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/mjs19971997/handoverlab/compare/v2.10.1...v2.11.0
 [2.10.1]: https://github.com/mjs19971997/handoverlab/compare/v2.10.0...v2.10.1
 [2.10.0]: https://github.com/mjs19971997/handoverlab/compare/v2.9.0...v2.10.0

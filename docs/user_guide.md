@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.11.0. It explains the ideas behind a run, the built-in
+This guide covers version 2.11.1. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -506,7 +506,7 @@ output: results/metrics.csv
 | | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120` (about 3 and 120 km/h, +-10 %); `p3`, `v30`, `v120` (since 2.1.0: exactly 3, 30, 120 km/h, the fixed speeds of ITU-R M.2412-0 Tables 5a-5c); highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h with up to 0.5 m lateral offset, since 1.11.0), `v140c`, `v70c` (since 2.1.0: the same on the lane centre) |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]`; `lanes_m` (2.0.0) lane centres; `indoor: true` (2.3.0) users inside buildings, with the O2I building penetration loss of `radio.o2i_model` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
-| | `backend` | `numpy` | `numba`: compiled kernels of the step loop (since 1.11.0) and of the slot scheduler (since 2.4.0), bit-identical results, needs `pip install handoverlab[fast]` (see [performance](performance.md)); not part of the job IDs |
+| | `backend` | `numpy` | `numba`: compiled kernels of the step loop (since 1.11.0), of the slot scheduler (since 2.4.0) and of blockage model A (since 2.11.1), bit-identical results, needs `pip install handoverlab[fast]` (see [performance](performance.md)); not part of the job IDs |
 | `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
 | | `hpbw_deg` | none | 3 dB beamwidth of the satellite beams [deg], which sets the beam spacing sqrt(3) sin(HPBW / 2) and scales the Bessel pattern (TR 38.821 Table 6.1.1.1-4); unset: the tabled width of TR 38.821 Tables 6.1.1.1-1 and -2 (4.4127 deg for 2 m, 8.8320 deg for 1 m) with `radio.channel_detail: 3gpp` and a 2 GHz carrier (the tables are for the S band), otherwise the width of the aperture's Bessel pattern (since 2.1.0) |
 | | `los_model` | `probability` | `probability`: LOS state from the LOS probability of TR 38.811 Table 6.6.1-1 (NLOS links with clutter loss and NLOS shadowing); `los`: every link LOS, the baseline condition of TR 38.821 Table 6.1.1.1-5 (since 2.1.0) |

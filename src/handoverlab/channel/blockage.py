@@ -26,6 +26,7 @@ import math
 import numpy as np
 from scipy.special import ndtr
 
+from ._blockage_kernels import MAX_NODES, kernels
 from .spread import U_AZ, U_ZE, los_ray_share
 
 C0 = 299792458.0
@@ -70,7 +71,12 @@ def _edge_terms(d, half, full, kr):
     d, half, full = np.broadcast_arrays(d, half, full)
     out = np.zeros(d.shape)
     m = np.abs(d) < full
-    d, half = d[m], half[m]
+    out[m] = _edge_in(d[m], half[m], kr)
+    return out
+
+
+def _edge_in(d, half, kr):
+    """F_1 + F_2 of :func:`_edge_terms` for offsets ``d`` inside the zone (1-d arrays ``d``, ``half``)."""
     a1 = np.radians(d - half)
     a2 = np.radians(d + half)
     s1 = np.where(d > half, -1.0, 1.0)
@@ -79,15 +85,19 @@ def _edge_terms(d, half, full, kr):
     def f(a, s):
         v = np.sqrt(np.maximum(kr * (1.0 / np.cos(a) - 1.0), 0.0))
         return np.arctan(s * 0.5 * math.pi * v) / math.pi
-    out[m] = f(a1, s1) + f(a2, s2)
-    return out
+    return f(a1, s1) + f(a2, s2)
 
 
 class BlockageA:
     """Blockers of every user and their attenuation of every user-site link."""
 
-    def __init__(self, rng: np.random.Generator, n_users: int, radio, speeds, dt_s: float, indoor=None):
+    def __init__(self, rng: np.random.Generator, n_users: int, radio, speeds, dt_s: float, indoor=None,
+                 backend: str = "numpy"):
         self.mode = radio.blockage_mode
+        # compiled loops of the diffuse part (run.backend: numba, since 2.11.1; same values), None: NumPy
+        self.kern = None
+        if backend == "numba" and max(len(U_AZ), len(U_ZE)) <= MAX_NODES:
+            self.kern = kernels()
         self.pathloss, self.fc = radio.pathloss, radio.carrier_ghz
         self.kr = math.pi * R_M / (C0 / (radio.carrier_ghz * 1e9))
         self.h_bs, self.h_ut = radio.bs_height_m, radio.ue_height_m
@@ -122,7 +132,8 @@ class BlockageA:
 
         Since 2.10.1 each LOS state is evaluated only for the links with a positive weight in it (the others add
         exactly 0), in blocks of at most ``BLOCK_LINKS`` links; since 2.11.0 the azimuth and zenith terms are
-        computed only where they are used; every value is the same as before."""
+        computed only where they are used; since 2.11.1 the diffuse part runs in compiled loops with
+        ``run.backend: numba`` (:meth:`_f_dif_compiled`); every value is the same as before."""
         g = self._advance(n, mult)
         u = ndtr(g)
         phi_k = 360.0 * u[:, 0]                                         # (n, U, K)
@@ -166,20 +177,23 @@ class BlockageA:
                 i, uu, _ = np.unravel_index(k, az.shape)
                 azl, zel = azf[k], zef[k]
                 hdl, phl, xkl = hd[i, uu], phi_k[i, uu], x_k[i, uu]
-                a_n = azl[:, None] + asa * U_AZ                         # (L, N_AZ)
-                z_n = np.clip(zel[:, None] + zsa * U_ZE, 0.0, 180.0)    # (L, N_ZE)
-                ia, fa_n = az_terms(a_n, hdl, phl, xkl)
-                iz, fz_n = ze_terms(z_n)
-                pa, pz = ia.mean(-1), iz.mean(-1)                       # P(azimuth in), P(zenith in)
-                ea, ea2 = fa_n.mean(-2), (fa_n ** 2).mean(-2)           # (L, K)
-                eza, eza2 = (ia[..., None] * fa_n).mean(-2), (ia[..., None] * fa_n ** 2).mean(-2)
-                ez, ez2 = fz_n.mean(-1), (fz_n ** 2).mean(-1)          # (L,): one theta_k for all k
-                ezz, ezz2 = (iz * fz_n).mean(-1), (iz * fz_n ** 2).mean(-1)
-                # E[s] - sum_k E[s (1 - f_k)], s = 1 - keep I_a I_z, 1 - f_k = 2 F_A F_Z - F_A^2 F_Z^2
-                e_s = 1.0 - keep * pa * pz
-                e_nk = 2.0 * ea * ez[..., None] - ea2 * ez2[..., None]
-                e_snk = e_nk - keep * (2.0 * eza * ezz[..., None] - eza2 * ezz2[..., None])
-                f_dif = np.maximum(e_s - e_snk.sum(-1), 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3)
+                if self.kern is not None:                       # compiled loops (run.backend: numba), same values
+                    f_dif = self._f_dif_compiled(azl, zel, hdl, phl, xkl, asa, zsa, keep)
+                else:
+                    a_n = azl[:, None] + asa * U_AZ                         # (L, N_AZ)
+                    z_n = np.clip(zel[:, None] + zsa * U_ZE, 0.0, 180.0)    # (L, N_ZE)
+                    ia, fa_n = az_terms(a_n, hdl, phl, xkl)
+                    iz, fz_n = ze_terms(z_n)
+                    pa, pz = ia.mean(-1), iz.mean(-1)                       # P(azimuth in), P(zenith in)
+                    ea, ea2 = fa_n.mean(-2), (fa_n ** 2).mean(-2)           # (L, K)
+                    eza, eza2 = (ia[..., None] * fa_n).mean(-2), (ia[..., None] * fa_n ** 2).mean(-2)
+                    ez, ez2 = fz_n.mean(-1), (fz_n ** 2).mean(-1)          # (L,): one theta_k for all k
+                    ezz, ezz2 = (iz * fz_n).mean(-1), (iz * fz_n ** 2).mean(-1)
+                    # E[s] - sum_k E[s (1 - f_k)], s = 1 - keep I_a I_z, 1 - f_k = 2 F_A F_Z - F_A^2 F_Z^2
+                    e_s = 1.0 - keep * pa * pz
+                    e_nk = 2.0 * ea * ez[..., None] - ea2 * ez2[..., None]
+                    e_snk = e_nk - keep * (2.0 * eza * ezz[..., None] - eza2 * ezz2[..., None])
+                    f_dif = np.maximum(e_s - e_snk.sum(-1), 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3)
                 if state:
                     # LOS ray: the exact product over the regions at the LOS direction
                     i_a, fa = az_terms(azl[:, None], hdl, phl, xkl)
@@ -190,3 +204,23 @@ class BlockageA:
                 else:
                     o[k] += (1.0 if wf is None else 1.0 - wf[k]) * f_dif
         return 10.0 * np.log10(np.maximum(out, 1e-12))
+
+    def _f_dif_compiled(self, azl, zel, hdl, phl, xkl, asa, zsa, keep):
+        """Diffuse factor (L,) of a block of links by the compiled loops of :mod:`._blockage_kernels`, with the
+        edge terms of the in-zone offsets by :func:`_edge_in` on the compact arrays; the same values as the NumPy
+        path of :meth:`factor_db`."""
+        zones, means = self.kern
+        p_sb, x_sb, t_sb, y_sb = SELF_REGION[self.mode]
+        L, K = phl.shape
+        N, NZ = len(U_AZ), len(U_ZE)
+        ia, iz = np.empty((L, N), dtype=np.bool_), np.empty((L, NZ), dtype=np.bool_)
+        za, zz = np.empty((L, N, K), dtype=np.bool_), np.empty((L, NZ), dtype=np.bool_)
+        da, ha, dz = np.empty(L * N * K), np.empty(L * N * K), np.empty(L * NZ)
+        na, nz = zones(azl, zel, hdl, phl, xkl, asa * U_AZ, zsa * U_ZE, p_sb, 0.5 * x_sb, t_sb, 0.5 * y_sb,
+                       THETA_K, Y_K, ia, iz, za, zz, da, ha, dz)
+        va = _edge_in(da[:na], ha[:na], self.kr)
+        vz = _edge_in(dz[:nz], np.full(nz, 0.5 * Y_K), self.kr)
+        f_dif = np.empty(L)
+        means(ia, iz, za, zz, va, vz, keep, 10.0 ** (-SELF_LOSS_DB / 10.0) * 1e-3, f_dif,
+              np.empty((4, N, K)), np.empty((4, NZ)), np.empty(8))
+        return f_dif
