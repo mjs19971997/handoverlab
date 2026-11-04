@@ -166,71 +166,106 @@ def execute(payload: Dict[str, Any], root: str) -> Dict[str, Any]:
     Returns the record, or ``{"job": id, "error": traceback}`` if the job failed
     (the traceback is also written to ``failed/<job>.txt``).
     """
+    return execute_shared([payload], root)[0]
+
+
+def execute_shared(payloads: Sequence[Dict[str, Any]], root: str) -> List[Dict[str, Any]]:
+    """Run jobs of one seed whose scenarios share their radio samples on one radio stream (since 2.11.0).
+
+    The jobs must have the same seed, the same event-log level and scenarios
+    with the same :func:`~handoverlab.simulate.radio_key`; every job keeps its
+    own world, engines and record, with the results of a separate run.
+    Returns one record per job; if the shared run fails, every job gets the
+    error.
+    """
     from .store import StudyStore
     store = StudyStore(root)
     try:
-        rec = _execute(payload, store)
-        store.write_job(rec)
-        return rec
+        recs = _execute(payloads, store)
+        for rec in recs:
+            store.write_job(rec)
+        return recs
     except Exception:                                         # noqa: BLE001 - reported per job
         text = traceback.format_exc()
-        store.write_failed(payload["id"], text)
-        return dict(job=payload["id"], stage=payload["stage"], error=text)
+        for p in payloads:
+            store.write_failed(p["id"], text)
+        return [dict(job=p["id"], stage=p["stage"], error=text) for p in payloads]
 
 
-def _execute(payload: Dict[str, Any], store) -> Dict[str, Any]:
-    from ..config import Scenario
-    from ..simulate import run_world
-    from ..world import build_world
-    t0 = time.perf_counter()
+def _todo(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Rule entries of a job still to simulate (not stored, no duplicate)."""
     cached = payload["cached"]
-    entries = payload["rules"]
     todo: List[Dict[str, Any]] = []
     seen = set()
-    for e in entries:
+    for e in payload["rules"]:
         k = e["run_key"]
         if k not in cached and k not in seen:
             seen.add(k)
             todo.append(e)
-    fresh: Dict[str, Dict[str, Any]] = {}
-    t_world = radio = 0.0
-    if todo:
-        sc = Scenario.from_dict(payload["scenario"])
-        tw = time.perf_counter()
-        world = build_world(sc, payload["seed"])
-        t_world = time.perf_counter() - tw
-        res = run_world(world, [e["spec"] for e in todo], log_events=payload["events"])
-        for e, r in zip(todo, res):
-            ev = tr = None
-            if payload["events"]:
-                from ..eventlog import trace_path, write_events, write_trace
-                ev_path = store.events_path(e["run_key"])
-                os.makedirs(os.path.dirname(ev_path), exist_ok=True)
-                ev = os.path.relpath(write_events([r], ev_path), store.root).replace(os.sep, "/")
-                if r.trace is not None:
-                    tr = os.path.relpath(write_trace([r], trace_path(ev_path)), store.root).replace(os.sep, "/")
-            fresh[e["run_key"]] = dict(metrics=r.metrics, fingerprint=r.fingerprint, n_events=r.n_events,
-                                       family=r.family, params=r.params, engine_s=r.timing["engine_s"], events=ev,
-                                       trace=tr)
-            radio = r.timing["radio_s"]
-    rows = []
-    first = set()
-    for e in entries:
-        k = e["run_key"]
-        src = fresh.get(k) or cached[k]
-        own = k in fresh and k not in first          # simulated for this row (not stored, not a duplicate)
-        first.add(k)
-        rows.append(dict(name=e["name"], key=e["spec"]["rule"], method=e.get("method"), budget=e.get("budget"),
-                         setting=e.get("setting"), family=src["family"], params=src["params"], run_key=k,
-                         fingerprint=src["fingerprint"], n_events=src["n_events"], metrics=src["metrics"],
-                         engine_s=src.get("engine_s") if own else None, events=src.get("events"),
-                         trace=src.get("trace"),
-                         reused=not own))
-    return dict(job=payload["id"], stage=payload["stage"], condition=payload["condition"], group=payload["group"],
-                seed=payload["seed"], model=MODEL_VERSION, handoverlab=__version__, scenario=payload["scenario"],
-                rules=rows, timing=dict(world_s=t_world, radio_s=radio, total_s=time.perf_counter() - t0),
-                simulated=len(todo), peak_memory_mb=peak_memory_mb(), host=platform.node(), pid=os.getpid(),
-                finished=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    return todo
+
+
+def _execute(payloads: Sequence[Dict[str, Any]], store) -> List[Dict[str, Any]]:
+    from ..config import Scenario
+    from ..simulate import run_shared
+    from ..world import build_world
+    t0 = time.perf_counter()
+    todos = [_todo(p) for p in payloads]
+    run = [i for i, td in enumerate(todos) if td]
+    t_world = [0.0] * len(payloads)
+    radio = 0.0
+    fresh: List[Dict[str, Dict[str, Any]]] = [{} for _ in payloads]
+    if run:
+        worlds = []
+        for i in run:
+            tw = time.perf_counter()
+            worlds.append(build_world(Scenario.from_dict(payloads[i]["scenario"]), payloads[i]["seed"]))
+            t_world[i] = time.perf_counter() - tw
+        events = payloads[run[0]]["events"]
+        if any(payloads[i]["events"] != events for i in run):
+            raise ValueError("jobs that share radio samples must keep the same event-log level")
+        results = run_shared(worlds, [[e["spec"] for e in todos[i]] for i in run], log_events=events)
+        del worlds
+        for i, res in zip(run, results):
+            for e, r in zip(todos[i], res):
+                ev = tr = None
+                if events:
+                    from ..eventlog import trace_path, write_events, write_trace
+                    ev_path = store.events_path(e["run_key"])
+                    os.makedirs(os.path.dirname(ev_path), exist_ok=True)
+                    ev = os.path.relpath(write_events([r], ev_path), store.root).replace(os.sep, "/")
+                    if r.trace is not None:
+                        tr = os.path.relpath(write_trace([r], trace_path(ev_path)), store.root).replace(os.sep, "/")
+                fresh[i][e["run_key"]] = dict(metrics=r.metrics, fingerprint=r.fingerprint, n_events=r.n_events,
+                                              family=r.family, params=r.params, engine_s=r.timing["engine_s"],
+                                              events=ev, trace=tr)
+                radio = r.timing["radio_s"]
+    recs = []
+    for i, payload in enumerate(payloads):
+        cached = payload["cached"]
+        rows = []
+        first = set()
+        for e in payload["rules"]:
+            k = e["run_key"]
+            src = fresh[i].get(k) or cached[k]
+            own = k in fresh[i] and k not in first     # simulated for this row (not stored, not a duplicate)
+            first.add(k)
+            rows.append(dict(name=e["name"], key=e["spec"]["rule"], method=e.get("method"), budget=e.get("budget"),
+                             setting=e.get("setting"), family=src["family"], params=src["params"], run_key=k,
+                             fingerprint=src["fingerprint"], n_events=src["n_events"], metrics=src["metrics"],
+                             engine_s=src.get("engine_s") if own else None, events=src.get("events"),
+                             trace=src.get("trace"),
+                             reused=not own))
+        timing = dict(world_s=t_world[i], radio_s=radio if todos[i] else 0.0, total_s=time.perf_counter() - t0)
+        rec = dict(job=payload["id"], stage=payload["stage"], condition=payload["condition"], group=payload["group"],
+                   seed=payload["seed"], model=MODEL_VERSION, handoverlab=__version__, scenario=payload["scenario"],
+                   rules=rows, timing=timing, simulated=len(todos[i]), peak_memory_mb=peak_memory_mb(),
+                   host=platform.node(), pid=os.getpid(),
+                   finished=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        if len(run) > 1 and todos[i]:
+            rec["radio_shared"] = len(run)                # jobs that used the same radio samples
+        recs.append(rec)
+    return recs
 
 
 class _Threads:
@@ -251,12 +286,38 @@ class _Threads:
         return False
 
 
+def _bundles(todo: Sequence[Job], cached: Dict[str, Any], share_radio: bool) -> List[List[Job]]:
+    """Jobs grouped into worker tasks: alone, or with ``share_radio`` those of one seed and radio key together."""
+    if not share_radio:
+        return [[j] for j in todo]
+    from ..config import Scenario
+    from ..simulate import radio_key
+    out: List[List[Job]] = []
+    index: Dict[Tuple[int, str, str], List[Job]] = {}
+    for j in todo:
+        if not j.cost(cached):                                # nothing to simulate: no world, nothing to share
+            out.append([j])
+            continue
+        k = (j.seed, repr(j.events), radio_key(Scenario.from_dict(j.scenario)))
+        if k not in index:
+            index[k] = []
+            out.append(index[k])
+        index[k].append(j)
+    out.sort(key=lambda b: -sum(j.cost(cached) for j in b))
+    return out
+
+
 def run_jobs(jobs: Sequence[Job], root: str, workers: int = 1, cached: Optional[Dict[str, Any]] = None,
-             progress: Optional[Callable[[str], None]] = None) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+             progress: Optional[Callable[[str], None]] = None,
+             share_radio: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Run the jobs that have no record yet; returns (new records, failures).
 
     With ``workers`` > 1 the jobs run in a process pool; a broken pool is
-    restarted once and its unfinished jobs are tried again.
+    restarted once and its unfinished jobs are tried again.  With
+    ``share_radio`` (since 2.11.0) the jobs of one seed whose scenarios have
+    the same :func:`~handoverlab.simulate.radio_key` (conditions that differ
+    only in engine settings) run in one worker on one radio stream
+    (:func:`execute_shared`); their records are those of separate runs.
     """
     from .store import StudyStore
     store = StudyStore(root)
@@ -270,6 +331,9 @@ def run_jobs(jobs: Sequence[Job], root: str, workers: int = 1, cached: Optional[
         return done, failed
     t_start = time.perf_counter()
     n_total = len(todo)
+    bundles = _bundles(todo, cached, share_radio)
+    if len(bundles) < len(todo):
+        say("  %d jobs in %d radio streams (shared radio samples)" % (len(todo), len(bundles)))
 
     def report(rec):
         (failed if "error" in rec else done).append(rec)
@@ -282,26 +346,35 @@ def run_jobs(jobs: Sequence[Job], root: str, workers: int = 1, cached: Optional[
             say("  job %s done (%d/%d, %.1f s, %d rules simulated; about %.0f s left)"
                 % (rec["job"], k, n_total, rec["timing"]["total_s"], rec["simulated"], left))
 
-    if workers <= 1 or len(todo) == 1:
-        for j in todo:
-            report(execute(j.payload(cached), store.root))
+    if workers <= 1 or len(bundles) == 1:
+        for b in bundles:
+            for rec in execute_shared([j.payload(cached) for j in b], store.root):
+                report(rec)
         return done, failed
-    pending = list(todo)
+    pending = list(bundles)
     for attempt in (1, 2):
+        finished: set = set()                                 # indices into pending
         with _Threads():
             try:
                 with ProcessPoolExecutor(max_workers=min(workers, len(pending)),
                                          mp_context=multiprocessing.get_context("spawn")) as pool:
-                    futs = {pool.submit(execute, j.payload(cached), store.root): j for j in pending}
+                    futs = {pool.submit(execute_shared, [j.payload(cached) for j in b], store.root): i
+                            for i, b in enumerate(pending)}
                     for f in as_completed(futs):
-                        report(f.result())
-                        pending.remove(futs[f])
+                        for rec in f.result():
+                            report(rec)
+                        finished.add(futs[f])
+                    pending = [b for i, b in enumerate(pending) if i not in finished]
                 break
             except BrokenProcessPool:
+                pending = [b for i, b in enumerate(pending) if i not in finished]
                 if attempt == 2:
-                    for j in pending:
-                        report(dict(job=j.id, stage=j.stage, error="worker process died (BrokenProcessPool)"))
+                    for b in pending:
+                        for j in b:
+                            report(dict(job=j.id, stage=j.stage, error="worker process died (BrokenProcessPool)"))
                     break
-                say("  a worker process died; restarting the pool for %d unfinished jobs" % len(pending))
-                pending = [j for j in pending if not store.has_job(j.stage, j.id)]
+                n_left = sum(len(b) for b in pending)
+                say("  a worker process died; restarting the pool for %d unfinished jobs" % n_left)
+                pending = [[j for j in b if not store.has_job(j.stage, j.id)] for b in pending]
+                pending = [b for b in pending if b]
     return done, failed

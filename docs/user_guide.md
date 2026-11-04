@@ -581,7 +581,7 @@ optimisation](guides/mro.md).
 handoverlab run CONFIG [-o OUT] [--seeds S ...] [--events FILE] [--event-level summary|full] [--debug] [-q]
 handoverlab verify [--only GROUP ...] [--full] [--ns3 [--ns3-seeds N] [--ns3-comparison | --ns3-like]] [--results FILE [--sample N]] [--json OUT] [-q]
 handoverlab scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
-handoverlab study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report] [-q]
+handoverlab study STUDY [-o DIR] [--workers N] [--tuning-only] [--share-radio] [--dry-run] [--status] [--report] [-q]
 handoverlab report DIR [-o OUT] [--format md html] [--no-figures]
 handoverlab status STUDY|DIR [-o DIR] [--workers N]
 handoverlab gui [--port N] [--address A] [--headless]

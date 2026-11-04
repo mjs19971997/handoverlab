@@ -13,7 +13,7 @@ Commands
         Run the verification checks and print a pass/fail report.
     scenarios [NAME] [--markdown] [--svg FILE] [--docs DIR]
         List the built-in scenarios, or show the card of one.
-    study STUDY [-o DIR] [--workers N] [--tuning-only] [--dry-run] [--status] [--report]
+    study STUDY [-o DIR] [--workers N] [--tuning-only] [--share-radio] [--dry-run] [--status] [--report]
         Run or resume a study: tuning with gates, test stage, result tables.
     report DIR [-o OUT] [--format md html] [--no-figures]
         Write the Markdown/HTML report of a study directory.
@@ -150,7 +150,7 @@ def _cmd_study(args) -> int:
     say = None if args.quiet else (lambda msg: print(msg, flush=True))
     try:
         res = run_study(study, args.output, args.workers, progress=say,
-                        stop_after="tuning" if args.tuning_only else None)
+                        stop_after="tuning" if args.tuning_only else None, share_radio=args.share_radio)
     except GateError as e:
         print("error: %s" % e, file=sys.stderr)
         print("The gate report is in %s; change the grids or the gate policy and run the study again."
@@ -380,6 +380,9 @@ def build_parser() -> argparse.ArgumentParser:
     st.add_argument("--workers", type=int,
                     help="worker processes (default: the study file's 'workers', else the CPUs minus four)")
     st.add_argument("--tuning-only", action="store_true", help="stop after the tuning gates")
+    st.add_argument("--share-radio", action="store_true",
+                    help="run conditions that differ only in engine settings on one radio stream per seed "
+                         "(same results, less time)")
     st.add_argument("--dry-run", action="store_true", help="show what would run, run nothing")
     st.add_argument("--status", action="store_true", help="show finished, failed and remaining jobs")
     st.add_argument("--report", action="store_true", help="write the report when the study is complete")

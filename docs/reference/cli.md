@@ -104,8 +104,8 @@ options:
 ## study
 
 ```text
-usage: handoverlab study [-h] [-o DIR] [--workers WORKERS] [--tuning-only] [--dry-run] [--status]
-                         [--report] [-q]
+usage: handoverlab study [-h] [-o DIR] [--workers WORKERS] [--tuning-only] [--share-radio]
+                         [--dry-run] [--status] [--report] [-q]
                          study
 
 positional arguments:
@@ -117,6 +117,8 @@ options:
   --workers WORKERS     worker processes (default: the study file's 'workers', else the CPUs minus
                         four)
   --tuning-only         stop after the tuning gates
+  --share-radio         run conditions that differ only in engine settings on one radio stream per
+                        seed (same results, less time)
   --dry-run             show what would run, run nothing
   --status              show finished, failed and remaining jobs
   --report              write the report when the study is complete

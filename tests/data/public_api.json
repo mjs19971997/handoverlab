@@ -35,13 +35,16 @@
    "fingerprint",
    "load_config",
    "make_rule",
+   "radio_key",
    "read_events",
    "register_rule",
    "run_experiment",
+   "run_shared",
    "run_world",
    "scenario_card",
    "scenario_names",
    "simulate",
+   "simulate_variants",
    "write_events"
   ],
   "handoverlab.rules": [

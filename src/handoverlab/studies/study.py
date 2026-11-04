@@ -435,10 +435,14 @@ def output_dir(study: Study, out: Optional[str] = None) -> str:
 
 
 def run_study(study: Study, out: Optional[str] = None, workers: Optional[int] = None,
-              progress: Optional[Callable[[str], None]] = None, stop_after: Optional[str] = None) -> StudyResult:
+              progress: Optional[Callable[[str], None]] = None, stop_after: Optional[str] = None,
+              share_radio: bool = False) -> StudyResult:
     """Run (or resume) all stages of ``study`` in ``out``; returns a :class:`StudyResult`.
 
-    ``stop_after="tuning"`` stops after the gates.  Raises :class:`GateError`
+    ``stop_after="tuning"`` stops after the gates.  ``share_radio`` (since
+    2.11.0) runs the jobs of a stage whose conditions differ only in engine
+    settings on one radio stream per seed (see
+    :func:`~handoverlab.studies.runner.run_jobs`); results are the same.  Raises :class:`GateError`
     if a blocking gate fails and :class:`StudyError` if jobs failed (their
     tracebacks are in ``failed/``; re-running retries them).
     """
@@ -464,9 +468,9 @@ def run_study(study: Study, out: Optional[str] = None, workers: Optional[int] = 
             while True:
                 sx = apply_amendments(study, rounds)
                 j1 = plan_round1(sx)
-                _stage(sx, store, "tune1", j1, w, say, res)
+                _stage(sx, store, "tune1", j1, w, say, res, share_radio)
                 j2 = plan_round2(sx, store, j1)
-                _stage(sx, store, "tune2", j2, w, say, res)
+                _stage(sx, store, "tune2", j2, w, say, res, share_radio)
                 tuned = analyse_tuning(sx, store, j1 + j2)
                 ext = [g for g in tuned["gates"] if g.gate == "grid_edge" and not g.ok and g.policy == "extend"]
                 if not ext:
@@ -502,7 +506,7 @@ def run_study(study: Study, out: Optional[str] = None, workers: Optional[int] = 
                 status = "stopped after tuning"
                 return res
         jt = plan_test(study, tuned)
-        _stage(study, store, "test", jt, w, say, res)
+        _stage(study, store, "test", jt, w, say, res, share_radio)
         all_jobs += jt
         atomic_write_json(store.path("plan.json"), _plan_doc(all_jobs))
         res.tables = write_tables(study, store, all_jobs, tuned)
@@ -521,7 +525,8 @@ def _plan_doc(jobs: Sequence[Job]) -> Dict[str, Any]:
     return dict(stages=doc)
 
 
-def _stage(study: Study, store: StudyStore, stage: str, jobs: Sequence[Job], workers: int, say, res: StudyResult):
+def _stage(study: Study, store: StudyStore, stage: str, jobs: Sequence[Job], workers: int, say, res: StudyResult,
+           share_radio: bool = False):
     res.jobs[stage] = len(jobs)
     if not jobs:
         res.ran[stage] = 0
@@ -529,7 +534,7 @@ def _stage(study: Study, store: StudyStore, stage: str, jobs: Sequence[Job], wor
     have = sum(store.has_job(j.stage, j.id) for j in jobs)
     n_rules = sum(len(j.rules) for j in jobs)
     say("stage %s: %d jobs (%d rule runs), %d done earlier" % (stage, len(jobs), n_rules, have))
-    done, failed = run_jobs(jobs, store.root, workers, progress=say)
+    done, failed = run_jobs(jobs, store.root, workers, progress=say, share_radio=share_radio)
     res.ran[stage] = len(done)
     if failed:
         raise StudyError("%d job(s) of stage %s failed; see %s (re-run the study to retry them)"
