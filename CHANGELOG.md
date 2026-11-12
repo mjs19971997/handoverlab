@@ -7,10 +7,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-No change of defaults or results: the new option is off by default and every golden fingerprint is unchanged.
+No change of defaults or results: the new options are off by default and every golden fingerprint is unchanged.
 
 ### Added
 
+- `protocol.rlm_filter: window` and `radio.beams.bfd_filter: window`: the qualities of radio link monitoring
+  (Qout, Qin) and of beam failure detection are means of the linear SINR over the last evaluation period
+  (TS 38.133 8.1.2.2 and 8.5.2.2: the quality "estimated over the last" T_Evaluate), instead of the exponential
+  filter with that time constant, which after a deep drop needs several time constants to cross the threshold.
+  With `bfd_filter: window` the engine keeps the window of every SSB beam of the serving cell, so a new BFD
+  reference signal (TCI switch, recovery) starts from its own last period instead of one sample, and no beam
+  failure indication is made on a new cell before one T_Evaluate_BFD_SSB has been collected. `rlm_filter:
+  window` takes the `rlm_eval` windows of every user's serving cell; it uses the NumPy path (not the compiled
+  monitoring kernel) and is not available with `protocol.dc`. New module `handoverlab.engine.window`.
 - `radio.beams.angular_spread: per_ray` (UMa and UMi - Street Canyon): the SSB beam gains are the power-weighted
   (incoherent) sums over the rays of an explicit TR 38.901 V19.5.0 clause 7.5 realisation per user-site link,
   shared by the co-sited sectors: LSPs of Step 4 (K, ASD, ZSD; ASA and ZSA with blockage model A) with the

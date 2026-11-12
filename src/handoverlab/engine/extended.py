@@ -168,6 +168,16 @@ class ExtEngine(Engine):
                 self.t_ind[c] = req.bfd_indication_interval(P.ssb_period_s)
                 self.a_bfd[c] = 1.0 - math.exp(-self.dt_ / req.bfd_evaluation_period(P.ssb_period_s, n))
             self.bfd_q = np.zeros(U)                           # BFD-RS quality, averaged (linear SINR)
+            # radio.beams.bfd_filter "window" (since 2.12.0): the mean over the last T_Evaluate_BFD_SSB of every SSB
+            # beam of the serving cell (TS 38.133 8.5.2.2); the setting of the first layer with beams
+            bw = next((b for b in self.bcfg if b is not None), None)
+            self.bfd_win = None
+            if bw is not None and getattr(bw, "bfd_filter", "exp") == "window":
+                from .window import WindowMean
+                self.n_bfd = np.array([max(1, int(round(req.bfd_evaluation_period(
+                    P.ssb_period_s, self._sweep_n(c)) / self.dt_))) for c in range(M)])
+                self.bfd_win = WindowMean(np.full(U, int(self.n_bfd.max())), int(self.n_bfd.max()),
+                                          (int(ext.B),))
             self.bfi = np.zeros(U, dtype=int)                  # BFI_COUNTER
             self.bfd_end = np.full(U, -INF)                    # beamFailureDetectionTimer expiry
             self.bfd_next = np.zeros(U)                        # next L1 indication instant
@@ -183,6 +193,14 @@ class ExtEngine(Engine):
         if self.ue_rx:
             self.rb = np.zeros(U, dtype=int)
         self._ln = self._totc = None
+        # protocol.rlm_filter "window" with the TS 38.133 windows of every user's serving cell (rlm_eval ts38133)
+        if self.rlm_win and self.rlm38:
+            from .window import WindowMean
+            T = [req.rlm_evaluation_periods(P.ssb_period_s, self._sweep_n(c)) for c in range(M)]
+            no = max(1, max(int(round(t[0] / P.step_s)) for t in T))
+            ni = max(1, max(int(round(t[1] / P.step_s)) for t in T))
+            self.wo = WindowMean(np.full(U, no), no)
+            self.wi = WindowMean(np.full(U, ni), ni)
         for k in ("beam_switch", "bfr", "bfr_ok", "bfr_fail", "ho_inter"):
             self.C[k] = 0
         self.acc["bfr_time"] = 0.0
@@ -276,6 +294,11 @@ class ExtEngine(Engine):
             T = req.rlm_evaluation_periods(self.P.ssb_period_s, self._sweep_n(cell))
             self.ao[u] = 1.0 - np.exp(-self.P.step_s / T[0])
             self.ai[u] = 1.0 - np.exp(-self.P.step_s / T[1])
+            if self.rlm_win:
+                self.wo.set_n(u, int(round(T[0] / self.P.step_s)))
+                self.wi.set_n(u, int(round(T[1] / self.P.step_s)))
+        if self.beams and self.bfd_win is not None:          # BFD restarts on the new cell (2.12.0)
+            self.bfd_win.set_n(u, int(self.n_bfd[cell]))
         if self.beams:
             self.sb[u] = self._best_beam(u, cell)
             self.rlm_have[u] = False                          # the RLM-RS set of the new cell comes with a report
@@ -430,8 +453,14 @@ class ExtEngine(Engine):
                 T = req.rlm_evaluation_periods(self.P.ssb_period_s, self._sweep_n(int(self.serv[u])))
                 self.ao[u] = 1.0 - np.exp(-self.P.step_s / T[0])
                 self.ai[u] = 1.0 - np.exp(-self.P.step_s / T[1])
+                if self.rlm_win:
+                    self.wo.set_n(u, int(round(T[0] / self.P.step_s)))
+                    self.wi.set_n(u, int(round(T[1] / self.P.step_s)))
         if self.beams:
             self.bfd_q[:] = s
+            if self.bfd_win is not None:
+                for u in range(self.U):
+                    self.bfd_win.set_n(u, int(self.n_bfd[int(self.serv[u])]))
 
     def advance(self, ch) -> None:
         import time
@@ -499,8 +528,12 @@ class ExtEngine(Engine):
             ssb_q = sl                                          # quality of the serving beam's SSB (BFD-RS)
             if self.beams:
                 sl = self._rlm_quality(i, ch, serv, sl, ilm, con)
-            qo += self.ao * (sl - qo)
-            qi += self.ai * (sl - qi)
+            if self.rlm_win:                                   # mean over the last T_Evaluate (2.12.0)
+                qo[:] = self.wo.push(sl)
+                qi[:] = self.wi.push(sl)
+            else:
+                qo += self.ao * (sl - qo)
+                qi += self.ai * (sl - qi)
             if self.std:                                       # TS 38.331 7.2 / TS 38.133 8.1.6 (since 2.1.0)
                 mon = con | ((state == EXECUTING) & self.daps_u & ~self.src_rlf) if self.daps_mon else con
                 if k % self.ind_steps == 0:
@@ -571,6 +604,16 @@ class ExtEngine(Engine):
         if not hb.any():
             return
         counted = t >= self.t0c
+        wm = None
+        if self.bfd_win is not None:                          # quality of every SSB beam of the serving cell (2.12.0)
+            ug = np.nonzero(hb)[0]
+            B = self.bfd_win.tail[0]
+            ur, br = np.repeat(ug, B), np.tile(np.arange(B), len(ug))
+            p = self._beam_power(i, ch, ur, serv[ur], br)
+            iu = self._ssb_interference(i, ch, ur, br, ln, totc) if self.ssb_int else ilm[ur]
+            x = np.zeros((self.U, B))
+            x[ug] = (p / iu).reshape(len(ug), B)
+            wm = self.bfd_win.push(x, hb)
         # serving-beam changes ordered by the gNB (MAC CE TCI state activation)
         for u in np.nonzero(hb & self.tci_on & (t >= self.tci_t - EPS))[0]:
             self.tci_on[u] = False
@@ -579,21 +622,27 @@ class ExtEngine(Engine):
             self.sb[u] = self.tci_b[u]
             self.bfi[u] = 0                                   # the BFD reference signal changed
             c = int(serv[u])
-            iu = (self._ssb_interference(i, ch, np.array([u]), np.array([self.sb[u]]), ln, totc)[0]
-                  if self.ssb_int else ilm[u])
-            self.bfd_q[u] = self._beam_power(i, ch, np.array([u]), np.array([c]), np.array([self.sb[u]]))[0] / iu
+            if wm is None:                                    # up to 2.11: one sample of the new beam
+                iu = (self._ssb_interference(i, ch, np.array([u]), np.array([self.sb[u]]), ln, totc)[0]
+                      if self.ssb_int else ilm[u])
+                self.bfd_q[u] = self._beam_power(i, ch, np.array([u]), np.array([c]), np.array([self.sb[u]]))[0] / iu
             self.C["beam_switch"] += int(counted)
             if self.trace_log is not None:
                 self.trace_event(t, u, "beam_switch", serv[u], serv[u], float(self.sb[u]))
         # beam failure detection: quality of the BFD-RS averaged over T_Evaluate_BFD
-        a = self.a_bfd[serv]
-        self.bfd_q += np.where(hb, a * (ssb_q - self.bfd_q), 0.0)
+        if wm is None:
+            a = self.a_bfd[serv]
+            self.bfd_q += np.where(hb, a * (ssb_q - self.bfd_q), 0.0)
+        else:                                                 # a new BFD-RS starts from its own last period
+            self.bfd_q[hb] = wm[hb, self.sb[hb]]
         cfg = self.bcfg
         for u in np.nonzero(hb & (t >= self.bfd_next - EPS))[0]:
             c = int(serv[u])
             b = cfg[self.layer_of[c]]
             self.bfd_next[u] = t + self.t_ind[c]
             if not b.bfd:
+                continue
+            if wm is not None and not self.bfd_win.full(u):  # less than one T_Evaluate_BFD_SSB on this cell
                 continue
             if self.std:
                 # TS 38.321 5.17: an indication restarts beamFailureDetectionTimer; the counter is reset only if
@@ -616,8 +665,9 @@ class ExtEngine(Engine):
             ilm = totc[u, self.car[c]] - self.rc[c] * ln[u, c] + self.noise_c[c]
             if p / ilm >= self.qout:                          # response received on the new beam
                 self.sb[u] = beam
-                self.bfd_q[u] = p / (self._ssb_interference(i, ch, np.array([u]), np.array([beam]), ln, totc)[0]
-                                     if self.ssb_int else ilm)
+                if wm is None:                                # up to 2.11: one sample of the recovered beam
+                    self.bfd_q[u] = p / (self._ssb_interference(i, ch, np.array([u]), np.array([beam]), ln,
+                                                                 totc)[0] if self.ssb_int else ilm)
                 self._bfr_stop(u, t, ok=True)
                 continue
             self.bfr_n[u] += 1

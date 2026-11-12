@@ -110,7 +110,7 @@ def run_world(world: World, rules: Sequence[RuleSpec], log_events: Union[bool, s
 #: SS-SINR definition.  The other beam keys shape the radio samples.
 ENGINE_BEAM_KEYS = ("report_s", "switch_db", "tci_delay_s", "rx_sweep_n", "bfd", "bfi_max", "bfd_timer",
                     "bfr_timer_s", "rsrp_thresh_ssb_dbm", "ra_attempt_s", "preamble_max", "rlm_rs", "ssb_sinr",
-                    "ssb_overlap")
+                    "ssb_overlap", "bfd_filter")
 #: Keys of ``protocol`` that the world and the radio samples depend on; every
 #: other ``protocol`` key is read by the protocol engine alone.
 RADIO_PROTOCOL_KEYS = ("step_s", "l1_period_s")

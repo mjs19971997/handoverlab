@@ -553,6 +553,7 @@
   "protocol.report_interval_s",
   "protocol.rlm_bg_se",
   "protocol.rlm_eval",
+  "protocol.rlm_filter",
   "protocol.rlm_holdoff_s",
   "protocol.rlm_interference",
   "protocol.rlm_rs_type",

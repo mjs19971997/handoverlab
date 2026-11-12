@@ -215,6 +215,11 @@ class BeamConfig:
     # link (see handoverlab.channel.perray); a user-cell pair more than per_ray_prune_db below the user's strongest
     # cell (upper bound: site gain + peak panel gain) keeps the geometric gain (None: no pruning)
     per_ray_prune_db: Optional[float] = 40.0
+    # quality of beam failure detection (since 2.12.0): "exp" the exponential filter of the linear SINR with the time
+    # constant T_Evaluate_BFD (the model up to 2.11); "window" the mean over the last T_Evaluate_BFD_SSB of TS 38.133
+    # 8.5.2.2, kept for every SSB beam of the serving cell, so that a new BFD-RS (TCI switch, recovery) starts from
+    # its own last period and no indication is made on a new cell before one full period has been collected
+    bfd_filter: str = "exp"
 
 
 #: keys of :class:`BeamConfig` added after 1.10.0 and their defaults, left out of :meth:`Scenario.to_dict` while
@@ -222,7 +227,7 @@ class BeamConfig:
 BEAM_LATE_KEYS: Dict[str, Any] = {"am_db": 30.0, "ue_panels": 0, "ue_panel": [2, 4], "ue_beams": 4,
                                   "ue_beam_span_deg": 120.0, "ue_tilt_deg": 90.0, "ue_orientation": "random",
                                   "ue_rx": "best", "ssb_sinr": "data", "ssb_overlap": 1.0,
-                                  "angular_spread": "none", "per_ray_prune_db": 40.0}
+                                  "angular_spread": "none", "per_ray_prune_db": 40.0, "bfd_filter": "exp"}
 #: UE panel counts of TR 38.802 Table A.2.1-4 (one panel, Config 1, Config 2) and the bearing step of the panels
 UE_PANEL_STEP_DEG: Dict[int, float] = {1: 0.0, 2: 180.0, 4: 90.0}
 #: the UE receive-beam keys of :class:`BeamConfig` (since 2.4.0)
@@ -505,6 +510,10 @@ class ProtocolConfig:
     fr2_power_class: int = 3            # FR2 UE power class (sets M_meas of TS 38.133 9.2.5.1 and 9.3.4)
     # rlm_eval "ts38133": Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 instead of qout_window_s / qin_window_s
     rlm_eval: str = "fixed"
+    # rlm_filter (since 2.12.0): "exp" the exponential filter of the linear SINR with the time constants
+    # qout_window_s / qin_window_s (or the rlm_eval windows; the model up to 2.11); "window" the mean over the last
+    # T_Evaluate_out / T_Evaluate_in, the quality "estimated over the last" evaluation period of TS 38.133 8.1.2.2
+    rlm_filter: str = "exp"
     # rrc_detail "3gpp" (since 2.1.0): the details of TS 38.331 / 38.133 found in the audit of 2.1.0 (out-of-sync
     # and in-sync indications every max(10 ms, T_SSB) with the N310/N311 counting of clause 7.2, the source link
     # of DAPS monitored during T304, ltm-Config kept across an LTM cell switch, the L3 filter reference X of the
@@ -857,6 +866,9 @@ class Scenario:
         _check(P.meas_periods in ("sample", "ts38133"), "protocol.meas_periods", "must be 'sample' or 'ts38133'")
         _check(P.meas_detail in ("2x", "3gpp"), "protocol.meas_detail", "must be '2x' or '3gpp'")
         _check(P.rlm_eval in ("fixed", "ts38133"), "protocol.rlm_eval", "must be 'fixed' or 'ts38133'")
+        _check(P.rlm_filter in ("exp", "window"), "protocol.rlm_filter", "must be 'exp' or 'window'")
+        _check(P.rlm_filter == "exp" or P.dc is None, "protocol.rlm_filter",
+               "'window' is not available with dual connectivity (protocol.dc)")
         _check(P.rrc_detail in ("3gpp", "simple"), "protocol.rrc_detail", "must be '3gpp' or 'simple'")
         if P.ns3_oos_rx is not None:
             _check(P.ns3_oos_rx > 0, "protocol.ns3_oos_rx", "must be positive or null")
@@ -1067,7 +1079,7 @@ LATE_KEYS: Dict[str, Tuple[str, ...]] = {"layout": ("lanes", "lane_width_m", "ro
                                                       "discard_timer_s", "sdu_bytes", "dc", "ns3_oos_rx",
                                                       "ns3_ins_rx", "ns3_ctrl_hz", "ns3_ctrl_per_ue_hz",
                                                       "rlm_interference", "rlm_rs_type", "rlm_ssb_overlap",
-                                                      "rlm_bg_se", "meas_detail")}
+                                                      "rlm_bg_se", "meas_detail", "rlm_filter")}
 _SECTIONS = {"layout": LayoutConfig, "radio": RadioConfig, "protocol": ProtocolConfig}
 #: keys of :class:`LayerConfig` added after 1.10.0, left out of :meth:`Scenario.to_dict` while unset
 LAYER_LATE_KEYS: Tuple[str, ...] = ("shadow_los_db", "shadow_nlos_db", "shadow_decorr_m", "los_corr_m")
@@ -1167,6 +1179,7 @@ def _check_beams(b: "BeamConfig", carrier_ghz: float, key: str) -> None:
     _check(b.per_ray_prune_db is None or (isinstance(b.per_ray_prune_db, (int, float))
                                           and b.per_ray_prune_db > 0.0), key + ".per_ray_prune_db",
            "must be positive or null (no pruning)")
+    _check(b.bfd_filter in ("exp", "window"), key + ".bfd_filter", "must be 'exp' or 'window'")
 
 
 # ---------------------------------------------------------------------------

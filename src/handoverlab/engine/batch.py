@@ -76,6 +76,7 @@ class EngineBatch:
     def supported(engines: Sequence[Engine]) -> bool:
         return (len(engines) > 1 and not any(e.debug for e in engines)
                 and all(type(e) is Engine for e in engines)          # not the engine of the 1.10.0 options
+                and not any(e.rlm_win for e in engines)              # protocol.rlm_filter window (2.12.0)
                 and not any(e.std and e.proc.dual for e in engines)  # DAPS per execution (2.1.0): one by one
                 and all(e.world.scenario.traffic.model == "fixed" for e in engines)
                 and not any(e.world.scenario.radio.fast_fading for e in engines)   # effective SINRs (2.2.0)

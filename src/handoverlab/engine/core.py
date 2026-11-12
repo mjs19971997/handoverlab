@@ -166,7 +166,7 @@ def rlm_kernel(engine):
     sc = engine.world.scenario
     P = sc.protocol
     if (getattr(sc.run, "backend", "numpy") != "numba" or engine.lm or P.n310 != 1 or P.n311 != 1
-            or engine.cnt or engine.dyn):
+            or engine.cnt or engine.dyn or getattr(engine, "rlm_win", False)):
         return None
     if engine.std and engine.daps_mon:
         return None                     # the source link of DAPS during T304: the NumPy path
@@ -284,6 +284,14 @@ class Engine:
         self.n_o = np.zeros(U, dtype=int); self.n_i = np.zeros(U, dtype=int)
         self.run = np.zeros(U, dtype=bool); self.t310 = np.zeros(U); self.k310 = np.zeros(U, dtype=int)
         self.rlm_t0 = np.full(U, -INF)                  # no out-of-sync before (protocol.rlm_holdoff_s)
+        # protocol.rlm_filter "window" (since 2.12.0): Qout / Qin qualities as means over the last evaluation period
+        self.rlm_win = getattr(P, "rlm_filter", "exp") == "window"
+        if self.rlm_win:
+            from .window import WindowMean
+            n_o = max(1, int(round(P.qout_window_s / P.step_s)))
+            n_i = max(1, int(round(P.qin_window_s / P.step_s)))
+            self.wo = WindowMean(np.full(U, n_o), n_o)
+            self.wi = WindowMean(np.full(U, n_i), n_i)
         # ns-3-like link monitoring (protocol.ns3_oos_rx): receptions counted below Qout / above Qin
         self.cnt = P.ns3_oos_rx is not None
         self.c_o = np.zeros(U); self.c_i = np.zeros(U)
@@ -438,6 +446,9 @@ class Engine:
         if self.lm and self.lm_ln is not None:
             s = self._sinr_lm(u, cell, self.lm_ln)
         self.qo[u] = self.qi[u] = s
+        if self.rlm_win:                                # the evaluation restarts on the new cell
+            self.wo.reset(u)
+            self.wi.reset(u)
         self.n_o[u] = self.n_i[u] = 0
         self.c_o[u] = self.c_i[u] = 0.0
         if self.P.rlm_holdoff_s > 0 and t is not None:
@@ -751,8 +762,12 @@ class Engine:
                 sl = ls / (ln @ rl - rl[serv] * ls + noise)
             else:
                 sl = sinr
-            qo += ao * (sl - qo)
-            qi += ai * (sl - qi)
+            if self.rlm_win:                               # mean over the last T_Evaluate (2.12.0)
+                qo[:] = self.wo.push(sl)
+                qi[:] = self.wi.push(sl)
+            else:
+                qo += ao * (sl - qo)
+                qi += ai * (sl - qi)
             if self.cnt:                                   # ns-3-like link monitoring (not 3GPP)
                 rx = ctrl_rate(P, serv, con, self.M) * dt
                 start = rlm_count(P, sl, qout, qin, run, self.c_o, self.c_i, self.n_o, self.n_i, con,
