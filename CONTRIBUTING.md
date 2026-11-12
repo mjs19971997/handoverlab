@@ -77,7 +77,7 @@ and then creating a GitHub release from it, which Zenodo archives; see `docs/REL
 ## Pull requests
 
 - One topic per pull request, with tests; the pull-request template has the checklist.
-- All CI jobs (lint; tests on Linux, Windows, macOS with Python 3.9-3.12; coverage; docs) must
+- All CI jobs (lint; tests on Linux and Windows with Python 3.9-3.12 and on macOS with Python 3.9 and 3.12; coverage; docs) must
   pass.
 - Add an entry under "Unreleased" in `CHANGELOG.md`.
 

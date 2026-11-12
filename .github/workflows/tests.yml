@@ -28,6 +28,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
+        # macOS runners are scarce (jobs were cancelled unstarted in the hosted queue):
+        # test the oldest and newest Python there; Linux and Windows cover all four.
+        exclude:
+          - os: macos-latest
+            python-version: "3.10"
+          - os: macos-latest
+            python-version: "3.11"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
