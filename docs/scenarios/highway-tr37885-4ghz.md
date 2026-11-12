@@ -95,7 +95,7 @@ Values in **bold** differ from the HandoverLab defaults.
 | `protocol.discard_timer_s` | none | TS 38.331 PDCP-Config discardTimer (unset: infinity; with buffers) |
 | `protocol.sdu_bytes` | none | assumption (SDU size for the SDU counts; unset: packet_bytes or 1500 bytes) |
 | `protocol.meas_detail` | 2x | 2x: the chain up to 2.9.0; '3gpp': F_0 = M_1 (TS 38.331 5.5.3.2) and per-beam averaging over the period (TS 38.300 9.2.4); with meas_periods ts38133 only |
-| `protocol.rlm_filter` | exp |  |
+| `protocol.rlm_filter` | exp | exp: exponential filter with the evaluation periods as time constants (the model up to 2.11); 'window': the mean over the last T_Evaluate_out / T_Evaluate_in (TS 38.133 8.1.2.2) |
 | `protocol.rrc_detail` | 3gpp |  |
 | `protocol.ns3_oos_rx` | none | off by default (3GPP model); imitates ns-3 / 5G-LENA v5.1 (NrUePhy NumQoutEvalSf: 200 control receptions), not 3GPP |
 | `protocol.ns3_ins_rx` | 100 | ns-3 / 5G-LENA v5.1 (NrUePhy NumQinEvalSf: 100 control receptions); with ns3_oos_rx only |

@@ -7,7 +7,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
-No change of defaults or results: the new options are off by default and every golden fingerprint is unchanged.
+## [2.12.0] - 2026-11-12
+
+No change of defaults or results: three new documented options, all off by default, and every golden fingerprint is
+unchanged. Two rounds with criteria registered before the runs tested them against the real data; neither met
+its criteria, so all three stay options
+([real data](docs/real-data.md#re-test-with-per-ray-beam-gains-and-the-window-filters-2120)).
 
 ### Added
 
@@ -37,6 +42,45 @@ No change of defaults or results: the new options are off by default and every g
   cell keeps the geometric gain. With `run.backend: numba` the ray and pair loops are compiled
   (`handoverlab.channel._perray_kernels`) and give the same values bit for bit as the NumPy path; exp, cos and
   sin stay in NumPy (single precision). Not combined with UE receive beams (`ue_panels` must be 0).
+
+### Validation
+
+- Real-data rounds on the card `urban-macro-tr37885-4ghz` (the default; 8 SSB beams per sector with the SS-SINR,
+  with and without the LOS-state process and beam failure detection and recovery; the Table 7.8-1 sectors) and, for
+  the failures in FR2, on `urban-grid-28ghz-beams` ([real
+  data](docs/real-data.md#re-test-with-per-ray-beam-gains-and-the-window-filters-2120)). `per_ray` lowers the median
+  SS-SINR of the three primary NR rows by about 4 dB (19.05 to 15.04 dB with the window filters, 19.01 to 14.69 dB
+  without), against about 9.7 dB measured: it removes about 4 dB of the about 9.3 dB optimism, and about 5 dB
+  remain. The two DoNext NR rows pass, the Vienna NR row does not (median 15.1 against 11.1 dB). With beam failure
+  detection on, the failures per km rise and stay high (15-25 / 30-50 km/h: 11.03 / 7.70 for 8 beams with `per_ray`,
+  3.17 / 2.12 without; 3.53 / 3.25 with the LOS-state process), most of them at the preamble limit of beam failure
+  recovery.
+- The window filters, applied together, raise the failures in every reported setting on the urban macro card (T310
+  radio-link failures; with beam failure detection on, mostly at the preamble limit of beam failure recovery): with
+  a 10 ms step, the default rises from 1.48 / 1.70 to 14.76 / 9.19 failures per km at 15-25 / 30-50 km/h. A 200 ms
+  Qout window then holds 20 samples, which is noisier than the exponential filter with the same time constant. On
+  the FR2 card (walking, `per_ray`) they move the failures per km from 0.41 to 0.48, and with blockage model A from
+  1.17 to 0.76, against a limit of 0.50.
+- Verdict of both rounds: documented options, no default change.
+
+### Documentation
+
+- User guide: sections on [per-ray beam
+  gains](docs/user_guide.md#per-ray-beam-gains-radiobeamsangular_spread-per_ray-since-2120) and on the [window
+  filters](docs/user_guide.md#window-filters-of-link-monitoring-and-beam-failure-detection-since-2120), and the new
+  keys in the key table. Standard compliance: a row for `per_ray` (TR 38.901 clause 7.5); rows for the window
+  filters (TS 38.133 8.1.2.2 and 8.5.2.2). Scenario cards: the source of `protocol.rlm_filter`.
+
+### Tests
+
+- `tests/test_perray.py`: the defaults are unchanged; the table values, the cross-correlations, the mixed normals,
+  the ray coupling within the sub-clusters, the cluster powers and the ray directions against TR 38.901 clause 7.5;
+  a single direction gives the geometric gain; the compiled loops equal the NumPy path (`==`) on random inputs, on
+  the wrap edges and in whole runs; the values do not depend on chunks, blocks or a shared radio stream; blockage
+  model A and pruned pairs.
+- `tests/test_window_filters.py`: the defaults are unchanged; the window mean by hand; a step below Qout or Qout_LR
+  is detected within the evaluation period; the BFD quality is the window of the serving beam and restarts on a new
+  cell; the fallback from the compiled monitoring kernel; validation.
 
 ## [2.11.1] - 2026-11-04
 
@@ -1661,7 +1705,8 @@ First alpha release (stage 1: the core simulator).
 - Documentation: README, user guide, contribution guide, citation file; CI on Linux, Windows and
   macOS with Python 3.9-3.12.
 
-[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.11.1...HEAD
+[Unreleased]: https://github.com/mjs19971997/handoverlab/compare/v2.12.0...HEAD
+[2.12.0]: https://github.com/mjs19971997/handoverlab/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/mjs19971997/handoverlab/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/mjs19971997/handoverlab/compare/v2.10.1...v2.11.0
 [2.10.1]: https://github.com/mjs19971997/handoverlab/compare/v2.10.0...v2.10.1

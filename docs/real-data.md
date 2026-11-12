@@ -350,6 +350,70 @@ Gaps that remain:
 **No hold-out.** Every dataset was used before (the earlier sections); the selection uses the same data as the
 verdicts. These are re-tests of model changes, not independent validations, and nothing was fitted.
 
+## Re-test with per-ray beam gains and the window filters (2.12.0)
+
+HandoverLab 2.12.0 adds three options, all off by default: **P**, `radio.beams.angular_spread: per_ray`, the beam
+gains over the rays of an explicit TR 38.901 clause 7.5 realisation per link, the faithful form the previous section
+asked for (see the [user guide](user_guide.md#per-ray-beam-gains-radiobeamsangular_spread-per_ray-since-2120)); and
+the window filters `protocol.rlm_filter: window` and `radio.beams.bfd_filter: window`, the link-monitoring and
+beam-failure qualities as means over the last evaluation period of TS 38.133 clauses 8.1.2.2 and 8.5.2.2 (see the
+[user guide](user_guide.md#window-filters-of-link-monitoring-and-beam-failure-detection-since-2120)). Two rounds,
+each with its criteria registered before any run, tested them: the first P alone, the second P with both window
+filters, which were applied to every variant of that round, references included. Card `urban-macro-tr37885-4ghz`
+(walking, 15-25 and 30-50 km/h, 3 seeds, rule A3 3 dB / 256 ms) with the same letters as above (**M** 8 SSB beams
+per sector on an (8, 8) panel, **Q** the SS-SINR, **L** the LOS-state process, **B** without beam failure detection
+and recovery, **S** the Table 7.8-1 sectors), and for the failures in FR2 the card `urban-grid-28ghz-beams`,
+walking, with blockage model A (**K**). Before the second round, a model check of P against a Monte Carlo of the
+explicit clause 7.5 procedure had passed.
+
+| Setting | Median SS-SINR, mean of the 3 primary NR rows | Failures per km, 15-25 / 30-50 km/h, without window filters | with window filters |
+|---|---|---|---|
+| Default | - | 1.48 / 1.70 | 14.76 / 9.19 |
+| MQ (8 beams + Q) | 19.01 dB; with window filters 19.05 dB | 3.17 / 2.12 | 8.22 / 6.39 |
+| MPQ (MQ + per-ray) | 14.69 dB; with window filters 15.04 dB | 11.03 / 7.70 | 16.28 / 11.80 |
+| MQL | - | 1.18 / 1.12 | 3.12 / 3.40 |
+| MPQL | with window filters 15.71 dB | 3.53 / 3.25 | 5.68 / 5.80 |
+| MPQLB (without beam failure detection and recovery) | - | 0.37 / 0.44 | 4.76 / 4.40 |
+| SLBQP (wide panel + per-ray) | - | 3.87 / 3.59 | 7.19 / 6.64 |
+| Measured | about 9.7 dB (Vienna 11.1 dB, DoNext 9-10 dB) | not labelled in the data | |
+
+(The primary NR rows are the Vienna A n78 SS-SINR at 15-25 km/h and the DoNext SS-SINR at 15-25 and 30-50 km/h. "-":
+not reported for that setting.)
+
+- **Per-ray beam gains lower the multi-beam optimism, but do not remove it.** The 8-beam setting MQ lies about 9.3
+  dB above the measured median of these rows (the "about 6 dB" of the earlier sections was read mainly from the 10th
+  percentiles). P lowers it by about 4 dB (4.33 dB in the first round, 4.01 dB with the window filters), so about 5
+  dB remain. The two DoNext NR rows now pass for every multi-beam variant with P in the first round, and for MPQ and
+  MPQL with the window filters (none passed with MQ or MQL); the Vienna NR row does not (median 15.1 dB against 11.1
+  dB). Against the expected-gain option `tr38901` of 2.10.0, P is 0.7 dB higher at the Vienna median and about the
+  same on DoNext.
+- **The failures with beam failure detection stay high.** With P they rise to 11.03 / 7.70 per km (MPQ) and 3.53 /
+  3.25 (MPQL); 93-100 % of all failures with beam failure detection on are declared at the preamble limit of beam
+  failure recovery. On one seed, MPQ has about the same failure rate as the expected-gain option (10.2 against 10.4
+  per km at 15-25 km/h). The same per-ray world without beam failure detection and recovery (MPQLB) has 0.37 / 0.44
+  per km. The wide panel with P (SLBQP) passes 3 of 10 judged rows (SLBQ 5); its failures are T310 radio-link
+  failures. On the FR2 card the failures per km are 0.41 with P and 1.17 with P and blockage (limit 0.50; without P
+  0.00).
+- **The window filters raise the failures.** Applied together with the 10 ms step they raise the failures in every
+  reported setting of the urban macro card, the default about tenfold at 15-25 km/h. Without beam failure detection
+  the failures are all T310 radio-link failures; with it most end at the preamble limit (MPQL: 5.32 of 5.68 per km
+  at 15-25 km/h). Of the default's failures at 15-25 km/h, 1191 of 2458 come within 0.2 s after a handover ends; the
+  rest rise as well. With a 10 ms step the 200 ms Qout window holds 20 samples, which is noisier than the
+  exponential filter with the same time constant (about twice as many effective samples). This is the literal
+  reading of TS 38.133 ("estimated over the last" T_Evaluate); how noisy the per-step SINR samples are compared with
+  a real UE's measurement is open. With beams the median SS-SINR barely moves (within 0.4 dB; without beams the
+  default moves 0.9 dB), and the judged rows stay the same or lose one. On the FR2 card the failures per km move
+  from 0.41 to 0.48 with P and from 1.17 to 0.76 with P and blockage (limit 0.50).
+
+Verdict of both rounds: **documented option**. Failed parts: the Vienna NR row for the per-ray variants, the FR2
+failure limit with blockage, and the wide-panel check (its SINR rows and 2 of 10 judged rows with the window
+filters, 4 needed); in the first round also the failure limits of MPQ, MPQL and SLBQP. Under the rule registered
+before the runs, the three options stay documented options of 2.12.0 and no default changes.
+
+Gaps that remain: a multi-beam SS-SINR about 5 dB above the measured median with P, and failures with beam failure
+detection on that end at the preamble limit of beam failure recovery. As in the earlier sections, these are re-tests
+on data used before, with no hold-out, and nothing was fitted.
+
 ## Limits
 
 - Real deployments differ from the card: sectorised irregular sites (nearest-site distance about 400-600 m),

@@ -175,6 +175,8 @@ DEFAULT_SOURCES: Dict[str, str] = {
     "protocol.gap_pattern": "TS 38.133 Table 9.1.2-1 (gap pattern 0: MGL 6 ms, MGRP 40 ms)",
     "protocol.fr2_power_class": "assumption (FR2 power class 3, handheld UE)",
     "protocol.rlm_eval": "fixed: qout_window_s and qin_window_s (the model of 1.x)",
+    "protocol.rlm_filter": "exp: exponential filter with the evaluation periods as time constants (the model up to "
+                           "2.11); 'window': the mean over the last T_Evaluate_out / T_Evaluate_in (TS 38.133 8.1.2.2)",
 }
 
 

@@ -1,6 +1,6 @@
 # HandoverLab user guide
 
-This guide covers version 2.11.1. It explains the ideas behind a run, the built-in
+This guide covers version 2.12.0. It explains the ideas behind a run, the built-in
 scenarios, the configuration keys, the command line, the Python API, how to write and check your own
 handover rule, event logs at their three levels and their fingerprints, the verification checks,
 what the metrics mean, and how to run a whole study: equal-budget tuning with automatic gates
@@ -330,7 +330,98 @@ size of the multi-beam optimism of 2.9.0. In the comparison with real data
 primary NR SS-SINR rows by 5.2 dB, but the failures per km rise 4-8 times (11.1 and 7.4 per km at 15-25 and
 30-50 km/h, default 1.5 and 1.7); it passes 1 of 10 judged rows (4 with the LOS-state process, which still
 fails the failure check), and with the Table 7.8-1 sectors it costs two rows. Not a default: a faithful model
-would apply the beams to the per-ray channel, not to an expected gain.
+would apply the beams to the per-ray channel, not to an expected gain. Since 2.12.0 that model is the option
+`per_ray` (next section).
+
+### Per-ray beam gains (`radio.beams.angular_spread: per_ray`, since 2.12.0)
+
+`angular_spread: per_ray` (off by default) builds, for every user-site link, the clusters and rays of an explicit TR
+38.901 V19.5.0 clause 7.5 realisation and gives every SSB beam the power-weighted (incoherent) sum of its gain over
+the rays: the power of Eq. 7.5-22 averaged over the random phases of step 10, with the LOS ray of Eq. 7.5-29 /
+7.5-30 in LOS:
+
+G = K_R / (K_R + 1) G(LOS direction) + 1 / (K_R + 1) sum_n sum_m (P_n / 20) G(ray n, m).
+
+As with `tr38901`, the gain applies to every beam towards a user: serving, measured and interfering beams, and so
+the SS-SINR of `ssb_sinr: ssb`. The realisation follows the steps of clause 7.5:
+
+* step 4: K (LOS), ASD and ZSD, log-normal with the values of Table 7.5-6 Part-1 and of Tables 7.5-7 (UMa) / 7.5-8
+  (UMi - Street Canyon) for ZSD, with the cross-correlations of Table 7.5-6 among them and the limits ASD <= 104 and
+  ZSD <= 52 degrees; ASA and ZSA in addition with blockage model A;
+* steps 5 and 6: the cluster powers (Eq. 7.5-1 to 7.5-8); clusters more than 25 dB below the strongest are removed;
+* step 7: the departure angles (AOD by Eq. 7.5-9 to 7.5-13, ZOD by Eq. 7.5-14 to 7.5-20, with the ZOD offset of Eq.
+  7.5-19 in NLOS) with the cluster spreads and C_phi, C_theta of Tables 7.5-2 and 7.5-4;
+* step 8: the coupling of the rays, within the sub-clusters of Table 7.5-5 for the two strongest clusters;
+* the element of Table 7.3-1 and the DFT beams of the panel for every ray.
+
+The co-sited sectors of a site share the link's realisation. It evolves along each user's track: every random number
+comes from standard normals at knots spaced by the correlation distances of Table 7.5-6 (the large-scale parameters)
+and of Table 7.6.3.1-2 (the cluster and ray specific variables), mixed so that every instant is an exact clause 7.5
+draw; the cluster signs and the ray coupling stay fixed for the run (clause 7.6.3.1). The normals come from a
+counter-based hash of a random stream of its own (`perray`), so no other draw of a run changes and the values do not
+depend on chunks, blocks or a shared radio stream (`--share-radio`). With `radio.blockage: a` every cluster is
+attenuated at its own arrival angles (clause 7.6.4.1, step c), and the site gains get no blockage factor. Indoor
+(O2I) users use the O2I parameters of Table 7.5-6.
+
+`radio.beams.per_ray_prune_db` (default `40`; `null`: no pruning): a user-cell pair whose upper bound (site gain
+plus peak panel gain) is more than this many dB below the user's strongest cell keeps the geometric gain. With
+`run.backend: numba` the ray and pair loops are compiled (`handoverlab.channel._perray_kernels`) and give the same
+values bit for bit as the NumPy path.
+
+```yaml
+radio:
+  pathloss: uma
+  beams: {sectors: 3, sector_az0_deg: 30, n_ssb: 8, panel: [8, 8], tilt_deg: 102, angular_spread: per_ray,
+          ssb_sinr: ssb}
+```
+
+Needs `radio.pathloss: uma` or `umi_street_canyon`, no `radio.map_file`, no NTN layout and the isotropic UE
+(`ue_panels: 0`). Limits: power form only (no small-scale fading on the beam path, no polarisation, no delays); the
+consistency is along each track, not a two-dimensional field between users (neither procedure A nor B of clause
+7.6.3.2); the LOS and NLOS realisations of a link are independent. It costs much more time than the default: on the
+urban macro card (100 users, 120 s, 8 beams per sector, the LOS-state process) two variants on one shared radio
+stream took 25-28 minutes in one process on an i9-14900K-class desktop with `run.backend: numba`; one such run took
+about 5.7 hours on an older server CPU without AVX2.
+
+In the comparison with real data ([real
+data](real-data.md#re-test-with-per-ray-beam-gains-and-the-window-filters-2120)) `per_ray` lowers the median SS-SINR
+of the three primary NR rows by about 4 dB (19.0 to 14.7 dB with 8 SSB beams, against about 9.7 dB measured): it
+removes about 4 dB of the about 9.3 dB optimism, and about 5 dB remain. The DoNext NR rows pass, the Vienna NR row
+does not. With beam failure detection on, the failures rise and stay high (11.03 and 7.70 per km at 15-25 and 30-50
+km/h, 3.17 and 2.12 without `per_ray`; 3.53 and 3.25 with the LOS-state process), most of them at the preamble limit
+of beam failure recovery. Not a default.
+
+### Window filters of link monitoring and beam failure detection (since 2.12.0)
+
+TS 38.133 asks whether the radio link quality "estimated over the last" evaluation period becomes worse than Qout
+(or better than Qin) within that period: T_Evaluate_out / T_Evaluate_in for radio link monitoring (clause 8.1.2.2,
+Tables 8.1.2.2-1 and -2) and T_Evaluate_BFD_SSB for beam failure detection on an SSB (clause 8.5.2.2, Tables
+8.5.2.2-1 and -2). By default HandoverLab takes these qualities with an exponential filter of the linear SINR whose
+time constant is the evaluation period; after a deep drop such a filter needs several time constants to cross the
+threshold. Two options, both off by default (`exp`), take the mean over the last period instead:
+
+* `protocol.rlm_filter: window`: the Qout and Qin qualities of radio link monitoring are the means over the last
+  `qout_window_s` and `qin_window_s` (or the TS 38.133 windows of the serving cell with `rlm_eval: ts38133`); the
+  windows restart on a new cell. It uses the NumPy step loop (not the compiled monitoring kernel) and is not
+  available with `protocol.dc`;
+* `radio.beams.bfd_filter: window`: the beam failure detection quality is the mean over the last T_Evaluate_BFD_SSB.
+  The engine keeps the window of every SSB beam of the serving cell, so a new BFD reference signal (TCI switch,
+  recovery) starts from its own last period instead of one sample; on a new cell no beam failure indication is made
+  before one full period has been collected.
+
+```yaml
+radio:
+  beams: {sectors: 3, n_ssb: 8, panel: [8, 8], tilt_deg: 102, bfd_filter: window}
+protocol: {rlm_filter: window}
+```
+
+The window is counted in steps: with the 10 ms step a 200 ms Qout window holds 20 samples, which is noisier than the
+exponential filter with the same time constant (that one has about twice as many effective samples). How noisy the
+per-step SINR samples are compared with a real UE's measurement is open. In the comparison with real data ([real
+data](real-data.md#re-test-with-per-ray-beam-gains-and-the-window-filters-2120)) the two options together raised the
+failures in every reported setting of the urban macro card, the default from 1.48 and 1.70 to 14.76 and 9.19 per km
+at 15-25 and 30-50 km/h (T310 radio-link failures; with beam failure detection on, mostly at the preamble limit of
+beam failure recovery). Not defaults.
 
 ### Measurement detail of the TS 38.133 periods (`protocol.meas_detail`, since 2.10.0)
 
@@ -464,7 +555,7 @@ output: results/metrics.csv
 | | `o2i_model`, `o2i_d_in_max_m` | `low`, none | (2.3.0) O2I building penetration loss of the users of an `indoor: true` speed group (TR 38.901 clause 7.4.3.1): `low`, `high`, `low_a` (SMa) or `mixed` (half low, half high); upper end of the uniform variables of d2D-in (unset: 25 m UMa/UMi, 10 m RMa, SMa 10 m residential / 25 m commercial) ([guide](guides/suburban-o2i.md)) |
 | | `map_res_m` | `1` | radio-map resolution (street grid) |
 | | `scs_khz` | none | optional (1.10.0): subcarrier spacing for SS-RSRP per resource element; unset: 30 kHz up to 7.125 GHz, 120 kHz above |
-| | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)); `beams.angular_spread` (2.10.0, default `none`): `tr38901` the expected beam gains over the departure power angular spectrum of TR 38.901 clause 7.5, UMa and UMi only (see [Angular spread at the beams](#angular-spread-at-the-beams-radiobeamsangular_spread-since-2100)) |
+| | `beams` | none | optional (1.10.0): sectors with SSB beams, beam management and beam failure recovery (see [Beams and several carriers](#beams-and-several-carriers-since-1100)); `beams.angular_spread` (2.10.0, default `none`): `tr38901` the expected beam gains over the departure power angular spectrum of TR 38.901 clause 7.5, UMa and UMi only (see [Angular spread at the beams](#angular-spread-at-the-beams-radiobeamsangular_spread-since-2100)), `per_ray` (2.12.0) the power-weighted gains over the rays of an explicit clause 7.5 realisation per link (see [Per-ray beam gains](#per-ray-beam-gains-radiobeamsangular_spread-per_ray-since-2120)); `beams.per_ray_prune_db` (2.12.0, default `40`; `null`: no pruning): pairs this far below the user's strongest cell keep the geometric gain; `beams.bfd_filter` (2.12.0, default `exp`): `window` the beam failure detection quality as the mean over the last T_Evaluate_BFD_SSB of TS 38.133 8.5.2.2 (see [Window filters](#window-filters-of-link-monitoring-and-beam-failure-detection-since-2120)) |
 | | `layers` | none | optional (1.10.0): further carriers with their own cells, e.g. a 28 GHz small-cell layer under a 3.5 GHz macro layer; since 1.11.0 a layer may set its own `shadow_los_db`, `shadow_nlos_db`, `shadow_decorr_m` and `los_corr_m` |
 | `protocol` | `step_s` | `0.01` | simulation step |
 | | `l1_period_s` | `0.04` | L1 sample period (multiple of `step_s`) |
@@ -492,6 +583,7 @@ output: results/metrics.csv
 | | `gap_pattern` | `0` | measurement gap pattern id of TS 38.133 Table 9.1.2-1 (0: MGL 6 ms, MGRP 40 ms) (1.10.0) |
 | | `fr2_power_class` | `3` | FR2 UE power class: sets M_meas of TS 38.133 9.2.5.1 and 9.3.4 (1.10.0) |
 | | `rlm_eval` | `fixed` | `ts38133` (1.10.0): Qout / Qin windows from TS 38.133 Tables 8.1.2.2-1/-2 for the serving cell's frequency range (FR2: 1.6 s / 0.8 s at T_SSB 20 ms) instead of `qout_window_s` / `qin_window_s` |
+| | `rlm_filter` | `exp` | `window` (2.12.0): the Qout / Qin qualities as the means over the last T_Evaluate_out / T_Evaluate_in (TS 38.133 8.1.2.2) instead of the exponential filter with those time constants; not with `dc` (see [Window filters](#window-filters-of-link-monitoring-and-beam-failure-detection-since-2120)) |
 | | `dc` | `null` | (2.3.0) dual connectivity, NR-DC of TS 37.340: `{scg_layer, add_thresh_dbm, add_ttt_s, change_off_db, change_ttt_s, release_thresh_dbm, release_ttt_s, prep_s, exec_s, on_mcg_ho}` with defaults first layer, `-110`, `0.16`, `3`, `0.16`, `-120`, `0.16`, `protocol.prep_s`, `protocol.exec_s`, `keep`: an SCG on the cells of one layer next to the MCG ([guide](guides/dual-connectivity.md)) |
 | | `ns3_oos_rx`, `ns3_ins_rx`, `ns3_ctrl_hz`, `ns3_ctrl_per_ue_hz` | `null`, `100`, `206`, `16.5` | (2.7.0) link monitoring as ns-3 / 5G-LENA v5.1 implements it, not 3GPP: out-of-sync after `ns3_oos_rx` consecutive control receptions below Qout, in-sync after `ns3_ins_rx` above Qin while T310 runs, at `ns3_ctrl_hz` + `ns3_ctrl_per_ue_hz` x (users of the cell) receptions per second; `null`: the 3GPP model; base engine only; DAPS source-link monitoring is not applied with it; used by `NS3_LIKE_SETTING`, not validated ([calibration](calibration.md#the-ns-3-like-setting-270)) |
 | | `rlm_interference`, `rlm_rs_type`, `rlm_ssb_overlap`, `rlm_bg_se` | `static`, `ssb`, `1`, `2` | (2.8.0) optional, off by default: `dynamic` takes the link-monitoring SINR over the RLM-RS resource elements (TS 38.215 5.1.5, 5.1.6; TS 38.133 A.6.5.1.1 NOTE 3) with every neighbour's activity of the step: background FTP bursts (time-varying interference, TR 36.814 A.2.1.3; Poisson arrivals, Table A.2.1.3.1-1, TR 36.872 A.1.1) of `traffic.ftp_file_bytes` at a resource utilisation equal to the cell's background load, sent at `rlm_bg_se` bit/s/Hz (an assumption), plus the share used by the simulated users; `rlm_rs_type` (SSB or CSI-RS, TS 38.133 8.1.1): `csi-rs` -- the CSI-RS sees that activity; `ssb` -- a share `rlm_ssb_overlap` of the SSB meets the neighbours' SSBs, sent whatever the load (1: a synchronous network with the same SSB positions; 3GPP does not say whether neighbour SSBs overlap, TS 38.133 7.7.1); replaces `lm_load` (needs `lm_load: null`, `lm_load_per_ue: 0`); base engine only; a sensitivity option, not validated ([calibration](calibration.md#dynamic-interference-on-link-monitoring)) |
@@ -506,7 +598,7 @@ output: results/metrics.csv
 | | `profile` | `v60` | `v60` (since 2.0.0, the default: 60 km/h in one of two 3.5 m lanes, TR 37.885), `ped`, `veh8`, `veh16` (the 1.x default), `veh30`, `mix`, `c8`, `c16`, `c30`, `ped3`, `veh120` (about 3 and 120 km/h, +-10 %); `p3`, `v30`, `v120` (since 2.1.0: exactly 3, 30, 120 km/h, the fixed speeds of ITU-R M.2412-0 Tables 5a-5c); highway: `hwy`, `hwy70`, `hwy140`, `v140`, `v70` (exactly 140 or 70 km/h with up to 0.5 m lateral offset, since 1.11.0), `v140c`, `v70c` (since 2.1.0: the same on the lane centre) |
 | | `groups` | none | own speed groups `[{share, v_min, v_max, lateral_m: [lo, hi]}, ...]`; `lanes_m` (2.0.0) lane centres; `indoor: true` (2.3.0) users inside buildings, with the O2I building penetration loss of `radio.o2i_model` |
 | `run` | `duration_s`, `warmup_s` | `120`, `20` | run length; initial part not counted |
-| | `backend` | `numpy` | `numba`: compiled kernels of the step loop (since 1.11.0), of the slot scheduler (since 2.4.0) and of blockage model A (since 2.11.1), bit-identical results, needs `pip install handoverlab[fast]` (see [performance](performance.md)); not part of the job IDs |
+| | `backend` | `numpy` | `numba`: compiled kernels of the step loop (since 1.11.0), of the slot scheduler (since 2.4.0), of blockage model A (since 2.11.1) and of the per-ray beam gains (since 2.12.0), bit-identical results, needs `pip install handoverlab[fast]` (see [performance](performance.md)); not part of the job IDs |
 | `ntn` | `altitude_km`, `aperture_m`, `eirp_dbw_per_mhz`, `n_beams`, `centre_elevation_deg`, `environment`, `atm_zenith_db`, `scintillation_db`, `sf_corr_m`, `los_corr_m` | `600`, `2`, `34`, `19`, `30`, `rural`, `0.045`, `2.2`, `37`, `60` | the satellite of `layout.kind: ntn` (since 2.0.0; TR 38.821 LEO-600 Set-1 S band; see the [NTN guide](guides/ntn.md)) |
 | | `hpbw_deg` | none | 3 dB beamwidth of the satellite beams [deg], which sets the beam spacing sqrt(3) sin(HPBW / 2) and scales the Bessel pattern (TR 38.821 Table 6.1.1.1-4); unset: the tabled width of TR 38.821 Tables 6.1.1.1-1 and -2 (4.4127 deg for 2 m, 8.8320 deg for 1 m) with `radio.channel_detail: 3gpp` and a 2 GHz carrier (the tables are for the S band), otherwise the width of the aperture's Bessel pattern (since 2.1.0) |
 | | `los_model` | `probability` | `probability`: LOS state from the LOS probability of TR 38.811 Table 6.6.1-1 (NLOS links with clutter loss and NLOS shadowing); `los`: every link LOS, the baseline condition of TR 38.821 Table 6.1.1.1-5 (since 2.1.0) |
